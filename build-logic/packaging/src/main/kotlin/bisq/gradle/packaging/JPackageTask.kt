@@ -20,9 +20,6 @@ import java.io.File
 abstract class JPackageTask : DefaultTask() {
 
     @get:InputDirectory
-    abstract val jdkDirectory: DirectoryProperty
-
-    @get:InputDirectory
     abstract val distDirFile: Property<File>
 
     @get:InputFile
@@ -46,11 +43,28 @@ abstract class JPackageTask : DefaultTask() {
     @get:InputDirectory
     abstract val packageResourcesDir: DirectoryProperty
 
+    @get:Internal
+    abstract val jreDirectoryProvider: Property<File>
+
+    @get:Internal
+    abstract val runtimeImageDirectoryProvider: Property<File>
+
     @get:InputDirectory
-    abstract val runtimeImageDirectory: DirectoryProperty
+    val jdkDirectory: DirectoryProperty = project.objects.directoryProperty()
+    @get:InputDirectory
+    val jreDirectory: DirectoryProperty = project.objects.directoryProperty()
+
+    @get:InputDirectory
+    val runtimeImageDirectory: DirectoryProperty = project.objects.directoryProperty()
 
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
+
+    init {
+//        jdkDirectory.set(project.layout.dir(jreDirectoryProvider))
+        jreDirectory.set(project.layout.dir(jreDirectoryProvider))
+        runtimeImageDirectory.set(project.layout.dir(runtimeImageDirectoryProvider))
+    }
 
     @TaskAction
     fun run() {

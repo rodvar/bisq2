@@ -13,5 +13,9 @@ gradlePlugin {
             id = "bisq.gradle.toolchain_resolver.ToolchainResolverPlugin"
             implementationClass = "bisq.gradle.toolchain_resolver.ToolchainResolverPlugin"
         }
+        create("ToolchainJreResolverPlugin") {
+            id = "bisq.gradle.toolchain_resolver.ToolchainJreResolverPlugin"
+            implementationClass = "bisq.gradle.toolchain_resolver.ToolchainJreResolverPlugin"
+        }
     }
 }

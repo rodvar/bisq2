@@ -1,33 +1,39 @@
-package bisq.gradle.toolchain_resolver
+package bisq.gradle.packaging
 
 import org.gradle.jvm.toolchain.JavaToolchainDownload
 import org.gradle.jvm.toolchain.JavaToolchainRequest
-import org.gradle.jvm.toolchain.JavaToolchainResolver
-import org.gradle.platform.OperatingSystem
 import java.net.URI
 import java.util.*
 
 @Suppress("UnstableApiUsage")
-abstract class BisqToolchainResolver : JavaToolchainResolver {
-    protected open val binType: String = "jdk"
+class BisqJreUrlResolver {
 
-    override fun resolve(toolchainRequest: JavaToolchainRequest): Optional<JavaToolchainDownload> {
-        val operatingSystem = toolchainRequest.buildPlatform.operatingSystem
-        val javaVersion = toolchainRequest.javaToolchainSpec.languageVersion.get().asInt()
+    fun resolve(javaVersion: Int): Optional<URI> {
+        val operatingSystem = getOperatingSystem()
         // the following is a trick to still use vendor-specific setup but with JRE bins
-        println("$operatingSystem OS requesting $binType version $javaVersion")
+        println("$operatingSystem OS requesting version $javaVersion")
         val toolchainUrl: String = when (operatingSystem) {
-            OperatingSystem.LINUX -> getToolchainUrlForLinux(javaVersion, binType)
-            OperatingSystem.MAC_OS -> getToolchainUrlForMacOs(javaVersion, binType)
-            OperatingSystem.WINDOWS -> getToolchainUrlForWindows(javaVersion, binType)
+            "LINUX" -> getToolchainUrlForLinux(javaVersion, "jre")
+            "MAC_OS" -> getToolchainUrlForMacOs(javaVersion, "jre")
+            "WINDOWS" -> getToolchainUrlForWindows(javaVersion, "jre")
             else -> null
 
         } ?: return Optional.empty()
 
         val uri = URI(toolchainUrl)
         return Optional.of(
-                JavaToolchainDownload.fromUri(uri)
+                uri
         )
+    }
+
+    private fun getOperatingSystem(): String {
+        val osName = System.getProperty("os.name").lowercase()
+        return when {
+            osName.contains("win") -> "WINDOWS"
+            osName.contains("mac") -> "MAC_OS"
+            osName.contains("nix") || osName.contains("nux") || osName.contains("aix") -> "LINUX"
+            else -> "UNKNOWN"
+        }
     }
 
     private fun getToolchainUrlForLinux(javaVersion: Int, binType: String): String? =
@@ -58,9 +64,4 @@ abstract class BisqToolchainResolver : JavaToolchainResolver {
                 22 -> "https://cdn.azul.com/zulu/bin/zulu22.30.13-ca-${binType}22.0.1-win_x64.zip"
                 else -> null
             }
-}
-
-
-abstract class BisqJreToolchainResolver : BisqToolchainResolver() {
-    override val binType: String = "jre"
 }

@@ -1,5 +1,11 @@
 package bisq.gradle.packaging.jpackage
 
+import bisq.gradle.common.OS
+import bisq.gradle.common.getOS
+import bisq.gradle.packaging.jpackage.package_formats.LinuxPackages
+import bisq.gradle.packaging.jpackage.package_formats.MacPackage
+import bisq.gradle.packaging.jpackage.package_formats.WindowsPackage
+import org.gradle.api.GradleException
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -10,6 +16,7 @@ import java.util.concurrent.TimeUnit
 class PackageFactory(private val jPackagePath: Path, private val jPackageConfig: JPackageConfig) {
 
     fun createPackages() {
+        println("Using runtime ${getJrePlatformPath()}")
         val jPackageCommonArgs: Map<String, String> = createCommonArguments(jPackageConfig.appConfig)
 
         val packageFormatConfigs = jPackageConfig.packageFormatConfigs
@@ -76,8 +83,22 @@ class PackageFactory(private val jPackagePath: Path, private val jPackageConfig:
                     "--main-class" to appConfig.mainClassName,
                     "--java-options" to appConfig.jvmArgs.joinToString(separator = " "),
 
-                    "--runtime-image" to jPackageConfig.runtimeImageDirPath.toAbsolutePath().toString()
+                    "--runtime-image" to getJrePlatformPath(),
+                    // debugging
+                    "--verbose" to ""
             )
+
+    private fun getJrePlatformPath() = when (getOS()) {
+        OS.WINDOWS, OS.LINUX -> {
+            jPackageConfig.runtimeImageDirPath.toAbsolutePath().toString()
+        }
+
+        OS.MAC_OS -> {
+            // TODO find a way to avoid the first subdir hardcoding
+            "${jPackageConfig.runtimeImageDirPath.toAbsolutePath()}/zulu-22.jre/Contents/Home"
+        }
+        else -> throw GradleException("Unsupported operating system")
+    }
 
     private fun getOsSpecificOverrideArgs(fileType: String): Map<String, String> =
             if (jPackageConfig.appConfig.name == "Bisq" && fileType == "exe") {
