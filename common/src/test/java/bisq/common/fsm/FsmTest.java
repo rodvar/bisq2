@@ -574,7 +574,8 @@ public class FsmTest {
     public static class MockEventHandler implements EventHandler {
         @Override
         public void handle(Event event) {
-            if (event instanceof MockEvent1 mockEvent) {
+            if (event instanceof MockEvent1) {
+                MockEvent1 mockEvent = (MockEvent1) event;
                 mockEvent.model.data = mockEvent.data;
             }
         }
@@ -586,7 +587,8 @@ public class FsmTest {
 
         @Override
         public void handle(Event event) {
-            if (event instanceof MockEvent1 mockEvent) {
+            if (event instanceof MockEvent1) {
+                MockEvent1 mockEvent = (MockEvent1) event;
                 mockEvent.model.data = mockEvent.data;
             }
         }

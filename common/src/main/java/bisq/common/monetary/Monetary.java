@@ -108,11 +108,16 @@ public abstract class Monetary implements Comparable<Monetary>, PersistableProto
     }
 
     public static Monetary fromProto(bisq.common.protobuf.Monetary proto) {
-        return switch (proto.getMessageCase()) {
-            case COIN -> Coin.fromProto(proto);
-            case FIAT -> Fiat.fromProto(proto);
-            case MESSAGE_NOT_SET -> throw new UnresolvableProtobufMessageException("MESSAGE_NOT_SET", proto);
-        };
+        switch (proto.getMessageCase()) {
+            case COIN:
+                return Coin.fromProto(proto);
+            case FIAT:
+                return Fiat.fromProto(proto);
+            case MESSAGE_NOT_SET:
+                throw new UnresolvableProtobufMessageException("MESSAGE_NOT_SET", proto);
+            default:
+                throw new IllegalArgumentException("Unknown message case: " + proto.getMessageCase());
+        }
     }
 
     public abstract double toDouble(long value);
@@ -185,13 +190,27 @@ public abstract class Monetary implements Comparable<Monetary>, PersistableProto
     private boolean compare(Monetary other, int precision, ComparisonOperator comparisonOperator) {
         long valueForPrecision = getRoundedValueForPrecision(precision);
         long otherValueForPrecision = other.getRoundedValueForPrecision(precision);
-        return switch (comparisonOperator) {
-            case IS_LESS_THAN -> valueForPrecision < otherValueForPrecision;
-            case IS_LESS_THAN_OR_EQUAL -> valueForPrecision <= otherValueForPrecision;
-            case IS_GREATER_THAN -> valueForPrecision > otherValueForPrecision;
-            case IS_GREATER_THAN_OR_EQUAL -> valueForPrecision >= otherValueForPrecision;
-            case IS_EQUAL -> valueForPrecision == otherValueForPrecision;
-        };
+        boolean result;
+        switch (comparisonOperator) {
+            case IS_LESS_THAN:
+                result = valueForPrecision < otherValueForPrecision;
+                break;
+            case IS_LESS_THAN_OR_EQUAL:
+                result = valueForPrecision <= otherValueForPrecision;
+                break;
+            case IS_GREATER_THAN:
+                result = valueForPrecision > otherValueForPrecision;
+                break;
+            case IS_GREATER_THAN_OR_EQUAL:
+                result = valueForPrecision >= otherValueForPrecision;
+                break;
+            case IS_EQUAL:
+                result = valueForPrecision == otherValueForPrecision;
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown comparison operator: " + comparisonOperator);
+        }
+        return result;
     }
 
     private enum ComparisonOperator {

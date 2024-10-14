@@ -11,14 +11,16 @@ repositories {
 
 java {
     toolchain {
+        val javaVersion = 11
         // We use the Java 22 toolchain to use jpackage to create the binaries.
-        languageVersion.set(JavaLanguageVersion.of(22))
+        languageVersion.set(JavaLanguageVersion.of(javaVersion))
     }
 }
 
 tasks {
     compileJava {
-        options.release.set(22)
+        val javaVersion = 11
+        options.release.set(javaVersion)
     }
 
     test {

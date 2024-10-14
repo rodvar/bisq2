@@ -68,20 +68,20 @@ public class MemoryReport {
             customBisqThreads.append(header);
             boolean showJvmThreads = true;
             Thread.getAllStackTraces().keySet().stream()
-                    .sorted(Comparator.comparing(Thread::threadId))
+                    .sorted(Comparator.comparing(Thread::getId))
                     .forEach(thread -> {
                         String groupName = thread.getThreadGroup().getName();
                         String threadName = thread.getName();
                         String fullName = StringUtils.truncate("[" + groupName + "] " + threadName, nameLength);
-                        String time = threadProfiler.getThreadTime(thread.threadId()).map(nanoTime ->
+                        String time = threadProfiler.getThreadTime(thread.getId()).map(nanoTime ->
                                         SimpleTimeFormatter.formatDuration(TimeUnit.NANOSECONDS.toMillis(nanoTime)))
                                 .orElse("N/A");
-                        String memory = threadProfiler.getThreadMemory(thread.threadId())
+                        String memory = threadProfiler.getThreadMemory(thread.getId())
                                 .map(DataSizeFormatter::format)
                                 .orElse("N/A");
                         int priority = thread.getPriority();
                         String line = String.format(format,
-                                thread.threadId(),
+                                thread.getId(),
                                 priority,
                                 fullName,
                                 thread.getState().name(),

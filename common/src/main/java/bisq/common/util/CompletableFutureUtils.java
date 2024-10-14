@@ -93,6 +93,6 @@ public class CompletableFutureUtils {
     }
 
     public static <T> boolean isCompleted(CompletableFuture<T> future) {
-        return future.state() == Future.State.SUCCESS;
+        return future.isDone() && !future.isCompletedExceptionally() && !future.isCancelled();
     }
 }

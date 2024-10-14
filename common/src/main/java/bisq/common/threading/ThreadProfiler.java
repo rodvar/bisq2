@@ -37,10 +37,12 @@ public class ThreadProfiler {
             optionalThreadMXBean = Optional.empty();
         }
 
-        if (threadMXBean instanceof com.sun.management.ThreadMXBean sunThreadMXBean &&
-                sunThreadMXBean.isThreadAllocatedMemorySupported()) {
-            if (!sunThreadMXBean.isThreadAllocatedMemoryEnabled()) {
-                sunThreadMXBean.setThreadAllocatedMemoryEnabled(true);
+        if (threadMXBean instanceof com.sun.management.ThreadMXBean) {
+            com.sun.management.ThreadMXBean sunThreadMXBean = (com.sun.management.ThreadMXBean) threadMXBean;
+            if (sunThreadMXBean.isThreadAllocatedMemorySupported()) {
+                if (!sunThreadMXBean.isThreadAllocatedMemoryEnabled()) {
+                    sunThreadMXBean.setThreadAllocatedMemoryEnabled(true);
+                }
             }
             optionalSunThreadMXBean = Optional.of(sunThreadMXBean);
         } else {

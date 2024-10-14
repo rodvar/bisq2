@@ -22,6 +22,7 @@ import com.google.common.base.Throwables;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -53,7 +54,7 @@ public class ExceptionUtil {
     public static List<Throwable> getCauseStack(Throwable throwable) {
         List<Throwable> stack = new ArrayList<>();
         while (throwable != null) {
-            stack.addFirst(throwable);
+            stack.add(0, throwable);
             throwable = throwable.getCause();
         }
         return stack;
@@ -66,9 +67,9 @@ public class ExceptionUtil {
             return "";
         }
         Throwable rootCause = getRootCause(throwable);
-        List<String> traceClasses = Arrays.stream(rootCause.getStackTrace())
+        LinkedList<String> traceClasses = Arrays.stream(rootCause.getStackTrace())
                 .map(StackTraceElement::toString)
-                .collect(Collectors.toList());
+                .collect(Collectors.toCollection(LinkedList::new));
         traceClasses.addFirst(rootCause.getClass().getName());
         return Joiner.on("\n    at ").join(traceClasses);
     }
