@@ -119,6 +119,7 @@ import java.security.KeyPair;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class DtoMappings {
@@ -260,6 +261,47 @@ public class DtoMappings {
         }
     }
 
+    public static class BisqEasyOpenTradeMessageMapping {
+        public static BisqEasyOpenTradeMessage toBisq2Model(BisqEasyOpenTradeMessageDto value) {
+            // citationAuthorUserProfile is not mapped to Bisq 2 model as we use our services for obtaining it.
+            return new BisqEasyOpenTradeMessage(
+                    value.tradeId(),
+                    value.messageId(),
+                    value.channelId(),
+                    UserProfileMapping.toBisq2Model(value.senderUserProfile()),
+                    value.receiverUserProfileId(),
+                    NetworkIdMapping.toBisq2Model(value.receiverNetworkId()),
+                    value.text().orElse(null),
+                    value.citation().map(CitationMapping::toBisq2Model),
+                    value.date(),
+                   false,
+                    value.mediator().map(UserProfileMapping::toBisq2Model),
+                    ChatMessageTypeMapping.toBisq2Model(value.chatMessageType()),
+                    value.bisqEasyOffer().map(BisqEasyOfferMapping::toBisq2Model),
+                    value.chatMessageReactions().stream().map(BisqEasyOpenTradeMessageReactionMapping::toBisq2Model).collect(Collectors.toSet())
+            );
+        }
+
+        public static BisqEasyOpenTradeMessageDto fromBisq2Model(BisqEasyOpenTradeMessage value,
+                                                                 Optional<UserProfileDto> citationAuthorUserProfile) {
+            return new BisqEasyOpenTradeMessageDto(
+                    value.getTradeId(),
+                    value.getId(),
+                    value.getChannelId(),
+                    UserProfileMapping.fromBisq2Model(value.getSenderUserProfile()),
+                    value.getReceiverUserProfileId(),
+                    NetworkIdMapping.fromBisq2Model(value.getReceiverNetworkId()),
+                    value.getText(),
+                    value.getCitation().map(CitationMapping::fromBisq2Model),
+                    value.getDate(),
+                    value.getMediator().map(UserProfileMapping::fromBisq2Model),
+                    ChatMessageTypeMapping.fromBisq2Model(value.getChatMessageType()),
+                    value.getBisqEasyOffer().map(BisqEasyOfferMapping::fromBisq2Model),
+                    value.getChatMessageReactions().stream().map(BisqEasyOpenTradeMessageReactionMapping::fromBisq2Model).collect(Collectors.toSet()),
+                    citationAuthorUserProfile
+            );
+        }
+    }
 
     // contract
 
