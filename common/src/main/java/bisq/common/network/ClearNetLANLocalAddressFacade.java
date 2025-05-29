@@ -37,7 +37,7 @@ public class ClearNetLANLocalAddressFacade implements ClearNetLocalAddressFacade
         }
         return new Address(host, port);
     }
-
+    
     public synchronized void setPreferredNetworkInterface(Optional<NetworkInterface> preferredNetworkInterface) {
         this.preferredNetworkInterface = preferredNetworkInterface;
     }

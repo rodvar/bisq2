@@ -17,7 +17,7 @@
 
 package bisq.common.facades;
 
-import bisq.common.network.DefaultClearNetLocalAddressFacade;
+import bisq.common.network.ClearNetLANLocalAddressFacade;
 import bisq.common.network.ClearNetLocalAddressFacade;
 
 import static com.google.common.base.Preconditions.checkNotNull;
@@ -29,7 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class FacadeProvider {
     private static JdkFacade jdkFacade;
     private static GuavaFacade guavaFacade;
-    private static ClearNetLocalAddressFacade clearNetLocalAddressFacade = new DefaultClearNetLocalAddressFacade();
+    private static ClearNetLocalAddressFacade clearNetLocalAddressFacade = new ClearNetLANLocalAddressFacade();
 
     public static void setJdkFacade(JdkFacade jdkFacade) {
         FacadeProvider.jdkFacade = jdkFacade;

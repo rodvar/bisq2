@@ -118,21 +118,49 @@ public class NetworkUtils {
     }
 
     public static Optional<String> findLANHostAddress(Optional<NetworkInterface> preferredNetworkInterface) {
-        List<Pair<NetworkInterface, String>> networkInterfaceHostAddressPairs = getNetworkInterfaceHostAddressPairs();
-        if (preferredNetworkInterface.isPresent()) {
-            Optional<String> preferred = networkInterfaceHostAddressPairs.stream()
-                    .filter(pair ->
-                            pair.getFirst().equals(preferredNetworkInterface.get()))
-                    .map(Pair::getSecond)
-                    .findFirst();
-            if (preferred.isPresent()) {
-                return preferred;
-            } else {
-                log.warn("No networkInterface found which matches the preferredNetworkInterface. We return all LAN addresses.");
+        try {
+            List<Pair<NetworkInterface, String>> validInterfaces = new ArrayList<>();
+
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+
+                if (isNotLANUsableInterface(iface)) {
+                    continue;
+                }
+
+                Enumeration<InetAddress> addresses = iface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress inetAddress = addresses.nextElement();
+
+                    // Skip IPv6 and non-site-local addresses
+                    if (!(inetAddress instanceof Inet4Address)) continue;
+
+                    if (inetAddress.isSiteLocalAddress()) {
+                        validInterfaces.add(new Pair<>(iface, inetAddress.getHostAddress()));
+                    }
+                }
             }
+
+            if (preferredNetworkInterface.isPresent()) {
+                for (Pair<NetworkInterface, String> pair : validInterfaces) {
+                    if (pair.getFirst().getName().equals(preferredNetworkInterface.get().getName())) {
+                        return Optional.of(pair.getSecond());
+                    }
+                }
+            }
+
+            log.warn("No networkInterface found which matches the preferredNetworkInterface. Returning first valid LAN address.");
+            // Return first found site-local address
+            return validInterfaces.stream().map(Pair::getSecond).findFirst();
+
+        } catch (SocketException e) {
+            log.error("Error while retrieving network interfaces", e);
+            return Optional.empty();
         }
-        return networkInterfaceHostAddressPairs.stream()
-                .map(Pair::getSecond)
-                .findFirst();
+    }
+
+    private static boolean isNotLANUsableInterface(NetworkInterface iface) throws SocketException {
+        return !iface.isUp() || iface.isLoopback() || iface.isVirtual() || iface.isPointToPoint();
     }
 }
