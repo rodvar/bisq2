@@ -290,7 +290,7 @@ jobs:
 
       # PHASE 1: Retry logic with exponential backoff
       - name: Push ${{ matrix.name }} translations with retry
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         id: push_with_retry
         env:
           TX_TOKEN: ${{ secrets.TX_TOKEN }}
