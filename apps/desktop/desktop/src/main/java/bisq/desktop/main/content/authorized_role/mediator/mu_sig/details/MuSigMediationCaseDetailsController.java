@@ -80,7 +80,7 @@ public class MuSigMediationCaseDetailsController extends NavigationController im
 
         boolean isClosed = initData.muSigMediationCaseListItem
                 .getMuSigMediationCase()
-                .getMediationCaseState()
+                .mediationCaseStateObservable()
                 .get() == MediationCaseState.CLOSED;
         if (isClosed) {
             MuSigMediationResultSection mediationResultSection = new MuSigMediationResultSection(serviceProvider);

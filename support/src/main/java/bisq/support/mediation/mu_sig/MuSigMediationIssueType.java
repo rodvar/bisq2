@@ -22,6 +22,7 @@ import bisq.common.proto.ProtobufUtils;
 
 public enum MuSigMediationIssueType implements ProtoEnum {
     UNSPECIFIED,
+    PEER_CONTRACT_HASH_MISMATCH,
     MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH,
     TAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH;
 

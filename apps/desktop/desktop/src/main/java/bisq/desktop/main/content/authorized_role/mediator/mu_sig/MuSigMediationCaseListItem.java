@@ -118,7 +118,7 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
 
     @Override
     public void onActivate() {
-        muSigMediationResultPin = muSigMediationCase.getMuSigMediationResult().addObserver(optionalResult ->
+        muSigMediationResultPin = muSigMediationCase.muSigMediationResultObservable().addObserver(optionalResult ->
                 UIThread.run(() -> applyCloseCaseDate(optionalResult.map(MuSigMediationResult::getDate))));
 
         chatNotificationService.getNotConsumedNotifications().forEach(this::handleNotification);

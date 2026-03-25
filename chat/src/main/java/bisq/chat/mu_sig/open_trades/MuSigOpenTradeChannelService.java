@@ -187,7 +187,7 @@ public class MuSigOpenTradeChannelService extends PrivateGroupChatChannelService
         persist();
     }
 
-    public void addMediatorsResponseMessage(MuSigOpenTradeChannel channel, String text) {
+    public void addMediationOpenedMessage(MuSigOpenTradeChannel channel, String text) {
         setIsInMediation(channel, true);
         checkArgument(channel.getMediator().isPresent());
         addChatMessage(channel, channel.getMediator().orElseThrow(), text);

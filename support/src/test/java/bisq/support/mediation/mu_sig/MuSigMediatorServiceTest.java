@@ -161,9 +161,9 @@ class MuSigMediatorServiceTest {
 
         invokeProcessPaymentDetailsResponse(response);
 
-        assertThat(mediationCase.getTakerAccountPayload().get()).containsSame(takerPayload);
-        assertThat(mediationCase.getMakerAccountPayload().get()).containsSame(makerPayload);
-        assertThat(mediationCase.getIssues().get()).isEmpty();
+        assertThat(mediationCase.getTakerAccountPayload()).containsSame(takerPayload);
+        assertThat(mediationCase.getMakerAccountPayload()).containsSame(makerPayload);
+        assertThat(mediationCase.getIssues()).isEmpty();
     }
 
     @Test
@@ -187,10 +187,10 @@ class MuSigMediatorServiceTest {
 
         invokeProcessPaymentDetailsResponse(response);
 
-        assertThat(mediationCase.getTakerAccountPayload().get()).isEmpty();
-        assertThat(mediationCase.getMakerAccountPayload().get()).containsSame(makerPayload);
-        assertThat(mediationCase.getIssues().get()).hasSize(1);
-        MuSigMediationIssue issue = mediationCase.getIssues().get().getFirst();
+        assertThat(mediationCase.getTakerAccountPayload()).isEmpty();
+        assertThat(mediationCase.getMakerAccountPayload()).containsSame(makerPayload);
+        assertThat(mediationCase.getIssues()).hasSize(1);
+        MuSigMediationIssue issue = mediationCase.getIssues().getFirst();
         assertThat(issue.getType()).isEqualTo(MuSigMediationIssueType.TAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
         assertThat(issue.getCausingRole()).isEqualTo(Role.MAKER);
         assertThat(issue.getDetails()).isPresent();
@@ -218,10 +218,10 @@ class MuSigMediatorServiceTest {
 
         invokeProcessPaymentDetailsResponse(response);
 
-        assertThat(mediationCase.getTakerAccountPayload().get()).containsSame(takerPayload);
-        assertThat(mediationCase.getMakerAccountPayload().get()).isEmpty();
-        assertThat(mediationCase.getIssues().get()).hasSize(1);
-        MuSigMediationIssue issue = mediationCase.getIssues().get().getFirst();
+        assertThat(mediationCase.getTakerAccountPayload()).containsSame(takerPayload);
+        assertThat(mediationCase.getMakerAccountPayload()).isEmpty();
+        assertThat(mediationCase.getIssues()).hasSize(1);
+        MuSigMediationIssue issue = mediationCase.getIssues().getFirst();
         assertThat(issue.getType()).isEqualTo(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
         assertThat(issue.getCausingRole()).isEqualTo(Role.TAKER);
         assertThat(issue.getDetails()).isPresent();
@@ -256,10 +256,10 @@ class MuSigMediatorServiceTest {
 
         invokeProcessPaymentDetailsResponse(response);
 
-        assertThat(mediationCase.getTakerAccountPayload().get()).containsSame(takerPayload);
-        assertThat(mediationCase.getMakerAccountPayload().get()).isEmpty();
-        assertThat(mediationCase.getIssues().get()).hasSize(1);
-        MuSigMediationIssue issue = mediationCase.getIssues().get().getFirst();
+        assertThat(mediationCase.getTakerAccountPayload()).containsSame(takerPayload);
+        assertThat(mediationCase.getMakerAccountPayload()).isEmpty();
+        assertThat(mediationCase.getIssues()).hasSize(1);
+        MuSigMediationIssue issue = mediationCase.getIssues().getFirst();
         assertThat(issue.getType()).isEqualTo(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
         assertThat(issue.getCausingRole()).isEqualTo(Role.TAKER);
     }
@@ -286,8 +286,8 @@ class MuSigMediatorServiceTest {
         invokeProcessPaymentDetailsResponse(response);
         invokeProcessPaymentDetailsResponse(response);
 
-        assertThat(mediationCase.getIssues().get()).hasSize(1);
-        MuSigMediationIssue issue = mediationCase.getIssues().get().getFirst();
+        assertThat(mediationCase.getIssues()).hasSize(1);
+        MuSigMediationIssue issue = mediationCase.getIssues().getFirst();
         assertThat(issue.getType()).isEqualTo(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
         assertThat(issue.getCausingRole()).isEqualTo(Role.TAKER);
         assertThat(issue.getDetails()).isPresent();
@@ -322,14 +322,14 @@ class MuSigMediatorServiceTest {
         invokeProcessPaymentDetailsResponse(takerResponse);
         invokeProcessPaymentDetailsResponse(makerResponse);
 
-        assertThat(mediationCase.getIssues().get()).hasSize(2);
-        assertThat(mediationCase.getIssues().get())
+        assertThat(mediationCase.getIssues()).hasSize(2);
+        assertThat(mediationCase.getIssues())
                 .extracting(MuSigMediationIssue::getType, MuSigMediationIssue::getCausingRole)
                 .containsExactlyInAnyOrder(
                         org.assertj.core.groups.Tuple.tuple(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH, Role.TAKER),
                         org.assertj.core.groups.Tuple.tuple(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH, Role.MAKER)
                 );
-        assertThat(mediationCase.getIssues().get())
+        assertThat(mediationCase.getIssues())
                 .allMatch(issue -> issue.getDetails().isPresent() && !issue.getDetails().orElseThrow().isBlank());
     }
 

@@ -245,9 +245,9 @@ public class MuSigMediatorController implements Controller {
 
     private void applyFilteredListPredicate(boolean showClosedCases) {
         if (showClosedCases) {
-            model.getClosedCasesPredicate().set(item -> item.getMuSigMediationCase().getMediationCaseState().get() == MediationCaseState.CLOSED);
+            model.getClosedCasesPredicate().set(item -> item.getMuSigMediationCase().getMediationCaseState() == MediationCaseState.CLOSED);
         } else {
-            model.getClosedCasesPredicate().set(item -> item.getMuSigMediationCase().getMediationCaseState().get() != MediationCaseState.CLOSED);
+            model.getClosedCasesPredicate().set(item -> item.getMuSigMediationCase().getMediationCaseState() != MediationCaseState.CLOSED);
         }
     }
 

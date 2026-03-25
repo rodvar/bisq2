@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
- * Service used by traders to select mediators, request mediation and process MediationResponses
+ * Service used by traders to select mediators, request mediation and process mediation state changes.
  */
 @Slf4j
 public class MuSigMediationRequestService implements Service, ConfidentialMessageService.Listener {
@@ -67,7 +67,6 @@ public class MuSigMediationRequestService implements Service, ConfidentialMessag
     private final MuSigOpenTradeChannelService muSigOpenTradeChannelService;
     private final AuthorizedBondedRolesService authorizedBondedRolesService;
     private final BannedUserService bannedUserService;
-    private final Set<MuSigMediatorsResponse> pendingMuSigMediatorsResponseMessages = new CopyOnWriteArraySet<>();
     private final Set<MuSigMediationStateChangeMessage> pendingMuSigMediationStateChangeMessages = new CopyOnWriteArraySet<>();
     @Nullable
     private Pin channeldPin;
@@ -109,7 +108,6 @@ public class MuSigMediationRequestService implements Service, ConfidentialMessag
             throttleUpdatesScheduler.stop();
             throttleUpdatesScheduler = null;
         }
-        pendingMuSigMediatorsResponseMessages.clear();
         pendingMuSigMediationStateChangeMessages.clear();
         return CompletableFuture.completedFuture(true);
     }
@@ -120,9 +118,7 @@ public class MuSigMediationRequestService implements Service, ConfidentialMessag
 
     @Override
     public void onMessage(EnvelopePayloadMessage envelopePayloadMessage) {
-        if (envelopePayloadMessage instanceof MuSigMediatorsResponse) {
-            processMediationResponse((MuSigMediatorsResponse) envelopePayloadMessage);
-        } else if (envelopePayloadMessage instanceof MuSigMediationStateChangeMessage) {
+        if (envelopePayloadMessage instanceof MuSigMediationStateChangeMessage) {
             processMediationStateChangeMessage((MuSigMediationStateChangeMessage) envelopePayloadMessage);
         }
     }
@@ -204,59 +200,19 @@ public class MuSigMediationRequestService implements Service, ConfidentialMessag
     // Private
     /* --------------------------------------------------------------------- */
 
-    private void processMediationResponse(MuSigMediatorsResponse muSigMediatorsResponse) {
-        muSigOpenTradeChannelService.findChannelByTradeId(muSigMediatorsResponse.getTradeId())
-                .ifPresentOrElse(channel -> {
-                            // Requester had it activated at request time
-                            if (channel.isInMediation()) {
-                                muSigOpenTradeChannelService.addMediatorsResponseMessage(channel, Res.encode("authorizedRole.mediator.message.toRequester"));
-                            } else {
-                                muSigOpenTradeChannelService.setIsInMediation(channel, true);
-                                muSigOpenTradeChannelService.addMediatorsResponseMessage(channel, Res.encode("authorizedRole.mediator.message.toNonRequester"));
-
-                                //todo (Critical) - check if we do sent from both peers
-                                // Peer who has not requested sends their messages as well, so mediator can be sure to get all messages
-                            }
-                            pendingMuSigMediatorsResponseMessages.remove(muSigMediatorsResponse);
-                        },
-                        () -> {
-                            // This handles an edge case that the MuSigMediatorsResponse arrives before the take offer request was
-                            // processed (in case we are the maker and have been offline at take offer).
-                            log.warn("We received a MuSigMediatorsResponse but did not find a matching muSigOpenTradeChannel for trade ID {}.\n" +
-                                            "We add it to the pendingMuSigMediatorsResponseMessages set and reprocess it once a new trade channel has been added.",
-                                    muSigMediatorsResponse.getTradeId());
-                            pendingMuSigMediatorsResponseMessages.add(muSigMediatorsResponse);
-                            if (channeldPin == null) {
-                                channeldPin = muSigOpenTradeChannelService.getChannels().addObserver(new CollectionObserver<>() {
-                                    @Override
-                                    public void onAdded(MuSigOpenTradeChannel element) {
-                                        // Delay and ignore too frequent updates
-                                        if (throttleUpdatesScheduler == null) {
-                                            throttleUpdatesScheduler = Scheduler.run(() -> {
-                                                        maybeProcessPendingMessages();
-                                                        throttleUpdatesScheduler = null;
-                                                    })
-                                                    .after(1000);
-                                        }
-                                    }
-
-                                    @Override
-                                    public void onRemoved(Object element) {
-                                    }
-
-                                    @Override
-                                    public void onCleared() {
-                                    }
-                                });
-                            }
-                        });
-    }
-
     private void processMediationStateChangeMessage(MuSigMediationStateChangeMessage message) {
         muSigOpenTradeChannelService.findChannelByTradeId(message.getTradeId())
                 .ifPresentOrElse(channel -> {
                             MediationCaseState mediationCaseState = message.getMediationCaseState();
-                            if (mediationCaseState == MediationCaseState.RE_OPENED) {
+                            if (mediationCaseState == MediationCaseState.OPEN) {
+                                // Requester had it activated at request time
+                                if (channel.isInMediation()) {
+                                    muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toRequester"));
+                                } else {
+                                    muSigOpenTradeChannelService.setIsInMediation(channel, true);
+                                    muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toNonRequester"));
+                                }
+                            } else if (mediationCaseState == MediationCaseState.RE_OPENED) {
                                 muSigOpenTradeChannelService.setIsInMediation(channel, true);
                             } else if (mediationCaseState == MediationCaseState.CLOSED) {
                                 if (message.getMuSigMediationResult().isEmpty()) {
@@ -339,7 +295,6 @@ public class MuSigMediationRequestService implements Service, ConfidentialMessag
     }
 
     private void maybeProcessPendingMessages() {
-        new ArrayList<>(pendingMuSigMediatorsResponseMessages).forEach(this::processMediationResponse);
         new ArrayList<>(pendingMuSigMediationStateChangeMessages).forEach(this::processMediationStateChangeMessage);
     }
 }
