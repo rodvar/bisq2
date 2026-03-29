@@ -38,7 +38,7 @@ import bisq.api.rest_api.endpoints.devices.DevicesRestApi;
 import bisq.api.rest_api.endpoints.explorer.ExplorerRestApi;
 import bisq.api.rest_api.endpoints.market_price.MarketPriceRestApi;
 import bisq.api.rest_api.endpoints.offers.OfferbookRestApi;
-import bisq.api.rest_api.endpoints.payment_accounts.FiatPaymentAccountsRestApi;
+import bisq.api.rest_api.endpoints.payment_accounts.UserDefinedPaymentAccountsRestApi;
 import bisq.api.rest_api.endpoints.payment_accounts.PaymentAccountsRestApi;
 import bisq.api.rest_api.endpoints.reputation.ReputationRestApi;
 import bisq.api.rest_api.endpoints.settings.SettingsRestApi;
@@ -172,7 +172,7 @@ public class ApiService implements Service {
         AlertNotificationsRestApi alertNotificationsRestApi = new AlertNotificationsRestApi(alertNotificationsService);
         TradeRestrictingAlertRestApi tradeRestrictingAlertRestApi = new TradeRestrictingAlertRestApi(bondedRolesService.getAlertService());
         PaymentAccountsRestApi paymentAccountsRestApi = new PaymentAccountsRestApi(accountService);
-        FiatPaymentAccountsRestApi fiatPaymentAccountsRestApi = new FiatPaymentAccountsRestApi(accountService);
+        UserDefinedPaymentAccountsRestApi userDefinedPaymentAccountsRestApi = new UserDefinedPaymentAccountsRestApi(accountService);
         UserProfileRestApi userProfileRestApi = new UserProfileRestApi(
                 userService.getUserProfileService(),
                 supportedService.getModerationRequestService(),
@@ -199,7 +199,7 @@ public class ApiService implements Service {
                     tradeRestrictingAlertRestApi,
                     explorerRestApi,
                     paymentAccountsRestApi,
-                    fiatPaymentAccountsRestApi,
+                    userDefinedPaymentAccountsRestApi,
                     reputationRestApi,
                     userProfileRestApi,
                     devicesRestApi);
