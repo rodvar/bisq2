@@ -339,7 +339,7 @@ public class MuSigService extends LifecycleService {
         if (channel.isEmpty()) {
             Optional<UserProfile> makersUserProfile = userProfileService.findUserProfile(muSigTrade.getOffer().getMakersUserProfileId());
             checkArgument(makersUserProfile.isPresent(), "Makers user profile is not present");
-            muSigOpenTradeChannelService.traderCreatesChannel(tradeId,
+            muSigOpenTradeChannelService.traderFindOrCreatesChannel(tradeId,
                     takerIdentity,
                     makersUserProfile.get(),
                     muSigTrade.getContract().getMediator());
