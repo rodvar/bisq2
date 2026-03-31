@@ -131,9 +131,17 @@ public class SubscriptionService implements Service {
                     Subscriber subscriber = null;
                     try {
                         webSocketService.validate(request);
-                        String jsonPayload = webSocketService.getJsonPayload(request).orElse(null);
-                        sendSubscriptionResponse(webSocket, request.getRequestId(), jsonPayload, null);
                         subscriber = subscriberRepository.add(request, webSocket);
+                        Optional<String> jsonPayload = webSocketService.getJsonPayload(request);
+                        if (jsonPayload.isPresent()) {
+                            sendSubscriptionResponse(webSocket, request.getRequestId(), jsonPayload.get(), null);
+                        } else {
+                            removeSubscriber(subscriber);
+                            sendSubscriptionResponse(webSocket,
+                                    request.getRequestId(),
+                                    null,
+                                    String.format("Unexpected error when subscribing to %s", request.getTopic().name()));
+                        }
                     } catch (IllegalArgumentException e) {
                         removeSubscriber(subscriber);
                         sendSubscriptionResponse(webSocket, request.getRequestId(), null, e.getMessage());
