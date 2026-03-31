@@ -53,24 +53,16 @@ public final class MuSigOpenTradeChannel extends PrivateGroupChatChannel<MuSigOp
         return ChatChannelDomain.MU_SIG_OPEN_TRADES.name().toLowerCase(Locale.ROOT) + "." + tradeId;
     }
 
-    public static MuSigOpenTradeChannel createByTrader(String tradeId,
-                                                       UserIdentity myUserIdentity,
-                                                       UserProfile peer,
-                                                       Optional<UserProfile> mediator) {
+    public static MuSigOpenTradeChannel create(String tradeId,
+                                               UserIdentity myUserIdentity,
+                                               Set<UserProfile> traders,
+                                               Optional<UserProfile> mediator,
+                                               boolean isInMediation) {
         return new MuSigOpenTradeChannel(tradeId,
                 myUserIdentity,
-                peer,
-                mediator);
-    }
-
-    public static MuSigOpenTradeChannel createByMediator(String tradeId,
-                                                         UserIdentity myUserIdentity,
-                                                         UserProfile requestingTrader,
-                                                         UserProfile nonRequestingTrader) {
-        return new MuSigOpenTradeChannel(tradeId,
-                myUserIdentity,
-                requestingTrader,
-                nonRequestingTrader);
+                traders,
+                mediator,
+                isInMediation);
     }
 
     @EqualsAndHashCode.Include
@@ -82,30 +74,16 @@ public final class MuSigOpenTradeChannel extends PrivateGroupChatChannel<MuSigOp
     // Called from trader
     private MuSigOpenTradeChannel(String tradeId,
                                   UserIdentity myUserIdentity,
-                                  UserProfile peer,
-                                  Optional<UserProfile> mediator) {
+                                  Set<UserProfile> traders,
+                                  Optional<UserProfile> mediator,
+                                  boolean isInMediation) {
         this(createId(tradeId),
                 tradeId,
                 myUserIdentity,
-                Set.of(peer),
+                traders,
                 mediator,
                 new HashSet<>(),
-                false,
-                ChatChannelNotificationType.ALL);
-    }
-
-    // Called from mediator
-    private MuSigOpenTradeChannel(String tradeId,
-                                  UserIdentity myUserIdentity,
-                                  UserProfile requestingTrader,
-                                  UserProfile nonRequestingTrader) {
-        this(createId(tradeId),
-                tradeId,
-                myUserIdentity,
-                Set.of(requestingTrader, nonRequestingTrader),
-                Optional.of(myUserIdentity.getUserProfile()),
-                new HashSet<>(),
-                true,
+                isInMediation,
                 ChatChannelNotificationType.ALL);
     }
 
