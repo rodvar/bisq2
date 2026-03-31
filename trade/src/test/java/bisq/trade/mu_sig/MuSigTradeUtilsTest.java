@@ -18,20 +18,17 @@
 package bisq.trade.mu_sig;
 
 import bisq.account.accounts.AccountPayload;
+import bisq.account.payment_method.PaymentMethod;
 import bisq.account.payment_method.PaymentMethodSpec;
 import bisq.account.payment_method.PaymentMethodSpecUtil;
-import bisq.account.protocol_type.TradeProtocolType;
 import bisq.account.payment_method.crypto.CryptoPaymentMethod;
 import bisq.account.payment_method.fiat.FiatPaymentMethod;
 import bisq.account.payment_method.fiat.FiatPaymentRail;
-import bisq.account.payment_method.PaymentMethod;
 import bisq.common.network.AddressByTransportTypeMap;
 import bisq.common.network.ClearnetAddress;
 import bisq.common.network.TransportType;
 import bisq.common.market.Market;
 import bisq.common.monetary.Monetary;
-import bisq.contract.Party;
-import bisq.contract.Role;
 import bisq.contract.mu_sig.MuSigContract;
 import bisq.identity.Identity;
 import bisq.network.identity.NetworkId;
@@ -48,7 +45,6 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.List;
 import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -117,78 +113,59 @@ class MuSigTradeUtilsTest {
         assertFalse(MuSigTradeUtils.doesPeerAccountPayloadMatchContract(trade, accountPayload));
     }
 
-    @Test
-    void returnsEmptyAndFalseWhenPeersContractSaltedAccountPayloadHashIsMissing() {
-        TestAccountPayload accountPayload = new TestAccountPayload(new byte[]{1, 2, 3});
-        MuSigContract contract = createContractWithPeerHashes(
-                createBtcFiatMarket(),
-                Optional.empty(),
-                Optional.of(createSaltedAccountPayloadHash(new TestAccountPayload(new byte[]{9, 9, 9}), "test-id")));
-        MuSigTrade trade = createTrade(contract, true);
-
-        assertFalse(MuSigTradeUtils.findPeersContractSaltedAccountPayloadHash(trade).isPresent());
-        assertFalse(MuSigTradeUtils.doesPeerAccountPayloadMatchContract(trade, accountPayload));
-    }
-
     private MuSigContract createContract(Market market, long baseSideAmount, long quoteSideAmount) {
+        PaymentMethodSpec<?> nonBtcPaymentMethodSpec = market.isBaseCurrencyBitcoin()
+                ? PaymentMethodSpecUtil.createPaymentMethodSpec(FiatPaymentMethod.fromPaymentRail(FiatPaymentRail.ACH_TRANSFER), "USD")
+                : PaymentMethodSpecUtil.createPaymentMethodSpec(new CryptoPaymentMethod("XMR"), "XMR");
         MuSigOffer offer = new MuSigOffer("test-id",
                 null,
                 Direction.BUY,
                 market,
                 null,
                 null,
-                List.of(),
+                List.of(nonBtcPaymentMethodSpec.getPaymentMethod()),
                 List.of(),
                 "1.0.0");
-        PaymentMethodSpec<?> baseSpec = market.isBaseCurrencyBitcoin()
-                ? PaymentMethodSpecUtil.createBitcoinMainChainPaymentMethodSpec().get(0)
-                : PaymentMethodSpecUtil.createPaymentMethodSpec(new CryptoPaymentMethod("XMR"), "XMR");
-        PaymentMethodSpec<?> quoteSpec = market.isBaseCurrencyBitcoin()
-                ? PaymentMethodSpecUtil.createPaymentMethodSpec(FiatPaymentMethod.fromPaymentRail(FiatPaymentRail.ACH_TRANSFER), "USD")
-                : PaymentMethodSpecUtil.createBitcoinMainChainPaymentMethodSpec().get(0);
         return new MuSigContract(System.currentTimeMillis(),
                 offer,
-                TradeProtocolType.MU_SIG,
-                new Party(Role.MAKER, offer.getMakerNetworkId()),
-                new Party(Role.TAKER, null),
+                createNetworkId("taker", 9999),
                 baseSideAmount,
                 quoteSideAmount,
-                baseSpec,
-                quoteSpec,
+                nonBtcPaymentMethodSpec,
+                new byte[20],
+                Optional.empty(),
                 Optional.empty(),
                 null,
                 0);
     }
 
     private MuSigContract createContractWithPeerHashes(Market market, byte[] makerHash, byte[] takerHash) {
-        return createContractWithPeerHashes(market, Optional.of(makerHash), Optional.of(takerHash));
-    }
-
-    private MuSigContract createContractWithPeerHashes(Market market,
-                                                       Optional<byte[]> makerHash,
-                                                       Optional<byte[]> takerHash) {
+        PaymentMethod<?> paymentMethod = FiatPaymentMethod.fromPaymentRail(FiatPaymentRail.ACH_TRANSFER);
         MuSigOffer offer = new MuSigOffer("test-id",
-                null,
+                createNetworkId("maker", 9998),
                 Direction.BUY,
                 market,
                 null,
                 null,
-                List.of(),
-                List.of(),
+                List.of(paymentMethod),
+                List.of(new bisq.offer.options.AccountOption(
+                        paymentMethod,
+                        "0123456789abcdef0123456789abcdef01234567",
+                        Optional.empty(),
+                        List.of(),
+                        Optional.empty(),
+                        List.of(),
+                        makerHash)),
                 "1.0.0");
-        PaymentMethodSpec<?> baseSpec = PaymentMethodSpecUtil.createBitcoinMainChainPaymentMethodSpec().get(0);
-        PaymentMethodSpec<?> quoteSpec = PaymentMethodSpecUtil.createPaymentMethodSpec(
-                FiatPaymentMethod.fromPaymentRail(FiatPaymentRail.ACH_TRANSFER),
-                "USD");
+        PaymentMethodSpec<?> quoteSpec = PaymentMethodSpecUtil.createPaymentMethodSpec(paymentMethod, "USD");
         return new MuSigContract(System.currentTimeMillis(),
                 offer,
-                TradeProtocolType.MU_SIG,
-                new Party(Role.MAKER, createNetworkId("maker", 9998), makerHash),
-                new Party(Role.TAKER, createNetworkId("taker", 9999), takerHash),
+                createNetworkId("taker", 9999),
                 111L,
                 222L,
-                baseSpec,
                 quoteSpec,
+                takerHash,
+                Optional.empty(),
                 Optional.empty(),
                 null,
                 0);

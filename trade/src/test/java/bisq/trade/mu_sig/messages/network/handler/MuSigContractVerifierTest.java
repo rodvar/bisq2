@@ -21,7 +21,6 @@ import bisq.account.payment_method.PaymentMethodSpec;
 import bisq.account.payment_method.PaymentMethodSpecUtil;
 import bisq.account.payment_method.fiat.FiatPaymentMethod;
 import bisq.account.payment_method.fiat.FiatPaymentRail;
-import bisq.account.protocol_type.TradeProtocolType;
 import bisq.common.market.Market;
 import bisq.common.monetary.PriceQuote;
 import bisq.common.network.AddressByTransportTypeMap;
@@ -29,8 +28,6 @@ import bisq.common.network.ClearnetAddress;
 import bisq.common.network.TransportType;
 import bisq.contract.ContractService;
 import bisq.contract.ContractSignatureData;
-import bisq.contract.Party;
-import bisq.contract.Role;
 import bisq.contract.mu_sig.MuSigContract;
 import bisq.network.identity.NetworkId;
 import bisq.offer.Direction;
@@ -147,28 +144,26 @@ class MuSigContractVerifierTest {
 
     private MuSigContract createContract(long baseSideAmount, long quoteSideAmount) {
         Market market = new Market("BTC", "USD", "Bitcoin", "US Dollar");
+        PaymentMethodSpec<?> nonBtcPaymentMethodSpec = PaymentMethodSpecUtil.createPaymentMethodSpec(
+                FiatPaymentMethod.fromPaymentRail(FiatPaymentRail.ACH_TRANSFER),
+                "USD");
         MuSigOffer offer = new MuSigOffer("test-id",
                 OFFER_MAKER_NETWORK_ID,
                 Direction.BUY,
                 market,
                 new BaseSideFixedAmountSpec(baseSideAmount),
                 new FixPriceSpec(PriceQuote.fromFiatPrice(50_000, "USD")),
-                List.of(),
+                List.of(nonBtcPaymentMethodSpec.getPaymentMethod()),
                 List.of(),
                 "1.0.0");
-        PaymentMethodSpec<?> baseSpec = PaymentMethodSpecUtil.createBitcoinMainChainPaymentMethodSpec().get(0);
-        PaymentMethodSpec<?> quoteSpec = PaymentMethodSpecUtil.createPaymentMethodSpec(
-                FiatPaymentMethod.fromPaymentRail(FiatPaymentRail.ACH_TRANSFER),
-                "USD");
         return new MuSigContract(1_700_000_000_000L,
                 offer,
-                TradeProtocolType.MU_SIG,
-                new Party(Role.MAKER, MAKER_NETWORK_ID),
-                new Party(Role.TAKER, TAKER_NETWORK_ID),
+                TAKER_NETWORK_ID,
                 baseSideAmount,
                 quoteSideAmount,
-                baseSpec,
-                quoteSpec,
+                nonBtcPaymentMethodSpec,
+                new byte[20],
+                Optional.empty(),
                 Optional.empty(),
                 offer.getPriceSpec(),
                 0);
