@@ -644,8 +644,6 @@ public class DtoMappings {
                     PubKeyMapping.fromBisq2Model(value.getPubKey()));
         }
     }
-
-
     // offer
 
     public static class DirectionMapping {
