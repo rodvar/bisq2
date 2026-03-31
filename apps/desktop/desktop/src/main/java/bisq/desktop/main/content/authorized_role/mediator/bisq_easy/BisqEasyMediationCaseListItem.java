@@ -115,7 +115,7 @@ public class BisqEasyMediationCaseListItem implements ActivatableTableItem, Date
 
     @Override
     public void onActivate() {
-        isClosedPin = bisqEasyMediationCase.getIsClosed().addObserver(isClosed ->
+        isClosedPin = bisqEasyMediationCase.isClosedObservable().addObserver(isClosed ->
                 UIThread.run(() -> applyCloseCaseDate(bisqEasyMediationCase.getCloseCaseDate())));
 
         chatNotificationService.getNotConsumedNotifications().forEach(this::handleNotification);

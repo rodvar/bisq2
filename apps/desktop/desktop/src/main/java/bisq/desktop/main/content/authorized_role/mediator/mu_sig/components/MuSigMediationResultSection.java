@@ -115,8 +115,8 @@ public class MuSigMediationResultSection {
         @Override
         public void onActivate() {
             MuSigMediationCase muSigMediationCase = model.getMuSigMediationCaseListItem().getMuSigMediationCase();
-            Optional<MuSigMediationResult> muSigMediationResult = muSigMediationCase.getMuSigMediationResult().get();
-            boolean caseOpen = muSigMediationCase.getMediationCaseState().get() == MediationCaseState.OPEN;
+            Optional<MuSigMediationResult> muSigMediationResult = muSigMediationCase.getMuSigMediationResult();
+            boolean caseOpen = muSigMediationCase.getMediationCaseState() == MediationCaseState.OPEN;
 
             model.getPayoutDistributionTypes().setAll(MediationPayoutDistributionType.values());
             model.getReasons().setAll(MediationResultReason.values());
@@ -232,7 +232,7 @@ public class MuSigMediationResultSection {
             }
             model.getShowPayoutAdjustmentPercentage().set(showPayoutAdjustmentPercentage);
             model.getUsePenaltyDescription().set(shouldUsePenaltyDescription(payoutDistributionType));
-            boolean caseOpen = model.getMuSigMediationCaseListItem().getMuSigMediationCase().getMediationCaseState().get() == MediationCaseState.OPEN;
+            boolean caseOpen = model.getMuSigMediationCaseListItem().getMuSigMediationCase().getMediationCaseState() == MediationCaseState.OPEN;
             model.getPayoutAmountsEditable().set(caseOpen && shouldAllowManualPayoutAmounts(payoutDistributionType));
             applyPayoutAmountsForType(payoutDistributionType);
         }
@@ -435,7 +435,7 @@ public class MuSigMediationResultSection {
         void closeCase() {
             MuSigMediationCase muSigMediationCase = model.getMuSigMediationCaseListItem().getMuSigMediationCase();
 
-            if (muSigMediationCase.getMediationCaseState().get() == MediationCaseState.OPEN) {
+            if (muSigMediationCase.getMediationCaseState() == MediationCaseState.OPEN) {
                 if (!hasRequiredSelections()) {
                     log.warn("Cannot close MuSig mediation case due to incomplete or invalid mediation result data");
                     return;
@@ -606,7 +606,7 @@ public class MuSigMediationResultSection {
 
         @Override
         protected void onViewAttached() {
-            MediationCaseState mediationCaseState = model.muSigMediationCaseListItem.getMuSigMediationCase().getMediationCaseState().get();
+            MediationCaseState mediationCaseState = model.muSigMediationCaseListItem.getMuSigMediationCase().getMediationCaseState();
             boolean caseOpen = mediationCaseState == MediationCaseState.OPEN;
 
             if (caseOpen) {

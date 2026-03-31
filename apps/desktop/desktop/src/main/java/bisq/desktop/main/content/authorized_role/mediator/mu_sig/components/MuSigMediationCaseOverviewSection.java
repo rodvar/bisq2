@@ -171,7 +171,7 @@ public class MuSigMediationCaseOverviewSection {
                         return userProfile.equals(request.getRequester()) || userProfile.equals(request.getPeer());
                     })
                     .collect(Collectors.partitioningBy(mediationCase ->
-                                    mediationCase.getMediationCaseState().get() == MediationCaseState.CLOSED,
+                                    mediationCase.getMediationCaseState() == MediationCaseState.CLOSED,
                             Collectors.counting()));
             int closed = counts.getOrDefault(true, 0L).intValue();
             int open = counts.getOrDefault(false, 0L).intValue();
@@ -202,15 +202,15 @@ public class MuSigMediationCaseOverviewSection {
             }
 
             MuSigMediationCase caseModel = muSigMediationCaseListItem.getMuSigMediationCase();
-            pins.add(caseModel.getTakerAccountPayload().addObserver(payload -> UIThread.run(() -> {
+            pins.add(caseModel.takerAccountPayloadObservable().addObserver(payload -> UIThread.run(() -> {
                 model.getTakerPaymentAccountData().set(payload.map(AccountPayload::getAccountDataDisplayString).orElse(""));
                 applyHasPaymentAccountDataState(caseModel);
             })));
-            pins.add(caseModel.getMakerAccountPayload().addObserver(payload -> UIThread.run(() -> {
+            pins.add(caseModel.makerAccountPayloadObservable().addObserver(payload -> UIThread.run(() -> {
                 model.getMakerPaymentAccountData().set(payload.map(AccountPayload::getAccountDataDisplayString).orElse(""));
                 applyHasPaymentAccountDataState(caseModel);
             })));
-            pins.add(caseModel.getIssues().addObserver(issues ->
+            pins.add(caseModel.issuesObservable().addObserver(issues ->
                     UIThread.run(() -> applyPaymentAccountIssueState(issues))));
         }
 
@@ -220,8 +220,8 @@ public class MuSigMediationCaseOverviewSection {
         }
 
         private void applyHasPaymentAccountDataState(MuSigMediationCase muSigMediationCase) {
-            boolean hasBothPayloads = muSigMediationCase.getTakerAccountPayload().get().isPresent()
-                    && muSigMediationCase.getMakerAccountPayload().get().isPresent();
+            boolean hasBothPayloads = muSigMediationCase.getTakerAccountPayload().isPresent()
+                    && muSigMediationCase.getMakerAccountPayload().isPresent();
             model.getHasPaymentAccountData().set(hasBothPayloads);
             if (hasBothPayloads) {
                 model.getWaitingForPaymentAccountDataResponse().set(false);

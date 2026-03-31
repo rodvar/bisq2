@@ -54,7 +54,7 @@ class MuSigMediationCaseTest {
                 makerTaker.get();
                 takerTaker.get();
 
-                assertThat(mediationCase.getIssues().get())
+                assertThat(mediationCase.getIssues())
                         .as("round %s", round)
                         .hasSize(4);
             }

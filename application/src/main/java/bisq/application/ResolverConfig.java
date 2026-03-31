@@ -49,10 +49,10 @@ import bisq.network.p2p.services.data.storage.DistributedDataResolver;
 import bisq.offer.mu_sig.MuSigOfferMessage;
 import bisq.support.mediation.bisq_easy.BisqEasyMediationRequest;
 import bisq.support.mediation.bisq_easy.BisqEasyMediatorsResponse;
+import bisq.support.mediation.MuSigDisputeCaseDataMessage;
 import bisq.support.mediation.mu_sig.MuSigMediationRequest;
 import bisq.support.mediation.mu_sig.MuSigMediationResultAcceptanceMessage;
 import bisq.support.mediation.mu_sig.MuSigMediationStateChangeMessage;
-import bisq.support.mediation.mu_sig.MuSigMediatorsResponse;
 import bisq.support.mediation.mu_sig.MuSigPaymentDetailsRequest;
 import bisq.support.mediation.mu_sig.MuSigPaymentDetailsResponse;
 import bisq.support.moderator.ReportToModeratorMessage;
@@ -131,8 +131,8 @@ public class ResolverConfig {
         NetworkMessageResolver.addResolver("support.MediationRequest", BisqEasyMediationRequest.getNetworkMessageResolver());
         // Keep proto name for backward compatibility
         NetworkMessageResolver.addResolver("support.MediatorsResponse", BisqEasyMediatorsResponse.getNetworkMessageResolver());
+        NetworkMessageResolver.addResolver("support.MuSigDisputeCaseDataMessage", MuSigDisputeCaseDataMessage.getNetworkMessageResolver());
         NetworkMessageResolver.addResolver("support.MuSigMediationRequest", MuSigMediationRequest.getNetworkMessageResolver());
-        NetworkMessageResolver.addResolver("support.MuSigMediatorsResponse", MuSigMediatorsResponse.getNetworkMessageResolver());
         NetworkMessageResolver.addResolver("support.MuSigMediationStateChangeMessage", MuSigMediationStateChangeMessage.getNetworkMessageResolver());
         NetworkMessageResolver.addResolver("support.MuSigMediationResultAcceptanceMessage", MuSigMediationResultAcceptanceMessage.getNetworkMessageResolver());
         NetworkMessageResolver.addResolver("support.MuSigPaymentDetailsRequest", MuSigPaymentDetailsRequest.getNetworkMessageResolver());

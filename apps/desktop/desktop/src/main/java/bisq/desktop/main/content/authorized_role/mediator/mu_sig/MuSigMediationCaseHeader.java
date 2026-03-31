@@ -164,7 +164,7 @@ public class MuSigMediationCaseHeader {
         private void doRemoveCase() {
             MuSigMediationCaseListItem listItem = model.getMediationCaseListItem().get();
             if (listItem != null) {
-                if (listItem.getMuSigMediationCase().getMediationCaseState().get() != MediationCaseState.CLOSED) {
+                if (listItem.getMuSigMediationCase().getMediationCaseState() != MediationCaseState.CLOSED) {
                     throw new RuntimeException("Only closed MuSig mediation cases can be removed.");
                 }
                 doLeave();

@@ -19,6 +19,7 @@ package bisq.support.mediation.mu_sig;
 
 import bisq.account.accounts.AccountPayload;
 import bisq.common.observable.Observable;
+import bisq.common.observable.ReadOnlyObservable;
 import bisq.common.proto.PersistableProto;
 import bisq.common.validation.NetworkDataValidation;
 import bisq.support.mediation.MediationCaseState;
@@ -33,15 +34,18 @@ import java.util.Optional;
 
 import static java.lang.System.currentTimeMillis;
 
-@Getter
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class MuSigMediationCase implements PersistableProto {
     @EqualsAndHashCode.Include
+    @Getter
     private final MuSigMediationRequest muSigMediationRequest;
+    @Getter
     private final long requestDate;
     private final Observable<MediationCaseState> mediationCaseState = new Observable<>();
     private final Observable<Optional<MuSigMediationResult>> muSigMediationResult = new Observable<>();
     private Optional<byte[]> mediationResultSignature = Optional.empty();
+    private Optional<byte[]> peerReportedContractHash = Optional.empty();
+    private final Observable<Boolean> hasPeerReportedContractHash = new Observable<>(false);
     private final Observable<Optional<AccountPayload<?>>> takerAccountPayload = new Observable<>(Optional.empty());
     private final Observable<Optional<AccountPayload<?>>> makerAccountPayload = new Observable<>(Optional.empty());
     private final Observable<List<MuSigMediationIssue>> issues = new Observable<>(List.of());
@@ -54,6 +58,7 @@ public class MuSigMediationCase implements PersistableProto {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 List.of());
     }
 
@@ -62,6 +67,7 @@ public class MuSigMediationCase implements PersistableProto {
                                MediationCaseState mediationCaseState,
                                Optional<MuSigMediationResult> muSigMediationResult,
                                Optional<byte[]> mediationResultSignature,
+                               Optional<byte[]> peerReportedContractHash,
                                Optional<AccountPayload<?>> takerAccountPayload,
                                Optional<AccountPayload<?>> makerAccountPayload,
                                List<MuSigMediationIssue> issues) {
@@ -70,6 +76,8 @@ public class MuSigMediationCase implements PersistableProto {
         this.mediationCaseState.set(mediationCaseState);
         this.muSigMediationResult.set(muSigMediationResult);
         this.mediationResultSignature = mediationResultSignature.map(byte[]::clone);
+        this.peerReportedContractHash = peerReportedContractHash.map(byte[]::clone);
+        this.hasPeerReportedContractHash.set(peerReportedContractHash.isPresent());
         this.takerAccountPayload.set(takerAccountPayload);
         this.makerAccountPayload.set(makerAccountPayload);
         this.issues.set(issues);
@@ -88,6 +96,7 @@ public class MuSigMediationCase implements PersistableProto {
         muSigMediationResult.get().ifPresent(item ->
                 builder.setMuSigMediationResult(item.toProto(serializeForHash)));
         mediationResultSignature.ifPresent(item -> builder.setMediationResultSignature(ByteString.copyFrom(item)));
+        peerReportedContractHash.ifPresent(item -> builder.setPeerReportedContractHash(ByteString.copyFrom(item)));
         takerAccountPayload.get().ifPresent(item -> builder.setTakerAccountPayload(item.toProto(serializeForHash)));
         makerAccountPayload.get().ifPresent(item -> builder.setMakerAccountPayload(item.toProto(serializeForHash)));
         builder.addAllIssues(issues.get().stream()
@@ -111,6 +120,9 @@ public class MuSigMediationCase implements PersistableProto {
                 proto.hasMediationResultSignature() ?
                         Optional.of(proto.getMediationResultSignature().toByteArray()) :
                         Optional.empty(),
+                proto.hasPeerReportedContractHash() ?
+                        Optional.of(proto.getPeerReportedContractHash().toByteArray()) :
+                        Optional.empty(),
                 proto.hasTakerAccountPayload() ?
                         Optional.of(AccountPayload.fromProto(proto.getTakerAccountPayload())) :
                         Optional.empty(),
@@ -132,6 +144,54 @@ public class MuSigMediationCase implements PersistableProto {
 
     public Optional<byte[]> getMediationResultSignature() {
         return mediationResultSignature.map(byte[]::clone);
+    }
+
+    public Optional<byte[]> getPeerReportedContractHash() {
+        return peerReportedContractHash.map(byte[]::clone);
+    }
+
+    public ReadOnlyObservable<Boolean> hasPeerReportedContractHashObservable() {
+        return hasPeerReportedContractHash;
+    }
+
+    public MediationCaseState getMediationCaseState() {
+        return mediationCaseState.get();
+    }
+
+    public ReadOnlyObservable<MediationCaseState> mediationCaseStateObservable() {
+        return mediationCaseState;
+    }
+
+    public Optional<MuSigMediationResult> getMuSigMediationResult() {
+        return muSigMediationResult.get();
+    }
+
+    public ReadOnlyObservable<Optional<MuSigMediationResult>> muSigMediationResultObservable() {
+        return muSigMediationResult;
+    }
+
+    public Optional<AccountPayload<?>> getTakerAccountPayload() {
+        return takerAccountPayload.get();
+    }
+
+    public ReadOnlyObservable<Optional<AccountPayload<?>>> takerAccountPayloadObservable() {
+        return takerAccountPayload;
+    }
+
+    public Optional<AccountPayload<?>> getMakerAccountPayload() {
+        return makerAccountPayload.get();
+    }
+
+    public ReadOnlyObservable<Optional<AccountPayload<?>>> makerAccountPayloadObservable() {
+        return makerAccountPayload;
+    }
+
+    public List<MuSigMediationIssue> getIssues() {
+        return issues.get();
+    }
+
+    public ReadOnlyObservable<List<MuSigMediationIssue>> issuesObservable() {
+        return issues;
     }
 
     public boolean setSignedMuSigMediationResult(MuSigMediationResult result, byte[] signature) {
@@ -173,6 +233,20 @@ public class MuSigMediationCase implements PersistableProto {
         }
         this.makerAccountPayload.set(newValue);
         return true;
+    }
+
+    public boolean setPeerReportedContractHash(byte[] peerReportedContractHash) {
+        NetworkDataValidation.validateHash(peerReportedContractHash);
+        byte[] hashCopy = peerReportedContractHash.clone();
+        Optional<byte[]> currentHash = this.peerReportedContractHash;
+        if (currentHash.isPresent() && !Arrays.equals(currentHash.orElseThrow(), hashCopy)) {
+            throw new IllegalArgumentException("peerReportedContractHash cannot be changed once set.");
+        }
+        if (currentHash.isPresent()) {
+            return false;
+        }
+        this.peerReportedContractHash = Optional.of(hashCopy);
+        return hasPeerReportedContractHash.set(true);
     }
 
     public synchronized boolean addIssues(List<MuSigMediationIssue> newIssues) {
