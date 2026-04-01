@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static bisq.desktop.components.controls.BisqIconButton.createInfoIconButton;
 import static bisq.desktop.components.helpers.LabeledValueRowFactory.createAndGetDescriptionAndValueBox;
 import static bisq.desktop.components.helpers.LabeledValueRowFactory.getCopyButton;
 import static bisq.desktop.components.helpers.LabeledValueRowFactory.getDescriptionLabel;
@@ -152,7 +153,6 @@ public class MuSigMediationCaseDetailSection {
             model.setBuyerNetworkAddress(buyer.getUserProfile().getAddressByTransportDisplayString(50));
             model.setSellerNetworkAddress(seller.getUserProfile().getAddressByTransportDisplayString(50));
 
-            clearPins();
             pins.add(muSigMediationCase.hasPeerReportedContractHashObservable().addObserver(hasPeerReportedContractHash ->
                     UIThread.run(() -> applyContractHashState(muSigMediationCase))));
             pins.add(muSigMediationCase.issuesObservable().addObserver(issues ->
@@ -180,8 +180,8 @@ public class MuSigMediationCaseDetailSection {
         private void applyContractHashState(MuSigMediationCase muSigMediationCase) {
             MuSigMediationRequest request = muSigMediationCase.getMuSigMediationRequest();
             MuSigContract contract = request.getContract();
-            byte[] requestContractHash = ContractService.getContractHash(contract);
-            model.getContractHash().set(Hex.encode(requestContractHash));
+            byte[] requesterContractHash = ContractService.getContractHash(contract);
+            model.getContractHash().set(Hex.encode(requesterContractHash));
             model.getContractHashMismatch().set(false);
             model.getContractHashIssueVisible().set(false);
             model.getContractHashIssueTooltip().set("");
@@ -197,21 +197,21 @@ public class MuSigMediationCaseDetailSection {
             List<MuSigMediationIssue> issues = muSigMediationCase.getIssues().stream()
                     .filter(issue -> issue.getType() == MuSigMediationIssueType.PEER_CONTRACT_HASH_MISMATCH)
                     .toList();
-            if (!issues.isEmpty() || !Arrays.equals(requestContractHash, peerReportedContractHash.orElseThrow())) {
+            if (!issues.isEmpty() || !Arrays.equals(requesterContractHash, peerReportedContractHash.orElseThrow())) {
                 model.getContractHash().set("");
                 model.getContractHashMismatch().set(true);
                 model.getContractHashIssueVisible().set(true);
                 model.getContractHashIssueWarning().set(true);
-                model.getContractHashIssueTooltip().set(createContractHashMismatchTooltip(request, requestContractHash, peerReportedContractHash.orElseThrow()));
+                model.getContractHashIssueTooltip().set(createContractHashMismatchTooltip(request, requesterContractHash, peerReportedContractHash.orElseThrow()));
             }
         }
 
         private String createContractHashMismatchTooltip(MuSigMediationRequest request,
-                                                         byte[] requestContractHash,
+                                                         byte[] requesterContractHash,
                                                          byte[] peerReportedContractHash) {
             Role requesterRole = getRole(request.getContract(), request.getRequester().getId());
-            String makerHash = requesterRole == Role.MAKER ? Hex.encode(requestContractHash) : Hex.encode(peerReportedContractHash);
-            String takerHash = requesterRole == Role.TAKER ? Hex.encode(requestContractHash) : Hex.encode(peerReportedContractHash);
+            String makerHash = requesterRole == Role.MAKER ? Hex.encode(requesterContractHash) : Hex.encode(peerReportedContractHash);
+            String takerHash = requesterRole == Role.TAKER ? Hex.encode(requesterContractHash) : Hex.encode(peerReportedContractHash);
             return Res.get("authorizedRole.mediator.mediationCaseDetails.contractHash.issue.hashMismatch",
                     makerHash,
                     takerHash);
@@ -308,7 +308,7 @@ public class MuSigMediationCaseDetailSection {
                         offerTypeAndMarketDetailsHBox);
 
                 contractHashLabel = getValueLabel();
-                contractHashIssueButton = bisq.desktop.components.controls.BisqIconButton.createInfoIconButton();
+                contractHashIssueButton = createInfoIconButton();
                 contractHashIssueButton.setVisible(false);
                 contractHashIssueButton.setManaged(false);
                 contractHashIssueTooltip = new Tooltip();

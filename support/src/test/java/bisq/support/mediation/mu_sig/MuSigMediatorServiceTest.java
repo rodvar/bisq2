@@ -24,7 +24,6 @@ import bisq.account.payment_method.PaymentMethodSpec;
 import bisq.account.payment_method.PaymentMethodSpecUtil;
 import bisq.account.payment_method.fiat.FiatPaymentMethod;
 import bisq.account.payment_method.fiat.FiatPaymentRail;
-import bisq.account.protocol_type.TradeProtocolType;
 import bisq.bonded_roles.BondedRolesService;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRolesService;
 import bisq.chat.ChatService;
@@ -33,7 +32,6 @@ import bisq.common.market.Market;
 import bisq.common.network.AddressByTransportTypeMap;
 import bisq.common.network.TransportType;
 import bisq.common.network.clear_net_address_types.LocalHostAddressTypeFacade;
-import bisq.contract.Party;
 import bisq.contract.Role;
 import bisq.contract.mu_sig.MuSigContract;
 import bisq.i18n.Res;
@@ -229,42 +227,6 @@ class MuSigMediatorServiceTest {
     }
 
     @Test
-    void processPaymentDetailsResponse_addsMakerMismatchIssue_whenMatchingOnlyNonSelectedMakerAccountOption() throws Exception {
-        UserProfile maker = createUserProfile(14001);
-        UserProfile taker = createUserProfile(14002);
-        AccountPayload<?> takerPayload = createNationalBankPayload("taker-account-5", "DE123");
-        AccountPayload<?> makerPayloadOption1 = createNationalBankPayload("maker-account-4a", "DE124");
-        AccountPayload<?> makerPayloadOption2 = createNationalBankPayload("maker-account-4b", "DE125");
-        MuSigContract contract = createContractWithExplicitMakerHash(
-                maker,
-                taker,
-                "offer-5",
-                takerPayload,
-                makerPayloadOption1,
-                List.of(makerPayloadOption1, makerPayloadOption2)
-        );
-        String tradeId = "trade-5";
-        MuSigMediationCase mediationCase = createMediationCase(tradeId, contract, maker, taker);
-        service.getMediationCases().add(mediationCase);
-
-        MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
-                tradeId,
-                takerPayload,
-                makerPayloadOption2,
-                taker.getId()
-        );
-
-        invokeProcessPaymentDetailsResponse(response);
-
-        assertThat(mediationCase.getTakerAccountPayload()).containsSame(takerPayload);
-        assertThat(mediationCase.getMakerAccountPayload()).isEmpty();
-        assertThat(mediationCase.getIssues()).hasSize(1);
-        MuSigMediationIssue issue = mediationCase.getIssues().getFirst();
-        assertThat(issue.getType()).isEqualTo(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
-        assertThat(issue.getCausingRole()).isEqualTo(Role.TAKER);
-    }
-
-    @Test
     void processPaymentDetailsResponse_doesNotDuplicateIssue_whenSameMismatchReportedTwice() throws Exception {
         UserProfile maker = createUserProfile(15001);
         UserProfile taker = createUserProfile(15002);
@@ -334,15 +296,16 @@ class MuSigMediatorServiceTest {
     }
 
     @Test
-    void verifyPaymentDetails_returnsTakerMismatchIssue_whenExpectedTakerHashIsMissing() throws Exception {
+    void verifyPaymentDetails_returnsTakerMismatchIssue_whenExpectedTakerHashDoesNotMatch() throws Exception {
         UserProfile maker = createUserProfile(17001);
         UserProfile taker = createUserProfile(17002);
-        AccountPayload<?> takerPayload = createNationalBankPayload("taker-account-8", "DE921");
+        AccountPayload<?> expectedTakerPayload = createNationalBankPayload("expected-taker-account-8", "DE921");
+        AccountPayload<?> wrongTakerPayload = createNationalBankPayload("wrong-taker-account-8", "DE923");
         AccountPayload<?> makerPayload = createNationalBankPayload("maker-account-8", "DE922");
-        MuSigContract contract = createContractWithoutTakerHash(maker, taker, "offer-8", makerPayload);
+        MuSigContract contract = createContract(maker, taker, "offer-8", expectedTakerPayload, makerPayload);
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 "trade-8",
-                takerPayload,
+                wrongTakerPayload,
                 makerPayload,
                 taker.getId()
         );
@@ -449,61 +412,15 @@ class MuSigMediatorServiceTest {
         );
         PaymentMethodSpec<?> quoteSidePaymentMethodSpec = PaymentMethodSpecUtil.createPaymentMethodSpec(paymentMethod, "EUR");
         byte[] takerSaltedAccountPayloadHash = OfferOptionUtil.createSaltedAccountPayloadHash(takerPayloadForHash, offerId);
-        byte[] makerSaltedAccountPayloadHash = OfferOptionUtil.createSaltedAccountPayloadHash(makerPayloadForHash, offerId);
         return new MuSigContract(
                 System.currentTimeMillis(),
                 offer,
-                TradeProtocolType.MU_SIG,
-                new Party(Role.MAKER, maker.getNetworkId(), Optional.of(makerSaltedAccountPayloadHash)),
-                new Party(Role.TAKER, taker.getNetworkId(), Optional.of(takerSaltedAccountPayloadHash)),
+                taker.getNetworkId(),
                 100_000L,
                 3_500_000L,
-                PaymentMethodSpecUtil.createBitcoinMainChainPaymentMethodSpec().get(0),
                 quoteSidePaymentMethodSpec,
+                takerSaltedAccountPayloadHash,
                 Optional.empty(),
-                createPriceSpec(),
-                0
-        );
-    }
-
-    private MuSigContract createContractWithoutTakerHash(UserProfile maker,
-                                                         UserProfile taker,
-                                                         String offerId,
-                                                         AccountPayload<?> makerPayloadForHash) {
-        Market market = new Market("BTC", "EUR", "Bitcoin", "Euro");
-        PaymentMethod<?> paymentMethod = FiatPaymentMethod.fromPaymentRail(FiatPaymentRail.NATIONAL_BANK);
-        AccountOption accountOption = new AccountOption(
-                paymentMethod,
-                "0123456789abcdef0123456789abcdef01234567",
-                Optional.empty(),
-                List.of(),
-                Optional.empty(),
-                List.of(),
-                OfferOptionUtil.createSaltedAccountPayloadHash(makerPayloadForHash, offerId)
-        );
-        MuSigOffer offer = new MuSigOffer(
-                offerId,
-                maker.getNetworkId(),
-                Direction.BUY,
-                market,
-                new BaseSideFixedAmountSpec(100_000L),
-                new MarketPriceSpec(),
-                List.of(paymentMethod),
-                List.of(accountOption),
-                "1.0.0"
-        );
-        PaymentMethodSpec<?> quoteSidePaymentMethodSpec = PaymentMethodSpecUtil.createPaymentMethodSpec(paymentMethod, "EUR");
-        byte[] makerSaltedAccountPayloadHash = OfferOptionUtil.createSaltedAccountPayloadHash(makerPayloadForHash, offerId);
-        return new MuSigContract(
-                System.currentTimeMillis(),
-                offer,
-                TradeProtocolType.MU_SIG,
-                new Party(Role.MAKER, maker.getNetworkId(), Optional.of(makerSaltedAccountPayloadHash)),
-                new Party(Role.TAKER, taker.getNetworkId()),
-                100_000L,
-                3_500_000L,
-                PaymentMethodSpecUtil.createBitcoinMainChainPaymentMethodSpec().get(0),
-                quoteSidePaymentMethodSpec,
                 Optional.empty(),
                 createPriceSpec(),
                 0
@@ -532,13 +449,12 @@ class MuSigMediatorServiceTest {
         return new MuSigContract(
                 System.currentTimeMillis(),
                 offer,
-                TradeProtocolType.MU_SIG,
-                new Party(Role.MAKER, maker.getNetworkId()),
-                new Party(Role.TAKER, taker.getNetworkId(), Optional.of(takerSaltedAccountPayloadHash)),
+                taker.getNetworkId(),
                 100_000L,
                 3_500_000L,
-                PaymentMethodSpecUtil.createBitcoinMainChainPaymentMethodSpec().get(0),
                 quoteSidePaymentMethodSpec,
+                takerSaltedAccountPayloadHash,
+                Optional.empty(),
                 Optional.empty(),
                 createPriceSpec(),
                 0
