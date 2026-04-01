@@ -66,12 +66,6 @@ public final class MuSigMediationStateChangeMessage implements MailboxMessage, E
     public void verify() {
         NetworkDataValidation.validateId(id);
         NetworkDataValidation.validateTradeId(tradeId);
-        if (mediationCaseState == MediationCaseState.CLOSED && muSigMediationResult.isEmpty()) {
-            throw new IllegalArgumentException("Closed mediation case state must contain MuSigMediationResult.");
-        }
-        if (muSigMediationResult.isPresent() && mediationResultSignature.isEmpty()) {
-            throw new IllegalArgumentException("MuSig mediation result must contain mediationResultSignature.");
-        }
         mediationResultSignature.ifPresent(NetworkDataValidation::validateECSignature);
     }
 

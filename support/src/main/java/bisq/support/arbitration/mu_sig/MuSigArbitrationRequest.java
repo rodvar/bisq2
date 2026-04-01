@@ -15,7 +15,7 @@
  * along with Bisq. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package bisq.support.mediation.mu_sig;
+package bisq.support.arbitration.mu_sig;
 
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeMessage;
 import bisq.common.proto.ProtoResolver;
@@ -27,15 +27,19 @@ import bisq.network.p2p.message.ExternalNetworkMessage;
 import bisq.network.p2p.services.confidential.ack.AckRequestingMessage;
 import bisq.network.p2p.services.data.storage.MetaData;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
+import bisq.support.mediation.mu_sig.MuSigMediationResult;
 import bisq.user.profile.UserProfile;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static bisq.network.p2p.services.data.storage.MetaData.HIGH_PRIORITY;
@@ -46,16 +50,16 @@ import static com.google.common.base.Preconditions.checkArgument;
 @Getter
 @ToString
 @EqualsAndHashCode
-public final class MuSigMediationRequest implements MailboxMessage, ExternalNetworkMessage, AckRequestingMessage {
+public final class MuSigArbitrationRequest implements MailboxMessage, ExternalNetworkMessage, AckRequestingMessage {
     public static String createMessageId(String tradeId) {
-        return MuSigMediationRequest.class.getSimpleName() + "." + tradeId;
+        return MuSigArbitrationRequest.class.getSimpleName() + "." + tradeId;
     }
 
-    // MetaData is transient as it will be used indirectly by low level network classes. Only some low level network classes write the metaData to their protobuf representations.
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final MuSigContract contract;
     private final String tradeId;
-
+    private final MuSigMediationResult muSigMediationResult;
+    private final byte[] mediationResultSignature;
     @EqualsAndHashCode.Exclude
     private final UserProfile requester;
     @EqualsAndHashCode.Exclude
@@ -63,70 +67,68 @@ public final class MuSigMediationRequest implements MailboxMessage, ExternalNetw
     @EqualsAndHashCode.Exclude
     private final List<MuSigOpenTradeMessage> chatMessages;
     @EqualsAndHashCode.Exclude
-    private final NetworkId mediatorNetworkId;
+    private final NetworkId arbitratorNetworkId;
 
-    public MuSigMediationRequest(String tradeId,
-                                 MuSigContract contract,
-                                 UserProfile requester,
-                                 UserProfile peer,
-                                 List<MuSigOpenTradeMessage> chatMessages,
-                                 NetworkId mediatorNetworkId) {
+    public MuSigArbitrationRequest(String tradeId,
+                                   MuSigContract contract,
+                                   MuSigMediationResult muSigMediationResult,
+                                   byte[] mediationResultSignature,
+                                   UserProfile requester,
+                                   UserProfile peer,
+                                   List<MuSigOpenTradeMessage> chatMessages,
+                                   NetworkId arbitratorNetworkId) {
         this.tradeId = tradeId;
         this.contract = contract;
+        this.muSigMediationResult = muSigMediationResult;
+        this.mediationResultSignature = mediationResultSignature.clone();
         this.requester = requester;
         this.peer = peer;
         this.chatMessages = maybePrune(chatMessages);
-        this.mediatorNetworkId = mediatorNetworkId;
+        this.arbitratorNetworkId = arbitratorNetworkId;
 
-        // We need to sort deterministically as the data is used in the proof of work check
         Collections.sort(this.chatMessages);
-
         verify();
     }
 
     @Override
     public void verify() {
         NetworkDataValidation.validateTradeId(tradeId);
+        NetworkDataValidation.validateECSignature(mediationResultSignature);
         checkArgument(chatMessages.size() < 1000);
     }
 
-    /**
-     * Keep proto name for backward compatibility
-     */
-
     @Override
-    public bisq.support.protobuf.MuSigMediationRequest.Builder getValueBuilder(boolean serializeForHash) {
-        return bisq.support.protobuf.MuSigMediationRequest.newBuilder()
+    public bisq.support.protobuf.MuSigArbitrationRequest.Builder getValueBuilder(boolean serializeForHash) {
+        return bisq.support.protobuf.MuSigArbitrationRequest.newBuilder()
                 .setTradeId(tradeId)
                 .setContract(contract.toProto(serializeForHash))
+                .setMuSigMediationResult(muSigMediationResult.toProto(serializeForHash))
+                .setMediationResultSignature(ByteString.copyFrom(mediationResultSignature))
                 .setRequester(requester.toProto(serializeForHash))
                 .setPeer(peer.toProto(serializeForHash))
-                .setMediatorNetworkId(mediatorNetworkId.toProto(serializeForHash))
                 .addAllChatMessages(chatMessages.stream()
                         .map(e -> e.toValueProto(serializeForHash))
-                        .collect(Collectors.toList()));
+                        .collect(Collectors.toList()))
+                .setArbitratorNetworkId(arbitratorNetworkId.toProto(serializeForHash));
     }
 
     @Override
-    public bisq.support.protobuf.MuSigMediationRequest toValueProto(boolean serializeForHash) {
+    public bisq.support.protobuf.MuSigArbitrationRequest toValueProto(boolean serializeForHash) {
         return resolveBuilder(this.getValueBuilder(serializeForHash), serializeForHash).build();
     }
 
-    public static MuSigMediationRequest fromProto(bisq.support.protobuf.MuSigMediationRequest proto) {
-        return new MuSigMediationRequest(proto.getTradeId(),
+    public static MuSigArbitrationRequest fromProto(bisq.support.protobuf.MuSigArbitrationRequest proto) {
+        return new MuSigArbitrationRequest(proto.getTradeId(),
                 MuSigContract.fromProto(proto.getContract()),
+                MuSigMediationResult.fromProto(proto.getMuSigMediationResult()),
+                proto.getMediationResultSignature().toByteArray(),
                 UserProfile.fromProto(proto.getRequester()),
                 UserProfile.fromProto(proto.getPeer()),
                 proto.getChatMessagesList().stream()
                         .map(MuSigOpenTradeMessage::fromProto)
                         .collect(Collectors.toList()),
-                NetworkId.fromProto(proto.getMediatorNetworkId()));
+                NetworkId.fromProto(proto.getArbitratorNetworkId()));
     }
-
-
-    /* --------------------------------------------------------------------- */
-    // AckRequestingMessage implementation
-    /* --------------------------------------------------------------------- */
 
     @Override
     public String getAckRequestingMessageId() {
@@ -140,14 +142,18 @@ public final class MuSigMediationRequest implements MailboxMessage, ExternalNetw
 
     @Override
     public NetworkId getReceiver() {
-        return mediatorNetworkId;
+        return arbitratorNetworkId;
+    }
+
+    public byte[] getMediationResultSignature() {
+        return mediationResultSignature.clone();
     }
 
     public static ProtoResolver<ExternalNetworkMessage> getNetworkMessageResolver() {
         return any -> {
             try {
-                bisq.support.protobuf.MuSigMediationRequest proto = any.unpack(bisq.support.protobuf.MuSigMediationRequest.class);
-                return MuSigMediationRequest.fromProto(proto);
+                bisq.support.protobuf.MuSigArbitrationRequest proto = any.unpack(bisq.support.protobuf.MuSigArbitrationRequest.class);
+                return MuSigArbitrationRequest.fromProto(proto);
             } catch (InvalidProtocolBufferException e) {
                 throw new UnresolvableProtobufMessageException(e);
             }

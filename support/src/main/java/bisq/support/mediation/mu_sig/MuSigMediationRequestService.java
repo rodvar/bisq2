@@ -142,7 +142,7 @@ public class MuSigMediationRequestService implements Service, ConfidentialMessag
                 myUserIdentity.getUserProfile(),
                 peer,
                 new ArrayList<>(channel.getChatMessages()),
-                Optional.of(mediatorNetworkId));
+                mediatorNetworkId);
         networkService.confidentialSend(muSigMediationRequest,
                 mediatorNetworkId,
                 myUserIdentity.getNetworkIdWithKeyPair());
