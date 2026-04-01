@@ -22,13 +22,17 @@ import bisq.common.proto.ProtoResolver;
 import bisq.common.proto.UnresolvableProtobufMessageException;
 import bisq.common.validation.NetworkDataValidation;
 import bisq.network.p2p.message.ExternalNetworkMessage;
+import bisq.network.p2p.message.SenderPublicKeyProvidingPayload;
 import bisq.network.p2p.services.data.storage.MetaData;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
+import bisq.user.profile.UserProfile;
 import com.google.protobuf.InvalidProtocolBufferException;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+
+import java.security.PublicKey;
 
 import static bisq.network.p2p.services.data.storage.MetaData.HIGH_PRIORITY;
 import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
@@ -37,21 +41,21 @@ import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 @Getter
 @ToString
 @EqualsAndHashCode
-public final class MuSigPaymentDetailsResponse implements MailboxMessage, ExternalNetworkMessage {
+public final class MuSigPaymentDetailsResponse implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final String tradeId;
     private final AccountPayload<?> takerAccountPayload;
     private final AccountPayload<?> makerAccountPayload;
-    private final String senderUserProfileId;
+    private final UserProfile senderUserProfile;
 
     public MuSigPaymentDetailsResponse(String tradeId,
                                        AccountPayload<?> takerAccountPayload,
                                        AccountPayload<?> makerAccountPayload,
-                                       String senderUserProfileId) {
+                                       UserProfile senderUserProfile) {
         this.tradeId = tradeId;
         this.takerAccountPayload = takerAccountPayload;
         this.makerAccountPayload = makerAccountPayload;
-        this.senderUserProfileId = senderUserProfileId;
+        this.senderUserProfile = senderUserProfile;
 
         verify();
     }
@@ -59,7 +63,6 @@ public final class MuSigPaymentDetailsResponse implements MailboxMessage, Extern
     @Override
     public void verify() {
         NetworkDataValidation.validateTradeId(tradeId);
-        NetworkDataValidation.validateProfileId(senderUserProfileId);
     }
 
     @Override
@@ -68,7 +71,7 @@ public final class MuSigPaymentDetailsResponse implements MailboxMessage, Extern
                 .setTradeId(tradeId)
                 .setTakerAccountPayload(takerAccountPayload.toProto(serializeForHash))
                 .setMakerAccountPayload(makerAccountPayload.toProto(serializeForHash))
-                .setSenderUserProfileId(senderUserProfileId);
+                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash));
     }
 
     public static MuSigPaymentDetailsResponse fromProto(bisq.support.protobuf.MuSigPaymentDetailsResponse proto) {
@@ -76,7 +79,7 @@ public final class MuSigPaymentDetailsResponse implements MailboxMessage, Extern
                 proto.getTradeId(),
                 AccountPayload.fromProto(proto.getTakerAccountPayload()),
                 AccountPayload.fromProto(proto.getMakerAccountPayload()),
-                proto.getSenderUserProfileId()
+                UserProfile.fromProto(proto.getSenderUserProfile())
         );
     }
 
@@ -94,5 +97,10 @@ public final class MuSigPaymentDetailsResponse implements MailboxMessage, Extern
     @Override
     public double getCostFactor() {
         return getCostFactor(0.1, 0.4);
+    }
+
+    @Override
+    public PublicKey getSenderPublicKey() {
+        return senderUserProfile.getPublicKey();
     }
 }

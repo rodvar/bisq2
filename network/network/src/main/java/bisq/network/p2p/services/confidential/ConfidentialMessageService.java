@@ -23,6 +23,7 @@ import bisq.common.util.CompletableFutureUtils;
 import bisq.network.NetworkExecutors;
 import bisq.network.identity.NetworkId;
 import bisq.network.p2p.message.EnvelopePayloadMessage;
+import bisq.network.p2p.message.SenderPublicKeyProvidingPayload;
 import bisq.network.p2p.node.CloseReason;
 import bisq.network.p2p.node.Connection;
 import bisq.network.p2p.node.Node;
@@ -41,12 +42,12 @@ import bisq.security.HybridEncryption;
 import bisq.security.keys.KeyBundleService;
 import bisq.security.keys.KeyGeneration;
 import bisq.security.keys.PubKey;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.security.GeneralSecurityException;
 import java.security.KeyPair;
 import java.security.PublicKey;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -54,12 +55,18 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 @Slf4j
 public class ConfidentialMessageService implements Node.Listener, DataService.Listener {
     private static final ExecutorService EXECUTOR = ExecutorFactory.newSingleThreadExecutor("ConfidentialMessageService");
+
+    public record EnvelopePayloadMessageAndPublicKey(EnvelopePayloadMessage envelopePayloadMessage,
+                                                     PublicKey senderPublicKey) {
+    }
 
     public interface Listener {
         void onMessage(EnvelopePayloadMessage envelopePayloadMessage);
@@ -73,8 +80,7 @@ public class ConfidentialMessageService implements Node.Listener, DataService.Li
     private final Optional<DataService> dataService;
     private final Optional<MessageDeliveryStatusService> messageDeliveryStatusService;
     private final Set<Listener> listeners = new CopyOnWriteArraySet<>();
-    @Getter
-    private final Set<EnvelopePayloadMessage> processedEnvelopePayloadMessages = new CopyOnWriteArraySet<>();
+    private final Set<EnvelopePayloadMessageAndPublicKey> processedEnvelopePayloadMessagesAndPublicKeys = new CopyOnWriteArraySet<>();
     private volatile boolean isShutdownInProgress;
 
     public ConfidentialMessageService(NodesById nodesById,
@@ -101,7 +107,7 @@ public class ConfidentialMessageService implements Node.Listener, DataService.Li
         nodesById.removeNodeListener(this);
         dataService.ifPresent(service -> service.removeListener(this));
         listeners.clear();
-        processedEnvelopePayloadMessages.clear();
+        processedEnvelopePayloadMessagesAndPublicKeys.clear();
     }
 
 
@@ -377,6 +383,16 @@ public class ConfidentialMessageService implements Node.Listener, DataService.Li
         listeners.remove(listener);
     }
 
+    public Set<EnvelopePayloadMessage> getProcessedEnvelopePayloadMessages() {
+        return processedEnvelopePayloadMessagesAndPublicKeys.stream()
+                .map(EnvelopePayloadMessageAndPublicKey::envelopePayloadMessage)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    public Set<EnvelopePayloadMessageAndPublicKey> getProcessedEnvelopePayloadMessagesAndPublicKeys() {
+        return Set.copyOf(processedEnvelopePayloadMessagesAndPublicKeys);
+    }
+
 
     /* --------------------------------------------------------------------- */
     // Private
@@ -495,9 +511,17 @@ public class ConfidentialMessageService implements Node.Listener, DataService.Li
             // For backward compatibility we send 2 versions of mailbox data, thus we will receive each
             // mailbox data 2 times. We do not want that client code need to deal with duplications,
             // thus we filter here out the duplicated message.
-            boolean wasNotPresent = processedEnvelopePayloadMessages.add(decryptedEnvelopePayloadMessage);
+            byte[] encodedSenderPublicKey = confidentialData.getSenderPublicKey();
+
+            if (decryptedEnvelopePayloadMessage instanceof SenderPublicKeyProvidingPayload pubKeyProvidingMessage) {
+                checkArgument(Arrays.equals(pubKeyProvidingMessage.getSenderPublicKey().getEncoded(), encodedSenderPublicKey),
+                        "Public key of decrypted pubKeyProvidingMessage and senderPublicKey do not match.");
+            }
+
+            PublicKey senderPublicKey = KeyGeneration.generatePublic(encodedSenderPublicKey);
+            boolean wasNotPresent = processedEnvelopePayloadMessagesAndPublicKeys.add(
+                    new EnvelopePayloadMessageAndPublicKey(decryptedEnvelopePayloadMessage, senderPublicKey));
             if (wasNotPresent) {
-                PublicKey senderPublicKey = KeyGeneration.generatePublic(confidentialData.getSenderPublicKey());
                 log.info("Decrypted confidentialMessage. decryptedEnvelopePayloadMessage={}", decryptedEnvelopePayloadMessage.getClass().getSimpleName());
                 listeners.forEach(listener -> {
                     NetworkExecutors.getNotifyExecutor().submit(() -> listener.onMessage(decryptedEnvelopePayloadMessage));

@@ -299,7 +299,7 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
         } else if (envelopePayloadMessage instanceof MuSigMediationStateChangeMessage message) {
             maybeApplyDisputeStateFromMediationStateChangeMessage(message);
         } else if (envelopePayloadMessage instanceof MuSigMediationResultAcceptanceMessage message) {
-            if (bannedUserService.isUserProfileBanned(message.getSenderUserProfileId())) {
+            if (bannedUserService.isUserProfileBanned(message.getSenderUserProfile())) {
                 log.warn("Ignoring MuSigMediationResultAcceptanceMessage as sender is banned");
                 return;
             }
@@ -394,7 +394,7 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
 
         networkService.confidentialSend(new MuSigMediationResultAcceptanceMessage(trade.getId(),
                         mediationResultAccepted,
-                        trade.getMyIdentity().getId()),
+                        userProfileService.findUserProfile(trade.getMyIdentity().getId()).orElseThrow()),
                 trade.getPeer().getNetworkId(),
                 trade.getMyIdentity().getNetworkIdWithKeyPair());
         persist();
@@ -790,9 +790,9 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
                         message.getTradeId());
                 return;
             }
-            if (!trade.getPeer().getNetworkId().getId().equals(message.getSenderUserProfileId())) {
-                log.warn("Ignoring MuSigMediationResultAcceptanceMessage with unexpected senderUserProfileId {} for trade {}.",
-                        message.getSenderUserProfileId(), message.getTradeId());
+            if (!trade.getPeer().getNetworkId().getId().equals(message.getSenderUserProfile().getId())) {
+                log.warn("Ignoring MuSigMediationResultAcceptanceMessage with unexpected senderUserProfile {} for trade {}.",
+                        message.getSenderUserProfile(), message.getTradeId());
                 return;
             }
 
@@ -828,7 +828,7 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
                     message.getTradeId(),
                     trade.getTaker().getAccountPayload().orElseThrow(),
                     trade.getMaker().getAccountPayload().orElseThrow(),
-                    myIdentity.getId()
+                    userProfileService.findUserProfile(trade.getMyIdentity().getId()).orElseThrow()
             );
             networkService.confidentialSend(paymentDetailsResponse,
                     mediatorUserProfile.getNetworkId(),
@@ -846,7 +846,7 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
 
         MuSigDisputeCaseDataMessage message = new MuSigDisputeCaseDataMessage(
                 trade.getId(),
-                trade.getMyIdentity().getId(),
+                userProfileService.findUserProfile(trade.getMyIdentity().getId()).orElseThrow(),
                 ContractService.getContractHash(trade.getContract()),
                 muSigOpenTradeChannelService.findChannelByTradeId(trade.getId())
                         .map(channel -> new ArrayList<>(channel.getChatMessages()))

@@ -52,6 +52,7 @@ import bisq.persistence.PersistenceService;
 import bisq.security.keys.KeyGeneration;
 import bisq.security.keys.PubKey;
 import bisq.security.pow.ProofOfWork;
+import bisq.support.mediation.MuSigDisputeCaseDataMessage;
 import bisq.user.UserService;
 import bisq.user.banned.BannedUserService;
 import bisq.user.identity.UserIdentityService;
@@ -75,6 +76,7 @@ import static org.mockito.Mockito.when;
 
 class MuSigMediatorServiceTest {
     private MuSigMediatorService service;
+    private BannedUserService bannedUserService;
 
     @BeforeAll
     static void setupRes() {
@@ -100,7 +102,7 @@ class MuSigMediatorServiceTest {
         UserService userService = mock(UserService.class);
         UserIdentityService userIdentityService = mock(UserIdentityService.class);
         when(userService.getUserIdentityService()).thenReturn(userIdentityService);
-        BannedUserService bannedUserService = mock(BannedUserService.class);
+        bannedUserService = mock(BannedUserService.class);
         when(userService.getBannedUserService()).thenReturn(bannedUserService);
         when(bannedUserService.isUserProfileBanned(any(String.class))).thenReturn(false);
         when(bannedUserService.isUserProfileBanned(any(UserProfile.class))).thenReturn(false);
@@ -129,7 +131,7 @@ class MuSigMediatorServiceTest {
                 "trade-1",
                 takerPayload,
                 makerPayload,
-                taker.getId()
+                taker
         );
 
         Object verification = invokeVerifyPaymentDetails(contract, response, Role.TAKER);
@@ -154,7 +156,7 @@ class MuSigMediatorServiceTest {
                 tradeId,
                 takerPayload,
                 makerPayload,
-                taker.getId()
+                taker
         );
 
         invokeProcessPaymentDetailsResponse(response);
@@ -180,7 +182,7 @@ class MuSigMediatorServiceTest {
                 tradeId,
                 wrongTakerPayload,
                 makerPayload,
-                maker.getId()
+                maker
         );
 
         invokeProcessPaymentDetailsResponse(response);
@@ -211,7 +213,7 @@ class MuSigMediatorServiceTest {
                 tradeId,
                 takerPayload,
                 wrongMakerPayload,
-                taker.getId()
+                taker
         );
 
         invokeProcessPaymentDetailsResponse(response);
@@ -242,7 +244,7 @@ class MuSigMediatorServiceTest {
                 tradeId,
                 takerPayload,
                 wrongMakerPayload,
-                taker.getId()
+                taker
         );
 
         invokeProcessPaymentDetailsResponse(response);
@@ -272,13 +274,13 @@ class MuSigMediatorServiceTest {
                 tradeId,
                 takerPayload,
                 wrongMakerPayload,
-                taker.getId()
+                taker
         );
         MuSigPaymentDetailsResponse makerResponse = new MuSigPaymentDetailsResponse(
                 tradeId,
                 takerPayload,
                 wrongMakerPayload,
-                maker.getId()
+                maker
         );
 
         invokeProcessPaymentDetailsResponse(takerResponse);
@@ -307,7 +309,7 @@ class MuSigMediatorServiceTest {
                 "trade-8",
                 wrongTakerPayload,
                 makerPayload,
-                taker.getId()
+                taker
         );
 
         Object verification = invokeVerifyPaymentDetails(contract, response, Role.TAKER);
@@ -330,7 +332,7 @@ class MuSigMediatorServiceTest {
                 "trade-9",
                 takerPayload,
                 makerPayload,
-                maker.getId()
+                maker
         );
 
         Object verification = invokeVerifyPaymentDetails(contract, response, Role.MAKER);
@@ -340,6 +342,121 @@ class MuSigMediatorServiceTest {
         assertThat(invokeVerificationIssues(verification))
                 .extracting(MuSigMediationIssue::getType)
                 .containsExactly(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
+    }
+
+    @Test
+    void verifyMediationRequestMatchesAndPartiesAndMediatorAreConsistent() {
+        UserProfile requester = createUserProfile(1001);
+        UserProfile peer = createUserProfile(1002);
+        UserProfile mediator = createUserProfile(1003);
+        MuSigContract contract = createContract(requester, peer, mediator, "offer-10",
+                createNationalBankPayload("taker-account-10", "DE101"),
+                createNationalBankPayload("maker-account-10", "DE102"));
+        MuSigMediationRequest request = new MuSigMediationRequest(
+                "trade-10",
+                contract,
+                requester,
+                peer,
+                List.of(),
+                mediator.getNetworkId()
+        );
+
+        Optional<UserProfile> authenticatedSender = MuSigMediatorService.verifyMediationRequest(
+                request,
+                bannedUserService
+        );
+
+        assertThat(authenticatedSender).containsSame(requester);
+    }
+
+    @Test
+    void verifyPaymentDetailsResponse_returnsCase_whenKnownSenderIsNotBanned() {
+        UserProfile requester = createUserProfile(1001);
+        UserProfile peer = createUserProfile(1002);
+        MuSigMediationRequest request = createMediationRequest("trade-12", requester, peer);
+        MuSigMediationCase mediationCase = new MuSigMediationCase(request);
+        MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
+                "trade-12",
+                createNationalBankPayload("taker-account-12", "DE121"),
+                createNationalBankPayload("maker-account-12", "DE122"),
+                requester
+        );
+
+        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.verifyPaymentDetailsResponse(
+                response,
+                tradeId -> tradeId.equals(mediationCase.getMuSigMediationRequest().getTradeId()) ? Optional.of(mediationCase) : Optional.empty(),
+                bannedUserService
+        );
+
+        assertThat(authenticatedCase).containsSame(mediationCase);
+    }
+
+    @Test
+    void verifyPaymentDetailsResponse_returnsEmpty_whenSenderUserProfileIdIsUnknown() {
+        UserProfile requester = createUserProfile(1001);
+        UserProfile peer = createUserProfile(1002);
+        UserProfile stranger = createUserProfile(1003);
+        MuSigMediationRequest request = createMediationRequest("trade-13", requester, peer);
+        MuSigMediationCase mediationCase = new MuSigMediationCase(request);
+        MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
+                "trade-13",
+                createNationalBankPayload("taker-account-13", "DE131"),
+                createNationalBankPayload("maker-account-13", "DE132"),
+                stranger
+        );
+
+        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.verifyPaymentDetailsResponse(
+                response,
+                tradeId -> tradeId.equals(mediationCase.getMuSigMediationRequest().getTradeId()) ? Optional.of(mediationCase) : Optional.empty(),
+                bannedUserService
+        );
+
+        assertThat(authenticatedCase).isEmpty();
+    }
+
+    @Test
+    void verifyDisputeCaseDataMessage_returnsCase_whenPeerIsNotBanned() {
+        UserProfile requester = createUserProfile(1001);
+        UserProfile peer = createUserProfile(1002);
+        MuSigMediationRequest request = createMediationRequest("trade-14", requester, peer);
+        MuSigMediationCase mediationCase = new MuSigMediationCase(request);
+        MuSigDisputeCaseDataMessage message = new MuSigDisputeCaseDataMessage(
+                "trade-14",
+                peer,
+                new byte[20],
+                List.of()
+        );
+
+        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.verifyDisputeCaseDataMessage(
+                message,
+                tradeId -> tradeId.equals(mediationCase.getMuSigMediationRequest().getTradeId()) ? Optional.of(mediationCase) : Optional.empty(),
+                bannedUserService
+        );
+
+        assertThat(authenticatedCase).containsSame(mediationCase);
+    }
+
+    @Test
+    void verifyDisputeCaseDataMessage_returnsEmpty_whenPeerIsBanned() {
+        UserProfile requester = createUserProfile(1001);
+        UserProfile peer = createUserProfile(1002);
+        when(bannedUserService.isUserProfileBanned(peer)).thenReturn(true);
+        MuSigMediationRequest request = createMediationRequest("trade-15", requester, peer);
+        MuSigMediationCase mediationCase = new MuSigMediationCase(request);
+        MuSigDisputeCaseDataMessage message = new MuSigDisputeCaseDataMessage(
+                "trade-15",
+                peer,
+                new byte[20],
+                List.of()
+        );
+
+        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.verifyDisputeCaseDataMessage(
+                message,
+                tradeId -> tradeId.equals(mediationCase.getMuSigMediationRequest().getTradeId()) ? Optional.of(mediationCase) : Optional.empty(),
+                bannedUserService
+        );
+
+        assertThat(authenticatedCase).isEmpty();
     }
 
     private MuSigMediationCase createMediationCase(String tradeId,
@@ -357,6 +474,27 @@ class MuSigMediatorServiceTest {
         return new MuSigMediationCase(request);
     }
 
+    private Optional<MuSigMediationCase> findMediationCase(String tradeId) {
+        return service.getMediationCases().stream()
+                .filter(mediationCase -> mediationCase.getMuSigMediationRequest().getTradeId().equals(tradeId))
+                .findFirst();
+    }
+
+    private MuSigMediationRequest createMediationRequest(String tradeId,
+                                                         UserProfile requester,
+                                                         UserProfile peer) {
+        return new MuSigMediationRequest(
+                tradeId,
+                createContract(requester, peer, "offer-" + tradeId,
+                        createNationalBankPayload("taker-" + tradeId, "DE" + tradeId.substring(tradeId.length() - 2) + "1"),
+                        createNationalBankPayload("maker-" + tradeId, "DE" + tradeId.substring(tradeId.length() - 2) + "2")),
+                requester,
+                peer,
+                List.of(),
+                null
+        );
+    }
+
     private MuSigContract createContract(UserProfile maker,
                                          UserProfile taker,
                                          String offerId,
@@ -367,12 +505,31 @@ class MuSigMediatorServiceTest {
 
     private MuSigContract createContract(UserProfile maker,
                                          UserProfile taker,
+                                         UserProfile mediator,
+                                         String offerId,
+                                         AccountPayload<?> takerPayloadForHash,
+                                         AccountPayload<?> makerPayloadForHash) {
+        return createContractWithMediator(maker, taker, Optional.of(mediator), offerId, takerPayloadForHash, List.of(makerPayloadForHash));
+    }
+
+    private MuSigContract createContract(UserProfile maker,
+                                         UserProfile taker,
                                          String offerId,
                                          AccountPayload<?> takerPayloadForHash,
                                          List<AccountPayload<?>> makerPayloadsForHash) {
+        return createContractWithMediator(maker, taker, Optional.empty(), offerId, takerPayloadForHash, makerPayloadsForHash);
+    }
+
+    private MuSigContract createContractWithMediator(UserProfile maker,
+                                                     UserProfile taker,
+                                                     Optional<UserProfile> mediator,
+                                                     String offerId,
+                                                     AccountPayload<?> takerPayloadForHash,
+                                                     List<AccountPayload<?>> makerPayloadsForHash) {
         return createContractWithExplicitMakerHash(
                 maker,
                 taker,
+                mediator,
                 offerId,
                 takerPayloadForHash,
                 makerPayloadsForHash.getFirst(),
@@ -382,6 +539,7 @@ class MuSigMediatorServiceTest {
 
     private MuSigContract createContractWithExplicitMakerHash(UserProfile maker,
                                                               UserProfile taker,
+                                                              Optional<UserProfile> mediator,
                                                               String offerId,
                                                               AccountPayload<?> takerPayloadForHash,
                                                               AccountPayload<?> makerPayloadForHash,
@@ -420,7 +578,7 @@ class MuSigMediatorServiceTest {
                 3_500_000L,
                 quoteSidePaymentMethodSpec,
                 takerSaltedAccountPayloadHash,
-                Optional.empty(),
+                mediator,
                 Optional.empty(),
                 createPriceSpec(),
                 0
@@ -473,7 +631,8 @@ class MuSigMediatorServiceTest {
         );
         NetworkId networkId = new NetworkId(addresses, pubKey);
         ProofOfWork proofOfWork = new ProofOfWork(pubKey.getHash(), 0, null, 1.0, new byte[72], 0);
-        return new UserProfile(1, "nick-" + port, proofOfWork, 0, networkId, "", "", "1.0.0");
+        UserProfile userProfile = new UserProfile(1, "nick-" + port, proofOfWork, 0, networkId, "", "", "1.0.0");
+        return userProfile;
     }
 
     private AccountPayload<?> createNationalBankPayload(String id, String accountNr) {
@@ -493,9 +652,22 @@ class MuSigMediatorServiceTest {
     }
 
     private void invokeProcessPaymentDetailsResponse(MuSigPaymentDetailsResponse response) throws Exception {
-        Method method = MuSigMediatorService.class.getDeclaredMethod("processPaymentDetailsResponse", MuSigPaymentDetailsResponse.class);
-        method.setAccessible(true);
-        method.invoke(service, response);
+        Method verifyMethod = MuSigMediatorService.class.getDeclaredMethod("verifyPaymentDetailsResponse",
+                MuSigPaymentDetailsResponse.class,
+                java.util.function.Function.class,
+                BannedUserService.class);
+        verifyMethod.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Optional<Object> authenticatedMessage = (Optional<Object>) verifyMethod.invoke(service,
+                response,
+                (java.util.function.Function<String, Optional<MuSigMediationCase>>) this::findMediationCase,
+                bannedUserService);
+
+        Method processMethod = MuSigMediatorService.class.getDeclaredMethod("processPaymentDetailsResponse",
+                MuSigPaymentDetailsResponse.class,
+                MuSigMediationCase.class);
+        processMethod.setAccessible(true);
+        processMethod.invoke(service, response, authenticatedMessage.orElseThrow());
     }
 
     private Object invokeVerifyPaymentDetails(MuSigContract contract,
