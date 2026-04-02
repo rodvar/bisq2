@@ -126,7 +126,8 @@ public final class SetupTradeMessage_A_Handler extends MuSigTradeMessageHandlerA
         openTradeChannelService.traderFindOrCreatesChannel(trade.getId(),
                 myUserIdentity,
                 peersUserProfile,
-                trade.getContract().getMediator());
+                trade.getContract().getMediator(),
+                trade.getContract().getArbitrator());
     }
 
     @Override

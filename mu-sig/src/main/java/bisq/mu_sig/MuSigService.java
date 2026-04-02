@@ -360,7 +360,8 @@ public class MuSigService extends LifecycleService {
             muSigOpenTradeChannelService.traderFindOrCreatesChannel(tradeId,
                     takerIdentity,
                     makersUserProfile.get(),
-                    muSigTrade.getContract().getMediator());
+                    muSigTrade.getContract().getMediator(),
+                    muSigTrade.getContract().getArbitrator());
         } else {
             log.warn("When taking an offer it is expected that no MuSigOpenTradeChannel for that trade ID exist yet. " +
                     "In case of failed take offer attempts though it might be that there is a channel present.");

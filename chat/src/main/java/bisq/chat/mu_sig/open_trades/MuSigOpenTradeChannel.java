@@ -40,7 +40,8 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 
 /**
- * PrivateTradeChannel is either a 2 party channel of both traders or a 3 party channel with 2 traders and the mediator.
+ * PrivateTradeChannel is either a 2 party channel of both traders or
+ * a 3 party channel with 2 traders and the mediator or the arbitrator.
  * Depending on the case the fields are differently interpreted.
  * Maybe we should model a group chat channel for a cleaner API.
  */
@@ -57,52 +58,58 @@ public final class MuSigOpenTradeChannel extends PrivateGroupChatChannel<MuSigOp
                                                UserIdentity myUserIdentity,
                                                Set<UserProfile> traders,
                                                Optional<UserProfile> mediator,
-                                               boolean isInMediation) {
+                                               Optional<UserProfile> arbitrator,
+                                               MuSigDisputeAgentType disputeAgentType) {
         return new MuSigOpenTradeChannel(tradeId,
                 myUserIdentity,
                 traders,
                 mediator,
-                isInMediation);
+                arbitrator,
+                disputeAgentType);
     }
 
     @EqualsAndHashCode.Include
     private final String tradeId;
-    private final Observable<Boolean> isInMediationObservable = new Observable<>(false);
     private final Set<UserProfile> traders;
     private final Optional<UserProfile> mediator;
+    private final Optional<UserProfile> arbitrator;
+    private final Observable<MuSigDisputeAgentType> disputeAgentTypeObservable =
+            new Observable<>(MuSigDisputeAgentType.NONE);
 
-    // Called from trader
     private MuSigOpenTradeChannel(String tradeId,
                                   UserIdentity myUserIdentity,
                                   Set<UserProfile> traders,
                                   Optional<UserProfile> mediator,
-                                  boolean isInMediation) {
+                                  Optional<UserProfile> arbitrator,
+                                  MuSigDisputeAgentType disputeAgentType) {
         this(createId(tradeId),
                 tradeId,
                 myUserIdentity,
                 traders,
                 mediator,
+                arbitrator,
                 new HashSet<>(),
-                isInMediation,
+                disputeAgentType,
                 ChatChannelNotificationType.ALL);
     }
 
-    // From proto
-    public MuSigOpenTradeChannel(String channelId,
+    private MuSigOpenTradeChannel(String channelId,
                                  String tradeId,
                                  UserIdentity myUserIdentity,
                                  Set<UserProfile> traders,
                                  Optional<UserProfile> mediator,
+                                 Optional<UserProfile> arbitrator,
                                  Set<MuSigOpenTradeMessage> chatMessages,
-                                 boolean isInMediation,
+                                 MuSigDisputeAgentType disputeAgentType,
                                  ChatChannelNotificationType chatChannelNotificationType) {
         super(channelId, ChatChannelDomain.MU_SIG_OPEN_TRADES, myUserIdentity, chatMessages, chatChannelNotificationType);
 
         this.tradeId = tradeId;
         this.traders = traders;
         this.mediator = mediator;
+        this.arbitrator = arbitrator;
 
-        setIsInMediation(isInMediation);
+        setDisputeAgentType(disputeAgentType);
 
         traders.forEach(userProfile -> userProfileIdsOfSendingLeaveMessage.add(userProfile.getId()));
     }
@@ -114,12 +121,13 @@ public final class MuSigOpenTradeChannel extends PrivateGroupChatChannel<MuSigOp
                 .setMyUserIdentity(myUserIdentity.toProto(serializeForHash))
                 .addAllTraders(getTraders().stream()
                         .map(e -> e.toProto(serializeForHash))
-                        .collect(Collectors.toList()))
-                .setIsInMediation(isInMediation())
-                .addAllChatMessages(chatMessages.stream()
-                        .map(e -> e.toValueProto(serializeForHash))
                         .collect(Collectors.toList()));
         mediator.ifPresent(mediator -> builder.setMediator(mediator.toProto(serializeForHash)));
+        arbitrator.ifPresent(arbitrator -> builder.setArbitrator(arbitrator.toProto(serializeForHash)));
+        builder.addAllChatMessages(chatMessages.stream()
+                .map(e -> e.toValueProto(serializeForHash))
+                .collect(Collectors.toList()));
+        builder.setDisputeAgentType(getDisputeAgentType().toProtoEnum());
         return getChatChannelBuilder().setMuSigOpenTradeChannel(builder);
     }
 
@@ -133,10 +141,11 @@ public final class MuSigOpenTradeChannel extends PrivateGroupChatChannel<MuSigOp
                         .map(UserProfile::fromProto)
                         .collect(Collectors.toSet()),
                 proto.hasMediator() ? Optional.of(UserProfile.fromProto(proto.getMediator())) : Optional.empty(),
+                proto.hasArbitrator() ? Optional.of(UserProfile.fromProto(proto.getArbitrator())) : Optional.empty(),
                 proto.getChatMessagesList().stream()
                         .map(MuSigOpenTradeMessage::fromProto)
                         .collect(Collectors.toSet()),
-                proto.getIsInMediation(),
+                MuSigDisputeAgentType.fromProto(proto.getDisputeAgentType()),
                 ChatChannelNotificationType.fromProto(baseProto.getChatChannelNotificationType()));
     }
 
@@ -147,23 +156,31 @@ public final class MuSigOpenTradeChannel extends PrivateGroupChatChannel<MuSigOp
 
     @Override
     public String getDisplayString() {
-
-        if (isMediator()) {
+        if (isMediator() || isArbitrator()) {
             checkArgument(traders.size() == 2, "traders.size() need to be 2 but is " + traders.size());
             List<UserProfile> tradersAsList = new ArrayList<>(traders);
             return tradeId + ": " + tradersAsList.get(0).getUserName() + " - " + tradersAsList.get(1).getUserName();
         } else {
             String peer = getPeer().getUserName();
-            String optionalMediatorPostfix = mediator
-                    .filter(mediator -> isInMediation())
-                    .map(mediator -> ", " + mediator.getUserName() + " (" + Res.get("bisqEasy.mediator") + ")")
-                    .orElse("");
-            return tradeId + ": " + peer + optionalMediatorPostfix;
+            String optionalDisputeAgentPostfix = switch (getDisputeAgentType()) {
+                case MEDIATOR -> mediator
+                        .map(userProfile -> ", " + userProfile.getUserName() + " (" + Res.get("muSig.mediator") + ")")
+                        .orElse("");
+                case ARBITRATOR -> arbitrator
+                        .map(userProfile -> ", " + userProfile.getUserName() + " (" + Res.get("muSig.arbitrator") + ")")
+                        .orElse("");
+                default -> "";
+            };
+            return tradeId + ": " + peer + optionalDisputeAgentPostfix;
         }
     }
 
     public boolean isMediator() {
         return mediator.filter(mediator -> mediator.getId().equals(myUserIdentity.getId())).isPresent();
+    }
+
+    public boolean isArbitrator() {
+        return arbitrator.filter(arbitrator -> arbitrator.getId().equals(myUserIdentity.getId())).isPresent();
     }
 
     public UserProfile getPeer() {
@@ -195,21 +212,31 @@ public final class MuSigOpenTradeChannel extends PrivateGroupChatChannel<MuSigOp
     // Getter, setter
     /* --------------------------------------------------------------------- */
 
-    public Observable<Boolean> isInMediationObservable() {
-        return isInMediationObservable;
+    public Observable<MuSigDisputeAgentType> disputeAgentTypeObservable() {
+        return disputeAgentTypeObservable;
     }
 
-    public void setIsInMediation(boolean isInMediation) {
-        isInMediationObservable.set(isInMediation);
+    public void setDisputeAgentType(MuSigDisputeAgentType disputeAgentType) {
+        disputeAgentTypeObservable.set(disputeAgentType);
 
-        if (isInMediation) {
-            mediator.ifPresent(userProfile -> userProfileIdsOfSendingLeaveMessage.add(userProfile.getId()));
-        } else {
-            mediator.ifPresent(userProfile -> userProfileIdsOfSendingLeaveMessage.remove(userProfile.getId()));
-        }
+        mediator.ifPresent(userProfile -> {
+            if (disputeAgentType == MuSigDisputeAgentType.MEDIATOR) {
+                userProfileIdsOfSendingLeaveMessage.add(userProfile.getId());
+            } else {
+                userProfileIdsOfSendingLeaveMessage.remove(userProfile.getId());
+            }
+        });
+
+        arbitrator.ifPresent(userProfile -> {
+            if (disputeAgentType == MuSigDisputeAgentType.ARBITRATOR) {
+                userProfileIdsOfSendingLeaveMessage.add(userProfile.getId());
+            } else {
+                userProfileIdsOfSendingLeaveMessage.remove(userProfile.getId());
+            }
+        });
     }
 
-    public boolean isInMediation() {
-        return isInMediationObservable.get();
+    public MuSigDisputeAgentType getDisputeAgentType() {
+        return disputeAgentTypeObservable.get();
     }
 }
