@@ -19,6 +19,11 @@ tasks {
     test {
         useJUnitPlatform()
     }
+
+    withType<Jar> {
+        isPreserveFileTimestamps = false
+        isReproducibleFileOrder = true
+    }
 }
 
 val versionCatalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
