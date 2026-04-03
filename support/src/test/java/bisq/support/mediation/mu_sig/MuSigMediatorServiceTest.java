@@ -352,7 +352,7 @@ class MuSigMediatorServiceTest {
                 requester,
                 peer,
                 List.of(),
-                Optional.empty()
+                createUserProfile(19000).getNetworkId()
         );
         return new MuSigMediationCase(request);
     }
