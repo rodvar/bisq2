@@ -62,4 +62,20 @@ public class ApiAccessStoreService extends RateLimitedPersistenceClient<ApiAcces
         persistableStore.getPermissionsByClientId().put(clientId, permissions);
         persist();
     }
+
+    /**
+     * Removes the client profile and associated permissions for the given client ID.
+     * Both removals are persisted atomically within a single {@link #persist()} call.
+     *
+     * @param clientId The client ID to remove
+     * @return {@code true} if a profile was present and removed; {@code false} if the client was not found
+     */
+    public boolean removeClientProfile(String clientId) {
+        boolean removed = persistableStore.getClientProfileByIdMap().remove(clientId) != null;
+        if (removed) {
+            persistableStore.getPermissionsByClientId().remove(clientId);
+            persist();
+        }
+        return removed;
+    }
 }
