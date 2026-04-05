@@ -17,7 +17,6 @@
 
 package bisq.bi2p;
 
-
 import bisq.bi2p.common.standby.PreventStandbyModeService;
 import bisq.bi2p.common.utils.ImageUtil;
 import bisq.bi2p.common.utils.KeyHandlerUtil;
@@ -37,8 +36,10 @@ import javafx.scene.paint.Paint;
 import javafx.stage.Stage;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -58,15 +59,15 @@ public class Bi2pApp extends Application {
     private Bi2pController controller;
     private String i2pRouterDir;
     private PreventStandbyModeService preventStandbyModeService;
+
     // For now, we have it turned on always, but maybe we allow to turn off in UI or by options, thus we leave it
-    // as Observable.
+
     private final Observable<Boolean> preventStandbyMode = new Observable<>(true);
     private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
     private SystemTray systemTray;
     private TrayIcon trayIcon;
 
     public Bi2pApp() {
-        // Taskbar is only supported on mac
         if (OS.isMacOs()) {
             ImageIcon image = new ImageIcon(Objects.requireNonNull(Bi2pApp.class.getResource("/images/app_icons/bi2p-app_512.png")));
             Taskbar.getTaskbar().setIconImage(image.getImage());
@@ -85,14 +86,12 @@ public class Bi2pApp extends Application {
 
         i2pRouterService = new I2PRouterService(parameters, i2pRouterDir);
 
-        //noinspection Convert2MethodRef
         controller = new Bi2pController(WIDTH, HEIGHT, i2pRouterService, () -> shutdown());
         controller.onApplicationReady(parameters);
     }
 
     @Override
     public void start(Stage primaryStage) {
-        // Prevent JavaFX app from exiting when window closes
         Platform.setImplicitExit(false);
 
         setupStage(primaryStage, controller.getView());
@@ -130,7 +129,6 @@ public class Bi2pApp extends Application {
         if (controller != null) {
             controller.onDeactivate();
         }
-        // Platform.exit(); does not work here, probably because of the system tray
         System.exit(PlatformUtils.EXIT_SUCCESS);
     }
 
@@ -157,9 +155,29 @@ public class Bi2pApp extends Application {
             PopupMenu popupMenu = new PopupMenu();
 
             systemTray = SystemTray.getSystemTray();
+
+            // --- INICIO DEL ARREGLO PARA LINUX ---
             URL iconUrl = getClass().getResource("/images/tray_icon/bi2p-tray_32@2x.png");
-            java.awt.Image icon = Toolkit.getDefaultToolkit().getImage(iconUrl);
+            if (iconUrl == null) {
+                log.error("Tray icon resource not found: /images/tray_icon/bi2p-tray_32@2x.png");
+                return;
+            }
+
+            java.awt.Image icon;
+            try {
+                // Usamos ImageIO para preservar la transparencia real en Linux
+                icon = ImageIO.read(iconUrl);
+                if (icon == null) {
+                    throw new IOException("ImageIO returned null for tray icon: " + iconUrl);
+                }
+            } catch (IOException e) {
+                log.error("Error loading transparent tray icon via ImageIO, falling back to Toolkit", e);
+                icon = Toolkit.getDefaultToolkit().getImage(iconUrl);
+            }
+
             trayIcon = new TrayIcon(icon, "Bisq I2P Router", popupMenu);
+            // --- FIN DEL ARREGLO ---
+
             trayIcon.setImageAutoSize(true);
             try {
                 systemTray.add(trayIcon);
@@ -200,7 +218,6 @@ public class Bi2pApp extends Application {
                     }));
         }
 
-        //stage.getIcons().add(I2PRouterApp.getImageByPath("images/tray-icon.png"));
         stage.setX(0);
         stage.setY(0);
         stage.show();
@@ -225,4 +242,3 @@ public class Bi2pApp extends Application {
         Res.setAndApplyLanguageTag(languageTag);
     }
 }
-
