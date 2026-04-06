@@ -22,6 +22,7 @@ import bisq.bonded_roles.BondedRolesService;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRole;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRolesService;
 import bisq.chat.ChatService;
+import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
 import bisq.common.application.Service;
@@ -206,14 +207,14 @@ public class MuSigMediationRequestService implements Service, ConfidentialMessag
                             MediationCaseState mediationCaseState = message.getMediationCaseState();
                             if (mediationCaseState == MediationCaseState.OPEN) {
                                 // Requester had it activated at request time
-                                if (channel.isInMediation()) {
+                                if (channel.getDisputeAgentType() == MuSigDisputeAgentType.MEDIATOR) {
                                     muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toRequester"));
                                 } else {
-                                    muSigOpenTradeChannelService.setIsInMediation(channel, true);
+                                    muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
                                     muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toNonRequester"));
                                 }
                             } else if (mediationCaseState == MediationCaseState.RE_OPENED) {
-                                muSigOpenTradeChannelService.setIsInMediation(channel, true);
+                                muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
                             } else if (mediationCaseState == MediationCaseState.CLOSED) {
                                 if (message.getMuSigMediationResult().isEmpty()) {
                                     log.warn("Ignoring MuSigMediationStateChangeMessage with CLOSED state and missing MuSigMediationResult for trade {}.",
@@ -226,7 +227,7 @@ public class MuSigMediationRequestService implements Service, ConfidentialMessag
                                     return;
                                 }
                                 // Closed mediation case still keeps mediator chat participation active.
-                                muSigOpenTradeChannelService.setIsInMediation(channel, true);
+                                muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
                             } else {
                                 log.warn("Ignoring MuSigMediationStateChangeMessage with unsupported state {} for trade {}.",
                                         mediationCaseState, message.getTradeId());

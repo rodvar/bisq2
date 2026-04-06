@@ -18,6 +18,7 @@
 package bisq.desktop.main.content.mu_sig.trade.pending.trade_state;
 
 import bisq.account.payment_method.TradeDuration;
+import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
 import bisq.common.data.Triple;
@@ -25,7 +26,6 @@ import bisq.common.market.Market;
 import bisq.common.observable.Pin;
 import bisq.desktop.ServiceProvider;
 import bisq.desktop.common.Layout;
-import bisq.desktop.common.observable.FxBindings;
 import bisq.desktop.common.threading.UIClock;
 import bisq.desktop.common.threading.UIThread;
 import bisq.desktop.common.utils.ImageUtil;
@@ -100,7 +100,7 @@ class MuSigTradePhaseBox {
         private final MuSigMediationRequestService muSigMediationRequestService;
         private final MuSigOpenTradeChannelService channelService;
         private final MuSigTradeService tradeService;
-        private Pin muSigTradeStatePin, isInMediationPin, secondTickPin;
+        private Pin muSigTradeStatePin, disputeAgentTypePin, secondTickPin;
 
         private Controller(ServiceProvider serviceProvider) {
             muSigMediationRequestService = serviceProvider.getSupportService().getMuSigMediationRequestService();
@@ -113,12 +113,16 @@ class MuSigTradePhaseBox {
 
         private void setSelectedChannel(@Nullable MuSigOpenTradeChannel channel) {
             model.setSelectedChannel(channel);
-            if (isInMediationPin != null) {
-                isInMediationPin.unbind();
-                isInMediationPin = null;
+            if (disputeAgentTypePin != null) {
+                disputeAgentTypePin.unbind();
+                disputeAgentTypePin = null;
             }
             if (channel != null) {
-                isInMediationPin = FxBindings.bind(model.getIsInMediation()).to(channel.isInMediationObservable());
+                disputeAgentTypePin = channel.disputeAgentTypeObservable().addObserver(disputeAgentType -> {
+                    if (disputeAgentType != null) {
+                        model.getIsInMediation().set(disputeAgentType == MuSigDisputeAgentType.MEDIATOR);
+                    }
+                });
             }
         }
 
@@ -214,9 +218,9 @@ class MuSigTradePhaseBox {
 
         @Override
         public void onDeactivate() {
-            if (isInMediationPin != null) {
-                isInMediationPin.unbind();
-                isInMediationPin = null;
+            if (disputeAgentTypePin != null) {
+                disputeAgentTypePin.unbind();
+                disputeAgentTypePin = null;
             }
 
             if (muSigTradeStatePin != null) {

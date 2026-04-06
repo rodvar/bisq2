@@ -1,5 +1,6 @@
 package bisq.desktop.main.content.mu_sig.trade.pending.trade_state;
 
+import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
 import bisq.common.encoding.Csv;
@@ -82,7 +83,7 @@ public class MuSigPendingTTradesUtils {
                         tradeService.maybeApplyDisputeStateFromMediationRequest(channel.getTradeId());
                         String encoded = Res.encode("muSig.mediation.requester.tradeLogMessage", channel.getMyUserIdentity().getUserName());
                         channelService.sendTradeLogMessage(encoded, channel);
-                        channel.setIsInMediation(true);
+                        channel.setDisputeAgentType(MuSigDisputeAgentType.MEDIATOR);
                         channelService.persist();
                         muSigMediationRequestService.requestMediation(channel, contract);
                         new Popup().headline(Res.get("muSig.mediation.request.feedback.headline"))

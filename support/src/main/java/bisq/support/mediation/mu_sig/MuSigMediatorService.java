@@ -21,6 +21,7 @@ import bisq.bonded_roles.BondedRoleType;
 import bisq.bonded_roles.BondedRolesService;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRolesService;
 import bisq.chat.ChatService;
+import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeMessage;
@@ -252,7 +253,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
                     peer
             );
 
-            muSigOpenTradeChannelService.setIsInMediation(channel, true);
+            muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
 
             chatMessages.forEach(chatMessage ->
                     muSigOpenTradeChannelService.addMessage(chatMessage, channel));
@@ -428,11 +429,11 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
                 .ifPresent(channel -> {
                     String message;
                     if (mediationCaseState == MediationCaseState.RE_OPENED) {
-                        muSigOpenTradeChannelService.setIsInMediation(channel, true);
+                        muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
                         message = Res.encode("authorizedRole.mediator.message.mediationCaseReOpened");
                     } else if (mediationCaseState == MediationCaseState.CLOSED) {
                         // Closed mediation case still keeps mediator chat participation active.
-                        muSigOpenTradeChannelService.setIsInMediation(channel, true);
+                        muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
                         message = Res.encode("authorizedRole.mediator.message.mediationCaseClosed");
                     } else {
                         return;

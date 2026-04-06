@@ -923,6 +923,7 @@ public class ChatMessagesListController implements Controller {
                 0L,
                 false,
                 channel.getMediator(),
+                channel.getArbitrator(),
                 ChatMessageType.CHAT_RULES_WARNING,
                 Optional.empty(),
                 new HashSet<>());
