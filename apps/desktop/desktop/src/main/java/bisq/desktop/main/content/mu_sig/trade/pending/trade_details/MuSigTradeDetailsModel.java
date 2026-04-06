@@ -31,7 +31,7 @@ import java.util.Optional;
 @Slf4j
 @Getter
 @Setter
-public class MuSigTradeDetailsModel extends NavigationModel {
+class MuSigTradeDetailsModel extends NavigationModel {
     private MuSigTrade trade;
     private MuSigOpenTradeChannel channel;
     private MuSigContract contract;
@@ -49,11 +49,18 @@ public class MuSigTradeDetailsModel extends NavigationModel {
     private String depositTxId;
     private boolean isDepositTxIdEmpty;
     private boolean isDepositTxIdVisible;
+    private boolean isBlockExplorerLinkVisible;
     private String peersPaymentAccountDataDescription;
     private String peersPaymentAccountData;
     private boolean isPaymentAccountDataEmpty;
     private String assignedMediator;
     private boolean hasMediatorBeenAssigned;
+    private SecurityDepositInfo securityDepositInfo;
+    private String feeAmount;
+    private String feePercent;
+
+    record SecurityDepositInfo(String percentAsString, String btcAmountAsString) {
+    }
 
     @Override
     public NavigationTarget getDefaultNavigationTarget() {
