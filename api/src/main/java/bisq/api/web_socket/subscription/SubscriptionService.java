@@ -20,6 +20,7 @@ package bisq.api.web_socket.subscription;
 
 import bisq.api.web_socket.domain.BaseWebSocketService;
 import bisq.api.web_socket.domain.OpenTradeItemsService;
+import bisq.api.web_socket.domain.trade_restricting_alert.TradeRestrictingAlertWebSocketService;
 import bisq.api.web_socket.domain.alert_notifications.AlertNotificationsWebSocketService;
 import bisq.api.web_socket.domain.chat.reactions.ChatReactionsWebSocketService;
 import bisq.api.web_socket.domain.chat.trade.TradeChatMessagesWebSocketService;
@@ -57,6 +58,7 @@ public class SubscriptionService implements Service {
     private final ChatReactionsWebSocketService chatReactionsWebSocketService;
     private final ReputationWebSocketService reputationWebSocketService;
     private final NumUserProfilesWebSocketService numUserProfilesWebSocketService;
+    private final TradeRestrictingAlertWebSocketService tradeRestrictingAlertWebSocketService;
     private final AlertNotificationsWebSocketService alertNotificationsWebSocketService;
 
     public SubscriptionService(BondedRolesService bondedRolesService,
@@ -80,6 +82,7 @@ public class SubscriptionService implements Service {
                 chatService.getBisqEasyOpenTradeChannelService());
         reputationWebSocketService = new ReputationWebSocketService(subscriberRepository, userService.getReputationService());
         numUserProfilesWebSocketService = new NumUserProfilesWebSocketService(subscriberRepository, userService);
+        tradeRestrictingAlertWebSocketService = new TradeRestrictingAlertWebSocketService(subscriberRepository, bondedRolesService.getAlertService());
         alertNotificationsWebSocketService = new AlertNotificationsWebSocketService(subscriberRepository, alertNotificationsService);
     }
 
@@ -94,6 +97,7 @@ public class SubscriptionService implements Service {
                 .thenCompose(e -> chatReactionsWebSocketService.initialize())
                 .thenCompose(e -> reputationWebSocketService.initialize())
                 .thenCompose(e -> numUserProfilesWebSocketService.initialize())
+                .thenCompose(e -> tradeRestrictingAlertWebSocketService.initialize())
                 .thenCompose(e -> alertNotificationsWebSocketService.initialize());
     }
 
@@ -108,6 +112,7 @@ public class SubscriptionService implements Service {
                 .thenCompose(e -> chatReactionsWebSocketService.shutdown())
                 .thenCompose(e -> reputationWebSocketService.shutdown())
                 .thenCompose(e -> numUserProfilesWebSocketService.shutdown())
+                .thenCompose(e -> tradeRestrictingAlertWebSocketService.shutdown())
                 .thenCompose(e -> alertNotificationsWebSocketService.shutdown());
     }
 
@@ -209,6 +214,9 @@ public class SubscriptionService implements Service {
             }
             case NUM_USER_PROFILES -> {
                 return Optional.of(numUserProfilesWebSocketService);
+            }
+            case TRADE_RESTRICTING_ALERT -> {
+                return Optional.of(tradeRestrictingAlertWebSocketService);
             }
             case ALERT_NOTIFICATIONS -> {
                 return Optional.of(alertNotificationsWebSocketService);

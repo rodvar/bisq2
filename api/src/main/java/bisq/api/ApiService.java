@@ -32,6 +32,7 @@ import bisq.api.access.transport.TlsContextService;
 import bisq.api.rest_api.PairingApiResourceConfig;
 import bisq.api.rest_api.RestApiResourceConfig;
 import bisq.api.rest_api.endpoints.access.AccessApi;
+import bisq.api.rest_api.endpoints.alert_notifications.AlertNotificationsRestApi;
 import bisq.api.rest_api.endpoints.chat.trade.TradeChatMessagesRestApi;
 import bisq.api.rest_api.endpoints.devices.DevicesRestApi;
 import bisq.api.rest_api.endpoints.explorer.ExplorerRestApi;
@@ -40,8 +41,8 @@ import bisq.api.rest_api.endpoints.offers.OfferbookRestApi;
 import bisq.api.rest_api.endpoints.payment_accounts.FiatPaymentAccountsRestApi;
 import bisq.api.rest_api.endpoints.payment_accounts.PaymentAccountsRestApi;
 import bisq.api.rest_api.endpoints.reputation.ReputationRestApi;
-import bisq.api.rest_api.endpoints.alert_notifications.AlertNotificationsRestApi;
 import bisq.api.rest_api.endpoints.settings.SettingsRestApi;
+import bisq.api.rest_api.endpoints.trade_restricting_alert.TradeRestrictingAlertRestApi;
 import bisq.api.rest_api.endpoints.trades.TradeRestApi;
 import bisq.api.rest_api.endpoints.user_identity.UserIdentityRestApi;
 import bisq.api.rest_api.endpoints.user_profile.UserProfileRestApi;
@@ -169,6 +170,7 @@ public class ApiService implements Service {
         MarketPriceRestApi marketPriceRestApi = new MarketPriceRestApi(bondedRolesService.getMarketPriceService());
         SettingsRestApi settingsRestApi = new SettingsRestApi(settingsService);
         AlertNotificationsRestApi alertNotificationsRestApi = new AlertNotificationsRestApi(alertNotificationsService);
+        TradeRestrictingAlertRestApi tradeRestrictingAlertRestApi = new TradeRestrictingAlertRestApi(bondedRolesService.getAlertService());
         PaymentAccountsRestApi paymentAccountsRestApi = new PaymentAccountsRestApi(accountService);
         FiatPaymentAccountsRestApi fiatPaymentAccountsRestApi = new FiatPaymentAccountsRestApi(accountService);
         UserProfileRestApi userProfileRestApi = new UserProfileRestApi(
@@ -194,6 +196,7 @@ public class ApiService implements Service {
                     marketPriceRestApi,
                     settingsRestApi,
                     alertNotificationsRestApi,
+                    tradeRestrictingAlertRestApi,
                     explorerRestApi,
                     paymentAccountsRestApi,
                     fiatPaymentAccountsRestApi,
