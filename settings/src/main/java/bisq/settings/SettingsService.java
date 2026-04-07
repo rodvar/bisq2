@@ -29,6 +29,7 @@ import bisq.common.observable.Observable;
 import bisq.common.observable.Pin;
 import bisq.common.observable.ReadOnlyObservable;
 import bisq.common.observable.collection.ObservableSet;
+import bisq.common.util.StringUtils;
 import bisq.i18n.Res;
 import bisq.network.p2p.node.network_load.NetworkLoad;
 import bisq.persistence.DbSubDirectory;
@@ -41,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.Currency;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -82,7 +84,6 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         instance = this;
     }
 
-
     /* --------------------------------------------------------------------- */
     // Service
     /* --------------------------------------------------------------------- */
@@ -107,6 +108,8 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         pins.add(getBisqEasyTradeRulesConfirmed().addObserver(value -> persist()));
         pins.add(getMuSigTradeRulesConfirmed().addObserver(value -> persist()));
         pins.add(getLanguageTag().addObserver(value -> persist()));
+        pins.add(getCountryCode().addObserver(value -> persist()));
+        pins.add(getCurrencyCode().addObserver(value -> persist()));
         pins.add(getDifficultyAdjustmentFactor().addObserver(value -> persist()));
         pins.add(getIgnoreDiffAdjustmentFromSecManager().addObserver(value -> persist()));
         pins.add(getFavouriteMarkets().addObserver(this::persist));
@@ -127,6 +130,33 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         pins.add(getSelectedWalletMarket().addObserver(value -> persist()));
 
         isInitialized = true;
+
+        boolean needsPersist = false;
+
+        // Fallback for country code using OS locale
+        if (StringUtils.isEmpty(getCountryCode().get())) {
+            String osDefaultCountry = Locale.getDefault().getCountry();
+            setCountryCode(osDefaultCountry);
+            needsPersist = true;
+        }
+
+        // Fallback for currency code using OS locale
+        if (StringUtils.isEmpty(getCurrencyCode().get())) {
+            try {
+                Currency defaultCurrency = Currency.getInstance(Locale.getDefault());
+                if (defaultCurrency != null) {
+                    setCurrencyCode(defaultCurrency.getCurrencyCode());
+                    needsPersist = true;
+                }
+            } catch (Exception e) {
+                log.warn("Could not detect default currency from OS locale");
+            }
+        }
+
+        // Only persist if defaults were applied after initialization is complete
+        if (needsPersist) {
+            persist();
+        }
 
         return CompletableFuture.completedFuture(true);
     }
@@ -154,7 +184,6 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         }
     }
 
-
     /* --------------------------------------------------------------------- */
     // API
     /* --------------------------------------------------------------------- */
@@ -179,7 +208,6 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         CountryRepository.applyDefaultLocale(newLocale);
         FiatCurrencyRepository.setLocale(newLocale);
     }
-
 
     /* --------------------------------------------------------------------- */
     // Getters for Observable
@@ -241,6 +269,14 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         return persistableStore.languageTag;
     }
 
+    public ReadOnlyObservable<String> getCountryCode() {
+        return persistableStore.countryCode;
+    }
+
+    public ReadOnlyObservable<String> getCurrencyCode() {
+        return persistableStore.currencyCode;
+    }
+
     public ObservableSet<Market> getFavouriteMarkets() {
         return persistableStore.favouriteMarkets;
     }
@@ -296,7 +332,6 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
     public ReadOnlyObservable<Market> getSelectedWalletMarket() {
         return persistableStore.selectedWalletMarket;
     }
-
 
     /* --------------------------------------------------------------------- */
     // Setters
@@ -359,6 +394,19 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         }
     }
 
+    public void setCountryCode(String countryCode) {
+        if (StringUtils.isNotEmpty(countryCode)) {
+            persistableStore.countryCode.set(countryCode);
+        }
+    }
+
+    public void setCurrencyCode(String currencyCode) {
+        if (StringUtils.isNotEmpty(currencyCode)) {
+            persistableStore.currencyCode.set(currencyCode);
+        }
+    }
+    // ---------------------------------------------------------------------
+
     public void setShowBuyOffers(boolean showBuyOffers) {
         persistableStore.showBuyOffers.set(showBuyOffers);
     }
@@ -418,19 +466,13 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         }
     }
 
-
     /* --------------------------------------------------------------------- */
-    // DontShowAgainMap
+    // DontShowAgainMap, Cookie and "Don't show again" flags
     /* --------------------------------------------------------------------- */
 
     public Map<String, Boolean> getDontShowAgainMap() {
         return persistableStore.dontShowAgainMap;
     }
-
-
-    /* --------------------------------------------------------------------- */
-    // Cookie
-    /* --------------------------------------------------------------------- */
 
     public Cookie getCookie() {
         return persistableStore.cookie;

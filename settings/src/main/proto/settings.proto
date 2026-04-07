@@ -78,4 +78,6 @@ message SettingsStore {
   map<string, common.Market> muSigLastSelectedMarketByBaseCurrencyMap = 30;
   common.Market selectedWalletMarket = 31;
   bool muSigTradeRulesConfirmed = 32;
+  string countryCode = 33;
+  string currencyCode = 34;
 }
