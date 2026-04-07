@@ -18,6 +18,8 @@
 package bisq.settings;
 
 import bisq.common.application.DevMode;
+import bisq.common.asset.FiatCurrencyRepository;
+import bisq.common.locale.CountryRepository;
 import bisq.common.locale.LanguageRepository;
 import bisq.common.market.Market;
 import bisq.common.market.MarketRepository;
@@ -26,6 +28,7 @@ import bisq.common.observable.collection.ObservableSet;
 import bisq.common.platform.PlatformUtils;
 import bisq.common.proto.ProtoResolver;
 import bisq.common.proto.UnresolvableProtobufMessageException;
+import bisq.common.util.StringUtils;
 import bisq.network.p2p.node.network_load.NetworkLoad;
 import bisq.persistence.PersistableStore;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -68,6 +71,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
     final Observable<Boolean> closeMyOfferWhenTaken = new Observable<>();
     final Observable<Boolean> preventStandbyMode = new Observable<>();
     final Observable<String> languageTag = new Observable<>();
+    final Observable<String> countryCode = new Observable<>();
+    final Observable<String> currencyCode = new Observable<>();
     final ObservableSet<String> supportedLanguageTags = new ObservableSet<>();
     final Observable<Double> difficultyAdjustmentFactor = new Observable<>();
     final Observable<Boolean> ignoreDiffAdjustmentFromSecManager = new Observable<>();
@@ -103,6 +108,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                 new HashSet<>(),
                 true,
                 LanguageRepository.getDefaultLanguageTag(),
+                CountryRepository.getDefaultCountry().getCode(),
+                FiatCurrencyRepository.getDefaultCurrency().getCode(),
                 true,
                 Set.of(LanguageRepository.getDefaultLanguageTag()),
                 NetworkLoad.DEFAULT_DIFFICULTY_ADJUSTMENT,
@@ -137,6 +144,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                   Set<String> consumedAlertIds,
                   boolean closeMyOfferWhenTaken,
                   String languageTag,
+                  String countryCode,
+                  String currencyCode,
                   boolean preventStandbyMode,
                   Set<String> supportedLanguageTags,
                   double difficultyAdjustmentFactor,
@@ -169,6 +178,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
         this.consumedAlertIds.setAll(consumedAlertIds);
         this.closeMyOfferWhenTaken.set(closeMyOfferWhenTaken);
         this.languageTag.set(languageTag);
+        this.countryCode.set(countryCode);
+        this.currencyCode.set(currencyCode);
         this.preventStandbyMode.set(preventStandbyMode);
         this.supportedLanguageTags.setAll(supportedLanguageTags);
         this.difficultyAdjustmentFactor.set(difficultyAdjustmentFactor);
@@ -207,6 +218,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                 .addAllConsumedAlertIds(new ArrayList<>(consumedAlertIds))
                 .setCloseMyOfferWhenTaken(closeMyOfferWhenTaken.get())
                 .setLanguageTag(languageTag.get())
+                .setCountryCode(countryCode.get())
+                .setCurrencyCode(currencyCode.get())
                 .setPreventStandbyMode(preventStandbyMode.get())
                 .addAllSupportedLanguageTags(new ArrayList<>(supportedLanguageTags))
                 .setDifficultyAdjustmentFactor(difficultyAdjustmentFactor.get())
@@ -253,6 +266,16 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
             numDaysAfterRedactingTradeData = DEFAULT_NUM_DAYS_AFTER_REDACTING_TRADE_DATA;
         }
 
+        String countryCode = proto.getCountryCode();
+        if (StringUtils.isEmpty(countryCode)) {
+            countryCode = CountryRepository.getDefaultCountry().getCode();
+        }
+
+        String currencyCode = proto.getCurrencyCode();
+        if (StringUtils.isEmpty(currencyCode)) {
+            currencyCode = FiatCurrencyRepository.getDefaultCurrency().getCode();
+        }
+
         return new SettingsStore(Cookie.fromProto(proto.getCookie()),
                 proto.getDontShowAgainMapMap().entrySet().stream()
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
@@ -267,6 +290,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                 new HashSet<>(proto.getConsumedAlertIdsList()),
                 proto.getCloseMyOfferWhenTaken(),
                 proto.getLanguageTag(),
+                countryCode,
+                currencyCode,
                 proto.getPreventStandbyMode(),
                 new HashSet<>(proto.getSupportedLanguageTagsList()),
                 proto.getDifficultyAdjustmentFactor(),
@@ -316,6 +341,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                 Set.copyOf(consumedAlertIds),
                 closeMyOfferWhenTaken.get(),
                 languageTag.get(),
+                countryCode.get(),
+                currencyCode.get(),
                 preventStandbyMode.get(),
                 Set.copyOf(supportedLanguageTags),
                 difficultyAdjustmentFactor.get(),
@@ -353,6 +380,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
             consumedAlertIds.setAll(persisted.consumedAlertIds);
             closeMyOfferWhenTaken.set(persisted.closeMyOfferWhenTaken.get());
             languageTag.set(persisted.languageTag.get());
+            countryCode.set(persisted.countryCode.get());
+            currencyCode.set(persisted.currencyCode.get());
             preventStandbyMode.set(persisted.preventStandbyMode.get());
             supportedLanguageTags.setAll(persisted.supportedLanguageTags);
             difficultyAdjustmentFactor.set(persisted.difficultyAdjustmentFactor.get());

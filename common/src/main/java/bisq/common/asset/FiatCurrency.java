@@ -29,6 +29,8 @@ import java.util.Locale;
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 public final class FiatCurrency extends Asset {
+    public final static FiatCurrency USD = new FiatCurrency("USD");
+
     @Getter
     // transient fields are excluded by default for EqualsAndHashCode
     private transient final Currency currency;

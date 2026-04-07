@@ -29,6 +29,7 @@ import bisq.common.observable.Observable;
 import bisq.common.observable.Pin;
 import bisq.common.observable.ReadOnlyObservable;
 import bisq.common.observable.collection.ObservableSet;
+import bisq.common.util.StringUtils;
 import bisq.i18n.Res;
 import bisq.network.p2p.node.network_load.NetworkLoad;
 import bisq.persistence.DbSubDirectory;
@@ -107,6 +108,8 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         pins.add(getBisqEasyTradeRulesConfirmed().addObserver(value -> persist()));
         pins.add(getMuSigTradeRulesConfirmed().addObserver(value -> persist()));
         pins.add(getLanguageTag().addObserver(value -> persist()));
+        pins.add(getCountryCode().addObserver(value -> persist()));
+        pins.add(getCurrencyCode().addObserver(value -> persist()));
         pins.add(getDifficultyAdjustmentFactor().addObserver(value -> persist()));
         pins.add(getIgnoreDiffAdjustmentFromSecManager().addObserver(value -> persist()));
         pins.add(getFavouriteMarkets().addObserver(this::persist));
@@ -241,6 +244,14 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         return persistableStore.languageTag;
     }
 
+    public ReadOnlyObservable<String> getCountryCode() {
+        return persistableStore.countryCode;
+    }
+
+    public ReadOnlyObservable<String> getCurrencyCode() {
+        return persistableStore.currencyCode;
+    }
+
     public ObservableSet<Market> getFavouriteMarkets() {
         return persistableStore.favouriteMarkets;
     }
@@ -296,7 +307,6 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
     public ReadOnlyObservable<Market> getSelectedWalletMarket() {
         return persistableStore.selectedWalletMarket;
     }
-
 
     /* --------------------------------------------------------------------- */
     // Setters
@@ -356,6 +366,18 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         if (languageTag != null && LanguageRepository.LANGUAGE_TAGS.contains(languageTag)) {
             persistableStore.languageTag.set(languageTag);
             applyLanguageTag(languageTag);
+        }
+    }
+
+    public void setCountryCode(String countryCode) {
+        if (StringUtils.isNotEmpty(countryCode)) {
+            persistableStore.countryCode.set(countryCode);
+        }
+    }
+
+    public void setCurrencyCode(String currencyCode) {
+        if (StringUtils.isNotEmpty(currencyCode)) {
+            persistableStore.currencyCode.set(currencyCode);
         }
     }
 
