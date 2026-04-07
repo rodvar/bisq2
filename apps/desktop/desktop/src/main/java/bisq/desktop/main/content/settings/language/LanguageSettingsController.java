@@ -21,23 +21,25 @@ import bisq.bonded_roles.market_price.MarketPriceService;
 import bisq.common.asset.FiatCurrencyRepository;
 import bisq.common.locale.CountryRepository;
 import bisq.common.locale.LanguageRepository;
+import bisq.common.market.Market;
 import bisq.common.market.MarketRepository;
 import bisq.common.observable.Pin;
 import bisq.common.util.StringUtils;
 import bisq.desktop.ServiceProvider;
 import bisq.desktop.common.observable.FxBindings;
 import bisq.desktop.common.view.Controller;
-import bisq.desktop.components.overlay.Popup;
-import bisq.i18n.Res;
 import bisq.settings.SettingsService;
-
+import javafx.util.StringConverter;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
+import java.util.Comparator;
 import java.util.Currency;
 import java.util.List;
 import java.util.Locale;
+
+import static bisq.common.locale.CountryRepository.getLocalizedCountryDisplayString;
 
 @Slf4j
 public class LanguageSettingsController implements Controller {
@@ -49,20 +51,64 @@ public class LanguageSettingsController implements Controller {
     private Pin supportedLanguageTagsPin;
 
     public LanguageSettingsController(ServiceProvider serviceProvider) {
-        this.settingsService = serviceProvider.getSettingsService();
-        this.marketPriceService = serviceProvider.getBondedRolesService().getMarketPriceService();
+        settingsService = serviceProvider.getSettingsService();
+        marketPriceService = serviceProvider.getBondedRolesService().getMarketPriceService();
 
-        this.model = new LanguageSettingsModel(settingsService);
-
-        model.getCountryCodes().sort((c1, c2) ->
-                convertCountryCode(c1).compareToIgnoreCase(convertCountryCode(c2)));
-
-        List<String> supportedCurrencies = MarketRepository.getAllFiatMarkets().stream()
-                .map(market -> market.getQuoteCurrencyCode())
+        List<String> allCountyCodes = CountryRepository.getAllCountyCodes().stream()
+                .sorted((c1, c2) ->
+                        getLocalizedCountryDisplayString(c1).compareToIgnoreCase(getLocalizedCountryDisplayString(c2)))
+                .toList();
+        List<String> currencyCodes = MarketRepository.getAllFiatMarkets().stream()
+                .map(Market::getQuoteCurrencyCode)
                 .distinct()
                 .sorted()
                 .toList();
-        model.getCurrencyCodes().setAll(supportedCurrencies);
+        StringConverter<String> languageStringConverter = new StringConverter<>() {
+            @Override
+            public String toString(String languageCode) {
+                return languageCode != null ? LanguageRepository.getDisplayString(languageCode) : "";
+            }
+
+            @Override
+            public String fromString(String string) {
+                return null;
+            }
+        };
+        StringConverter<String> countryStringConverter = new StringConverter<>() {
+            @Override
+            public String toString(String countryCode) {
+                return countryCode != null ? getLocalizedCountryDisplayString(countryCode) : "";
+            }
+
+            @Override
+            public String fromString(String string) {
+                return null;
+            }
+        };
+        StringConverter<String> currencyStringConverter = new StringConverter<>() {
+            @Override
+            public String toString(String currencyCode) {
+                return currencyCode != null
+                        ? FiatCurrencyRepository.getDisplayNameAndCode(currencyCode)
+                        : "";
+            }
+
+            @Override
+            public String fromString(String string) {
+                return null;
+            }
+        };
+
+        model = new LanguageSettingsModel(
+                settingsService.getLanguageTag().get(),
+                settingsService.getCountryCode().get(),
+                settingsService.getCurrencyCode().get(),
+                allCountyCodes,
+                currencyCodes,
+                languageStringConverter,
+                countryStringConverter,
+                currencyStringConverter
+        );
 
         view = new LanguageSettingsView(model, this);
     }
@@ -82,44 +128,19 @@ public class LanguageSettingsController implements Controller {
         supportedLanguageTagsPin.unbind();
     }
 
-    public String getDisplayCountry(String countryCode) {
-        return convertCountryCode(countryCode);
-    }
 
-    public String getDisplayLanguage(String languageTag) {
-        return convertLanguageTag(languageTag);
-    }
-
-    public String getDisplayCurrency(@Nullable String currencyCode) {
-        return convertCurrencyCode(currencyCode);
-    }
-
-    String convertCountryCode(String countryCode) {
-        return CountryRepository.getLocalizedCountryDisplayString(countryCode);
-    }
-
-    String convertLanguageTag(String languageTag) {
-        return LanguageRepository.getDisplayString(languageTag);
-    }
-
-    String convertCurrencyCode(@Nullable String currencyCode) {
-        if (currencyCode == null) {
-            return "";
-        }
-        return FiatCurrencyRepository.findDisplayName(currencyCode)
-                .map(displayName -> displayName + " (" + currencyCode + ")")
-                .orElse(currencyCode);
-    }
-
+    // UI handlers
     void onSelectCountryCode(@Nullable String countryCode) {
-        if (countryCode == null) return;
+        if (countryCode == null) {
+            return;
+        }
         model.setSelectedCountryCode(countryCode);
         settingsService.setCountryCode(countryCode);
         try {
             Locale locale = new Locale.Builder().setRegion(countryCode).build();
             Currency defaultCurrency = Currency.getInstance(locale);
             if (defaultCurrency != null) {
-                onSelectCurrencyCode(defaultCurrency.getCurrencyCode());
+                selectCurrencyCode(defaultCurrency.getCurrencyCode());
             }
         } catch (Exception e) {
             log.warn("Could not derive default currency for country: {}", countryCode);
@@ -127,27 +148,15 @@ public class LanguageSettingsController implements Controller {
     }
 
     void onSelectCurrencyCode(@Nullable String currencyCode) {
-        if (currencyCode == null) return;
-        log.debug("User selected default currency: {}", currencyCode);
-        MarketRepository.getAllFiatMarkets().stream()
-                .filter(m -> m.getQuoteCurrencyCode().equalsIgnoreCase(currencyCode))
-                .findFirst()
-                .ifPresentOrElse(market -> {
-                    model.setSelectedCurrencyCode(currencyCode);
-                    settingsService.setCountryCode(model.getSelectedCountryCode());
-                    settingsService.setCurrencyCode(currencyCode);
-                    // R118: Sin Platform.runLater (Contexto de UI garantizado)
-                    if (marketPriceService != null) {
-                        marketPriceService.setSelectedMarket(market);
-                    }
-                }, () -> log.debug("Market not found for: {}", currencyCode));
+        selectCurrencyCode(currencyCode);
     }
 
     void onSelectLanguageTag(@Nullable String languageTag) {
-        if (languageTag == null) return;
-        model.setSelectedLanguageTag(languageTag);
+        if (languageTag == null) {
+            return;
+        }
+        model.getSelectedLanguageTag().set(languageTag);
         settingsService.setLanguageTag(languageTag);
-        new Popup().feedback(Res.get("settings.language.restart")).useShutDownButton().show();
     }
 
     void onSelectSupportedLanguage(@Nullable String languageTag) {
@@ -167,9 +176,24 @@ public class LanguageSettingsController implements Controller {
     }
 
 
+    // Private
+    private void selectCurrencyCode(@Nullable String currencyCode) {
+        if (currencyCode == null) {
+            return;
+        }
+        MarketRepository.getAllFiatMarkets().stream()
+                .filter(m -> m.getQuoteCurrencyCode().equalsIgnoreCase(currencyCode))
+                .findFirst()
+                .ifPresent(market -> {
+                    model.setSelectedCurrencyCode(currencyCode);
+                    settingsService.setCurrencyCode(currencyCode);
+                    marketPriceService.setSelectedMarket(market);
+                });
+    }
+
     private List<String> getSortedLanguageTags() {
         return LanguageRepository.LANGUAGE_TAGS.stream()
-                .sorted((tag1, tag2) -> convertLanguageTag(tag1).compareTo(convertLanguageTag(tag2)))
+                .sorted(Comparator.comparing(LanguageRepository::getDisplayString))
                 .toList();
     }
 }

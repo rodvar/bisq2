@@ -42,7 +42,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
-import java.util.Currency;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -83,6 +82,7 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         persistence = persistenceService.getOrCreatePersistence(this, DbSubDirectory.SETTINGS, persistableStore);
         instance = this;
     }
+
 
     /* --------------------------------------------------------------------- */
     // Service
@@ -131,33 +131,6 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
 
         isInitialized = true;
 
-        boolean needsPersist = false;
-
-        // Fallback for country code using OS locale
-        if (StringUtils.isEmpty(getCountryCode().get())) {
-            String osDefaultCountry = Locale.getDefault().getCountry();
-            setCountryCode(osDefaultCountry);
-            needsPersist = true;
-        }
-
-        // Fallback for currency code using OS locale
-        if (StringUtils.isEmpty(getCurrencyCode().get())) {
-            try {
-                Currency defaultCurrency = Currency.getInstance(Locale.getDefault());
-                if (defaultCurrency != null) {
-                    setCurrencyCode(defaultCurrency.getCurrencyCode());
-                    needsPersist = true;
-                }
-            } catch (Exception e) {
-                log.warn("Could not detect default currency from OS locale");
-            }
-        }
-
-        // Only persist if defaults were applied after initialization is complete
-        if (needsPersist) {
-            persist();
-        }
-
         return CompletableFuture.completedFuture(true);
     }
 
@@ -184,6 +157,7 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         }
     }
 
+
     /* --------------------------------------------------------------------- */
     // API
     /* --------------------------------------------------------------------- */
@@ -208,6 +182,7 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         CountryRepository.applyDefaultLocale(newLocale);
         FiatCurrencyRepository.setLocale(newLocale);
     }
+
 
     /* --------------------------------------------------------------------- */
     // Getters for Observable
@@ -405,7 +380,6 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
             persistableStore.currencyCode.set(currencyCode);
         }
     }
-    // ---------------------------------------------------------------------
 
     public void setShowBuyOffers(boolean showBuyOffers) {
         persistableStore.showBuyOffers.set(showBuyOffers);
@@ -466,13 +440,19 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         }
     }
 
+
     /* --------------------------------------------------------------------- */
-    // DontShowAgainMap, Cookie and "Don't show again" flags
+    // DontShowAgainMap
     /* --------------------------------------------------------------------- */
 
     public Map<String, Boolean> getDontShowAgainMap() {
         return persistableStore.dontShowAgainMap;
     }
+
+
+    /* --------------------------------------------------------------------- */
+    // Cookie
+    /* --------------------------------------------------------------------- */
 
     public Cookie getCookie() {
         return persistableStore.cookie;
