@@ -22,8 +22,10 @@ import bisq.common.proto.ProtoResolver;
 import bisq.common.proto.UnresolvableProtobufMessageException;
 import bisq.common.validation.NetworkDataValidation;
 import bisq.network.p2p.message.ExternalNetworkMessage;
+import bisq.network.p2p.message.SenderPublicKeyProvidingPayload;
 import bisq.network.p2p.services.data.storage.MetaData;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
+import bisq.user.profile.UserProfile;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import lombok.EqualsAndHashCode;
@@ -31,6 +33,7 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.security.PublicKey;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -43,19 +46,19 @@ import static com.google.common.base.Preconditions.checkArgument;
 @Getter
 @ToString
 @EqualsAndHashCode
-public final class MuSigDisputeCaseDataMessage implements MailboxMessage, ExternalNetworkMessage {
+public final class MuSigDisputeCaseDataMessage implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final String tradeId;
-    private final String senderUserProfileId;
+    private final UserProfile senderUserProfile;
     private final byte[] contractHash;
     private final List<MuSigOpenTradeMessage> chatMessages;
 
     public MuSigDisputeCaseDataMessage(String tradeId,
-                                       String senderUserProfileId,
+                                       UserProfile senderUserProfile,
                                        byte[] contractHash,
                                        List<MuSigOpenTradeMessage> chatMessages) {
         this.tradeId = tradeId;
-        this.senderUserProfileId = senderUserProfileId;
+        this.senderUserProfile = senderUserProfile;
         this.contractHash = contractHash.clone();
         this.chatMessages = maybePrune(chatMessages);
 
@@ -66,7 +69,6 @@ public final class MuSigDisputeCaseDataMessage implements MailboxMessage, Extern
     @Override
     public void verify() {
         NetworkDataValidation.validateTradeId(tradeId);
-        NetworkDataValidation.validateProfileId(senderUserProfileId);
         NetworkDataValidation.validateHash(contractHash);
         checkArgument(chatMessages.size() < 1000);
     }
@@ -75,7 +77,7 @@ public final class MuSigDisputeCaseDataMessage implements MailboxMessage, Extern
     public bisq.support.protobuf.MuSigDisputeCaseDataMessage.Builder getValueBuilder(boolean serializeForHash) {
         return bisq.support.protobuf.MuSigDisputeCaseDataMessage.newBuilder()
                 .setTradeId(tradeId)
-                .setSenderUserProfileId(senderUserProfileId)
+                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash))
                 .setContractHash(ByteString.copyFrom(contractHash))
                 .addAllChatMessages(chatMessages.stream()
                         .map(message -> message.toValueProto(serializeForHash))
@@ -85,7 +87,7 @@ public final class MuSigDisputeCaseDataMessage implements MailboxMessage, Extern
     public static MuSigDisputeCaseDataMessage fromProto(bisq.support.protobuf.MuSigDisputeCaseDataMessage proto) {
         return new MuSigDisputeCaseDataMessage(
                 proto.getTradeId(),
-                proto.getSenderUserProfileId(),
+                UserProfile.fromProto(proto.getSenderUserProfile()),
                 proto.getContractHash().toByteArray(),
                 proto.getChatMessagesList().stream()
                         .map(MuSigOpenTradeMessage::fromProto)
@@ -107,6 +109,11 @@ public final class MuSigDisputeCaseDataMessage implements MailboxMessage, Extern
     @Override
     public double getCostFactor() {
         return getCostFactor(0.25, 0.5);
+    }
+
+    @Override
+    public PublicKey getSenderPublicKey() {
+        return senderUserProfile.getPublicKey();
     }
 
     public byte[] getContractHash() {

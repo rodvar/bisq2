@@ -43,7 +43,7 @@ message MuSigPaymentDetailsResponse {
   string tradeId = 1;
   account.AccountPayload takerAccountPayload = 2;
   account.AccountPayload makerAccountPayload = 3;
-  string senderUserProfileId = 4;
+  user.UserProfile senderUserProfile = 4;
 }
 
 enum MediationCaseState {
@@ -108,7 +108,7 @@ message MuSigMediationStateChangeMessage {
 
 message MuSigDisputeCaseDataMessage {
   string tradeId = 1;
-  string senderUserProfileId = 2;
+  user.UserProfile senderUserProfile = 2;
   bytes contractHash = 3;
   repeated chat.ChatMessage chatMessages = 4;
 }
@@ -116,7 +116,7 @@ message MuSigDisputeCaseDataMessage {
 message MuSigMediationResultAcceptanceMessage {
   string tradeId = 1;
   bool mediationResultAccepted = 2;
-  string senderUserProfileId = 3;
+  user.UserProfile senderUserProfile = 3;
 }
 
 enum MuSigMediationIssueType {

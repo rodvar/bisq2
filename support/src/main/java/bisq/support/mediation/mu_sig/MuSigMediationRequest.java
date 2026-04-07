@@ -24,6 +24,7 @@ import bisq.common.validation.NetworkDataValidation;
 import bisq.contract.mu_sig.MuSigContract;
 import bisq.network.identity.NetworkId;
 import bisq.network.p2p.message.ExternalNetworkMessage;
+import bisq.network.p2p.message.SenderPublicKeyProvidingPayload;
 import bisq.network.p2p.services.confidential.ack.AckRequestingMessage;
 import bisq.network.p2p.services.data.storage.MetaData;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
@@ -34,6 +35,7 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.security.PublicKey;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -46,7 +48,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 @Getter
 @ToString
 @EqualsAndHashCode
-public final class MuSigMediationRequest implements MailboxMessage, ExternalNetworkMessage, AckRequestingMessage {
+public final class MuSigMediationRequest implements MailboxMessage, ExternalNetworkMessage, AckRequestingMessage, SenderPublicKeyProvidingPayload {
     public static String createMessageId(String tradeId) {
         return MuSigMediationRequest.class.getSimpleName() + "." + tradeId;
     }
@@ -157,6 +159,11 @@ public final class MuSigMediationRequest implements MailboxMessage, ExternalNetw
     @Override
     public double getCostFactor() {
         return getCostFactor(0.25, 0.5);
+    }
+
+    @Override
+    public PublicKey getSenderPublicKey() {
+        return requester.getPublicKey();
     }
 
     private List<MuSigOpenTradeMessage> maybePrune(List<MuSigOpenTradeMessage> chatMessages) {
