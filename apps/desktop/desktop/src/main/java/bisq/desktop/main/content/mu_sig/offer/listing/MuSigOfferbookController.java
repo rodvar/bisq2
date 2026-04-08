@@ -110,6 +110,29 @@ public class MuSigOfferbookController implements Controller {
     public void onActivate() {
         model.getMarketsSearchBoxText().set("");
 
+        selectedMarketPin = FxBindings.bindBiDir(model.getSelectedMarket())
+                .to(settingsService.getSelectedMuSigMarket(), settingsService::setSelectedMuSigMarket);
+
+        selectBaseCurrency();
+
+        selectedBaseCryptoAssetPin = EasyBind.subscribe(model.getSelectedBaseCryptoAsset(), selectedCrypto -> {
+            if (selectedCrypto != null) {
+                if (selectedCrypto.equals(CryptoAssetRepository.XMR)) {
+                    updateQuoteMarketItems(MarketRepository.getXmrCryptoMarkets());
+                    updateSelectedMuSigMarketWithBaseCurrency(selectedCrypto.getCode());
+                } else if (selectedCrypto.equals(CryptoAssetRepository.BITCOIN)) {
+                    updateQuoteMarketItems(MarketRepository.getAllFiatMarkets());
+                    updateSelectedMuSigMarketWithBaseCurrency(selectedCrypto.getCode());
+                }
+                model.getMarketListTitle().set(getMarketListTitleString(selectedCrypto));
+                model.getBaseCurrencyIconId().set(selectedCrypto.getCode());
+            } else {
+                model.getMarketListTitle().set("");
+            }
+
+            updateFavouriteMarketsObserver();
+        });
+
         offersPin = muSigService.getObservableOffers().addObserver(new CollectionObserver<>() {
             @Override
             public void onAdded(MuSigOffer muSigOffer) {
@@ -155,40 +178,6 @@ public class MuSigOfferbookController implements Controller {
             }
         });
 
-        selectedMarketPin = FxBindings.bindBiDir(model.getSelectedMarket())
-                .to(settingsService.getSelectedMuSigMarket(), settingsService::setSelectedMuSigMarket);
-
-        favouriteMarketsPin = settingsService.getFavouriteMarkets().addObserver(new CollectionObserver<>() {
-            @Override
-            public void onAdded(Market market) {
-                UIThread.run(() -> {
-                    findMarketItem(market).ifPresent(item -> item.getIsFavourite().set(true));
-                    updateFilteredMarketItems();
-                    updateFavouriteMarketItems();
-                });
-            }
-
-            @Override
-            public void onRemoved(Object element) {
-                if (element instanceof Market market) {
-                    UIThread.run(() -> {
-                        findMarketItem(market).ifPresent(item -> item.getIsFavourite().set(false));
-                        updateFilteredMarketItems();
-                        updateFavouriteMarketItems();
-                    });
-                }
-            }
-
-            @Override
-            public void onCleared() {
-                UIThread.run(() -> {
-                    model.getMarketItems().forEach(item -> item.getIsFavourite().set(false));
-                    updateFilteredMarketItems();
-                    updateFavouriteMarketItems();
-                });
-            }
-        });
-
         marketPriceByCurrencyMapPin = marketPriceService.getMarketPriceByCurrencyMap().addObserver(() ->
                 UIThread.run(() -> {
                     model.setMarketPricePredicate(item -> marketPriceService.getMarketPriceByCurrencyMap().isEmpty() ||
@@ -217,22 +206,6 @@ public class MuSigOfferbookController implements Controller {
                     updateAvailablePaymentMethods();
                     saveMuSigMarketPreferences(selectedMarketItem.getMarket());
                 });
-            }
-        });
-
-        selectedBaseCryptoAssetPin = EasyBind.subscribe(model.getSelectedBaseCryptoAsset(), selectedCrypto -> {
-            if (selectedCrypto != null) {
-                if (selectedCrypto.equals(CryptoAssetRepository.XMR)) {
-                    updateQuoteMarketItems(MarketRepository.getXmrCryptoMarkets());
-                    updateSelectedMuSigMarketWithBaseCurrency(selectedCrypto.getCode());
-                } else if (selectedCrypto.equals(CryptoAssetRepository.BITCOIN)) {
-                    updateQuoteMarketItems(MarketRepository.getAllFiatMarkets());
-                    updateSelectedMuSigMarketWithBaseCurrency(selectedCrypto.getCode());
-                }
-                model.getMarketListTitle().set(getMarketListTitleString(selectedCrypto));
-                model.getBaseCurrencyIconId().set(selectedCrypto.getCode());
-            } else {
-                model.getMarketListTitle().set("");
             }
         });
 
@@ -314,7 +287,6 @@ public class MuSigOfferbookController implements Controller {
         updateFilteredMarketItems();
         updateFavouriteMarketItems();
         updateFilteredMuSigOfferListItems();
-        selectBaseCurrency();
     }
 
     @Override
@@ -326,6 +298,7 @@ public class MuSigOfferbookController implements Controller {
         offersPin.unbind();
         selectedMarketPin.unbind();
         favouriteMarketsPin.unbind();
+        favouriteMarketsPin = null;
         marketPriceByCurrencyMapPin.unbind();
 
         selectedMarketItemPin.unsubscribe();
@@ -408,6 +381,45 @@ public class MuSigOfferbookController implements Controller {
 
     void updateSelectedBaseCryptoAsset(CryptoAsset baseCrypto) {
         model.getSelectedBaseCryptoAsset().set(baseCrypto);
+    }
+
+    private void updateFavouriteMarketsObserver() {
+        if (favouriteMarketsPin != null) {
+            favouriteMarketsPin.unbind();
+        }
+        favouriteMarketsPin = settingsService.getFavouriteMarkets().addObserver(new CollectionObserver<>() {
+            @Override
+            public void onAdded(Market market) {
+                UIThread.run(() -> {
+                    findMarketItem(market).ifPresent(item -> {
+                        log.error("Favourite market item found");
+                        item.getIsFavourite().set(true);
+                    });
+                    updateFilteredMarketItems();
+                    updateFavouriteMarketItems();
+                });
+            }
+
+            @Override
+            public void onRemoved(Object element) {
+                if (element instanceof Market market) {
+                    UIThread.run(() -> {
+                        findMarketItem(market).ifPresent(item -> item.getIsFavourite().set(false));
+                        updateFilteredMarketItems();
+                        updateFavouriteMarketItems();
+                    });
+                }
+            }
+
+            @Override
+            public void onCleared() {
+                UIThread.run(() -> {
+                    model.getMarketItems().forEach(item -> item.getIsFavourite().set(false));
+                    updateFilteredMarketItems();
+                    updateFavouriteMarketItems();
+                });
+            }
+        });
     }
 
     private void updateSelectedMuSigMarketWithBaseCurrency(String baseCurrencyCode) {

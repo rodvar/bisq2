@@ -102,7 +102,7 @@ public class MuSigOfferbookModel implements Model {
                     && getMarketSearchTextPredicate().test(item)
                     && getMarketPricePredicate().test(item)
                     && !item.getIsFavourite().get();
-    private final Predicate<MuSigMarketItem> favouriteMarketItemsPredicate = item -> item.getIsFavourite().get();;
+    private final Predicate<MuSigMarketItem> favouriteMarketItemsPredicate = item -> item.getIsFavourite().get();
     @Setter
     private Predicate<MuSigMarketItem> marketFilterPredicate = item -> true;
     @Setter
