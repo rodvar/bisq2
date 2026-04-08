@@ -21,6 +21,7 @@ import bisq.chat.ChatChannelDomain;
 import bisq.common.validation.NetworkDataValidation;
 import bisq.network.identity.NetworkId;
 import bisq.network.p2p.message.ExternalNetworkMessage;
+import bisq.network.p2p.message.SenderPublicKeyProvidingPayload;
 import bisq.network.p2p.services.confidential.ack.AckRequestingMessage;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
 import bisq.user.profile.UserProfile;
@@ -28,10 +29,13 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
+import java.security.PublicKey;
+
 @Getter
 @ToString(callSuper = true)
 @EqualsAndHashCode(callSuper = true)
-public abstract class PrivateChatMessageReaction extends ChatMessageReaction implements MailboxMessage, ExternalNetworkMessage, AckRequestingMessage {
+public abstract class PrivateChatMessageReaction extends ChatMessageReaction implements
+        MailboxMessage, ExternalNetworkMessage, AckRequestingMessage, SenderPublicKeyProvidingPayload {
     @EqualsAndHashCode.Exclude
     protected final String receiverUserProfileId;
     protected final UserProfile senderUserProfile;
@@ -80,5 +84,10 @@ public abstract class PrivateChatMessageReaction extends ChatMessageReaction imp
     @Override
     public String getAckRequestingMessageId() {
         return id;
+    }
+
+    @Override
+    public PublicKey getSenderPublicKey() {
+        return senderUserProfile.getPublicKey();
     }
 }
