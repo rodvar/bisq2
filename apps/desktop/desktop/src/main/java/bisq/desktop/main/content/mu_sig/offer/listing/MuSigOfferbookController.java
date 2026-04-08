@@ -391,10 +391,7 @@ public class MuSigOfferbookController implements Controller {
             @Override
             public void onAdded(Market market) {
                 UIThread.run(() -> {
-                    findMarketItem(market).ifPresent(item -> {
-                        log.error("Favourite market item found");
-                        item.getIsFavourite().set(true);
-                    });
+                    findMarketItem(market).ifPresent(item -> item.getIsFavourite().set(true));
                     updateFilteredMarketItems();
                     updateFavouriteMarketItems();
                 });
