@@ -73,6 +73,8 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
     @Getter
     private final Persistence<SettingsStore> persistence;
     @Getter
+    private final FavouriteMarketsService favouriteMarketsService;
+    @Getter
     private final Observable<Boolean> cookieChanged = new Observable<>(false);
     private boolean isInitialized;
 
@@ -81,6 +83,8 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
     public SettingsService(PersistenceService persistenceService) {
         persistence = persistenceService.getOrCreatePersistence(this, DbSubDirectory.SETTINGS, persistableStore);
         instance = this;
+
+        favouriteMarketsService = new FavouriteMarketsService(persistableStore.favouriteMarkets);
     }
 
 
@@ -131,7 +135,8 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
 
         isInitialized = true;
 
-        return CompletableFuture.completedFuture(true);
+        return favouriteMarketsService.initialize()
+                .thenApply(value -> true);
     }
 
     @Override
@@ -144,7 +149,8 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         pins.clear();
 
         isInitialized = false;
-        return CompletableFuture.completedFuture(true);
+        return favouriteMarketsService.shutdown()
+                .thenApply(value -> true);
     }
 
     @Override

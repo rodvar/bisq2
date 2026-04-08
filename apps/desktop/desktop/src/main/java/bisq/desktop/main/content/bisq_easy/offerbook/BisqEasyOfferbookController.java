@@ -90,7 +90,7 @@ public final class BisqEasyOfferbookController extends ChatController<BisqEasyOf
         settingsService = serviceProvider.getSettingsService();
         marketPriceService = serviceProvider.getBondedRolesService().getMarketPriceService();
         bisqEasyOfferbookChannelService = chatService.getBisqEasyOfferbookChannelService();
-        favouriteMarketsService = serviceProvider.getFavouriteMarketsService();
+        favouriteMarketsService = serviceProvider.getSettingsService().getFavouriteMarketsService();
         chatNotificationService = serviceProvider.getChatService().getChatNotificationService();
         bisqEasySellersReputationBasedTradeAmountService = serviceProvider.getBisqEasyService().getBisqEasySellersReputationBasedTradeAmountService();
         bisqEasyOfferbookMessageService = serviceProvider.getBisqEasyService().getBisqEasyOfferbookMessageService();
