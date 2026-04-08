@@ -25,7 +25,6 @@ import bisq.chat.bisq_easy.offerbook.BisqEasyOfferbookChannelService;
 import bisq.common.data.Pair;
 import bisq.common.market.Market;
 import bisq.common.market.MarketRepository;
-import bisq.common.monetary.Coin;
 import bisq.common.monetary.Fiat;
 import bisq.common.monetary.Monetary;
 import bisq.common.util.MathUtils;
@@ -50,14 +49,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MuSigTradeAmountLimits {
     public static final Fiat DEFAULT_MIN_USD_TRADE_AMOUNT = Fiat.fromFaceValue(10, "USD");
-
-    public static final Coin DEFAULT_MIN_BTC_TRADE_AMOUNT = Coin.asBtcFromValue(10000); // 0.0001 BTC
-    public static final Coin DEFAULT_MAX_BTC_TRADE_AMOUNT = Coin.asBtcFromValue(250000); // 0.0025 BTC // 150 USD @ 60k price
-    public static final Fiat MAX_USD_TRADE_AMOUNT_WITHOUT_REPUTATION = Fiat.fromFaceValue(0, "USD");
-    private static final double REQUIRED_REPUTATION_SCORE_PER_USD = 200d;
-    public static final double TOLERANCE = 0.05;
-    private static final long MIN_REPUTATION_SCORE_TO_CREATE_SELL_OFFER = 1200;
-    private static final Set<String> SELL_OFFERS_WITH_INSUFFICIENT_REPUTATION = new HashSet<>();
 
 
     /* --------------------------------------------------------------------- */
@@ -101,8 +92,16 @@ public class MuSigTradeAmountLimits {
 
 
     /* --------------------------------------------------------------------- */
-    //
+    // TODO Copied from Bisq Easy...
     /* --------------------------------------------------------------------- */
+
+
+    public static final Fiat MAX_USD_TRADE_AMOUNT_WITHOUT_REPUTATION = Fiat.fromFaceValue(0, "USD");
+    private static final double REQUIRED_REPUTATION_SCORE_PER_USD = 200d;
+    public static final double TOLERANCE = 0.05;
+    private static final long MIN_REPUTATION_SCORE_TO_CREATE_SELL_OFFER = 1200;
+    private static final Set<String> SELL_OFFERS_WITH_INSUFFICIENT_REPUTATION = new HashSet<>();
+
 
 
     public static Optional<Monetary> getMinQuoteSideTradeAmount(MarketPriceService marketPriceService, Market market) {

@@ -449,12 +449,17 @@ public class MuSigCreateOfferAmountController implements Controller {
         Monetary reputationBasedMaxAmount = model.getReputationBasedMaxAmount().round(0);
         amountSelectionController.setMaxAllowedLimitation(maxRangeValue);
         model.getLearnMoreVisible().set(true);
+
+        // We keep the feedback and overlay code for now as we might have usage later for it.
+        // If not, we can remove all related code. Currently, it's just a copy of Bisq Easy...
+        model.getShouldShowAmountLimitInfo().set(false);
+
         if (isBuyer) {
-            model.getShouldShowAmountLimitInfo().set(true);
+            //model.getShouldShowAmountLimitInfo().set(true);
             amountSelectionController.setMinMaxRange(minRangeValue, maxRangeValue);
         } else {
             boolean hasNotReachedAmountLimit = reputationBasedMaxAmount.getValue() < maxRangeValue.getValue();
-            model.getShouldShowAmountLimitInfo().set(hasNotReachedAmountLimit);
+            //model.getShouldShowAmountLimitInfo().set(hasNotReachedAmountLimit);
             if (reputationBasedMaxAmount.getValue() < minRangeValue.getValue()) {
                 minRangeValue = reputationBasedMaxAmount;
             }

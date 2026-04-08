@@ -226,7 +226,7 @@ public class BisqEasyNotificationsService implements Service {
         } else {
             Predicate<ChatNotification> favouriteMarketsPredicate = notification -> bisqEasyOfferbookChannelService.findChannel(notification.getChatChannelId())
                     .map(BisqEasyOfferbookChannel::getMarket)
-                    .map(market -> settingsService.getFavouriteMarkets().stream().anyMatch(m -> m.equals(market)))
+                    .map(market -> settingsService.getFavouriteMarkets().contains(market))
                     .orElse(false);
 
             if (isFavouritesOnlyFilterSet) {

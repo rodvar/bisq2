@@ -172,13 +172,11 @@ public class MuSigCreateOfferController extends NavigationController implements 
     }
 
     private void updateChildTargets() {
-        List<NavigationTarget> targets = new ArrayList<>(List.of(
-                NavigationTarget.MU_SIG_CREATE_OFFER_DIRECTION_AND_MARKET,
-                NavigationTarget.MU_SIG_CREATE_OFFER_AMOUNT_AND_PRICE
-        ));
+        List<NavigationTarget> targets = new ArrayList<>(List.of(NavigationTarget.MU_SIG_CREATE_OFFER_DIRECTION_AND_MARKET));
         if (!isPaymentStepSkipped) {
             targets.add(NavigationTarget.MU_SIG_CREATE_OFFER_PAYMENT_METHODS);
         }
+        targets.add(NavigationTarget.MU_SIG_CREATE_OFFER_AMOUNT_AND_PRICE);
         targets.add(NavigationTarget.MU_SIG_CREATE_OFFER_REVIEW_OFFER);
         model.getChildTargets().setAll(targets);
     }
