@@ -97,7 +97,7 @@ public class MuSigOfferbookController implements Controller {
         identityService = serviceProvider.getIdentityService();
         settingsService = serviceProvider.getSettingsService();
         bannedUserService = serviceProvider.getUserService().getBannedUserService();
-        favouriteMarketsService = serviceProvider.getFavouriteMarketsService();
+        favouriteMarketsService = serviceProvider.getSettingsService().getFavouriteMarketsService();
         userIdentityService = serviceProvider.getUserService().getUserIdentityService();
         reputationService = serviceProvider.getUserService().getReputationService();
         accountService = serviceProvider.getAccountService();

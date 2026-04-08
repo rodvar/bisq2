@@ -49,7 +49,6 @@ import bisq.os_specific.notifications.osx.OsxNotificationService;
 import bisq.os_specific.notifications.other.AwtNotificationService;
 import bisq.security.SecurityService;
 import bisq.settings.DontShowAgainService;
-import bisq.settings.FavouriteMarketsService;
 import bisq.settings.SettingsService;
 import bisq.support.SupportService;
 import bisq.trade.TradeService;
@@ -103,7 +102,6 @@ public class DesktopApplicationService extends JavaSeApplicationService {
     private final UpdaterService updaterService;
     private final BisqEasyService bisqEasyService;
     private final AlertNotificationsService alertNotificationsService;
-    private final FavouriteMarketsService favouriteMarketsService;
     private final DontShowAgainService dontShowAgainService;
     private final WebcamAppService webcamAppService;
     private final ApiService apiService;
@@ -216,8 +214,6 @@ public class DesktopApplicationService extends JavaSeApplicationService {
 
         alertNotificationsService = new AlertNotificationsService(settingsService, bondedRolesService.getAlertService(), AppType.DESKTOP);
 
-        favouriteMarketsService = new FavouriteMarketsService(settingsService);
-
         dontShowAgainService = new DontShowAgainService(settingsService);
         webcamAppService = new WebcamAppService(config);
 
@@ -263,7 +259,6 @@ public class DesktopApplicationService extends JavaSeApplicationService {
                 bisqEasyService,
                 muSigService,
                 alertNotificationsService,
-                favouriteMarketsService,
                 dontShowAgainService,
                 webcamAppService,
                 memoryReportService,
@@ -304,7 +299,6 @@ public class DesktopApplicationService extends JavaSeApplicationService {
                 .thenCompose(result -> bisqEasyService.initialize())
                 .thenCompose(result -> muSigService.initialize())
                 .thenCompose(result -> alertNotificationsService.initialize())
-                .thenCompose(result -> favouriteMarketsService.initialize())
                 .thenCompose(result -> dontShowAgainService.initialize())
                 .thenCompose(result -> webcamAppService.initialize())
                 .thenCompose(result -> openTradeItemsService.initialize())
@@ -341,7 +335,6 @@ public class DesktopApplicationService extends JavaSeApplicationService {
                 .thenCompose(result -> openTradeItemsService.shutdown().exceptionally(this::logError))
                 .thenCompose(result -> webcamAppService.shutdown().exceptionally(this::logError))
                 .thenCompose(result -> dontShowAgainService.shutdown().exceptionally(this::logError))
-                .thenCompose(result -> favouriteMarketsService.shutdown().exceptionally(this::logError))
                 .thenCompose(result -> alertNotificationsService.shutdown().exceptionally(this::logError))
                 .thenCompose(result -> muSigService.shutdown().exceptionally(this::logError))
                 .thenCompose(result -> bisqEasyService.shutdown().exceptionally(this::logError))
