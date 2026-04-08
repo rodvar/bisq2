@@ -134,9 +134,7 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         pins.add(getSelectedWalletMarket().addObserver(value -> persist()));
 
         isInitialized = true;
-
-        return favouriteMarketsService.initialize()
-                .thenApply(value -> true);
+        return favouriteMarketsService.initialize();
     }
 
     @Override
@@ -149,8 +147,7 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         pins.clear();
 
         isInitialized = false;
-        return favouriteMarketsService.shutdown()
-                .thenApply(value -> true);
+        return favouriteMarketsService.shutdown();
     }
 
     @Override
