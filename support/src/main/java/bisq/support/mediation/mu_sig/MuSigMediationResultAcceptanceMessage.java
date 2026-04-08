@@ -43,13 +43,13 @@ import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 public final class MuSigMediationResultAcceptanceMessage implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final String tradeId;
-    private final boolean mediationResultAccepted;
     private final UserProfile senderUserProfile;
+    private final boolean mediationResultAccepted;
 
-    public MuSigMediationResultAcceptanceMessage(String tradeId, boolean mediationResultAccepted, UserProfile senderUserProfile) {
+    public MuSigMediationResultAcceptanceMessage(String tradeId, UserProfile senderUserProfile, boolean mediationResultAccepted) {
         this.tradeId = tradeId;
-        this.mediationResultAccepted = mediationResultAccepted;
         this.senderUserProfile = senderUserProfile;
+        this.mediationResultAccepted = mediationResultAccepted;
 
         verify();
     }
@@ -63,15 +63,15 @@ public final class MuSigMediationResultAcceptanceMessage implements MailboxMessa
     public bisq.support.protobuf.MuSigMediationResultAcceptanceMessage.Builder getValueBuilder(boolean serializeForHash) {
         return bisq.support.protobuf.MuSigMediationResultAcceptanceMessage.newBuilder()
                 .setTradeId(tradeId)
-                .setMediationResultAccepted(mediationResultAccepted)
-                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash));
+                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash))
+                .setMediationResultAccepted(mediationResultAccepted);
     }
 
     public static MuSigMediationResultAcceptanceMessage fromProto(bisq.support.protobuf.MuSigMediationResultAcceptanceMessage proto) {
         return new MuSigMediationResultAcceptanceMessage(
                 proto.getTradeId(),
-                proto.getMediationResultAccepted(),
-                UserProfile.fromProto(proto.getSenderUserProfile())
+                UserProfile.fromProto(proto.getSenderUserProfile()),
+                proto.getMediationResultAccepted()
         );
     }
 

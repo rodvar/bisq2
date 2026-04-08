@@ -26,6 +26,7 @@ public enum MuSigDisputeState implements ProtoEnum {
     MEDIATION_OPEN,
     MEDIATION_CLOSED,
     MEDIATION_RE_OPENED,
+    ARBITRATION_REQUESTED,
     ARBITRATION_OPEN,
     ARBITRATION_CLOSED;
 

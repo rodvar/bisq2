@@ -44,18 +44,18 @@ import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 public final class MuSigPaymentDetailsResponse implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final String tradeId;
+    private final UserProfile senderUserProfile;
     private final AccountPayload<?> takerAccountPayload;
     private final AccountPayload<?> makerAccountPayload;
-    private final UserProfile senderUserProfile;
 
     public MuSigPaymentDetailsResponse(String tradeId,
+                                       UserProfile senderUserProfile,
                                        AccountPayload<?> takerAccountPayload,
-                                       AccountPayload<?> makerAccountPayload,
-                                       UserProfile senderUserProfile) {
+                                       AccountPayload<?> makerAccountPayload) {
         this.tradeId = tradeId;
+        this.senderUserProfile = senderUserProfile;
         this.takerAccountPayload = takerAccountPayload;
         this.makerAccountPayload = makerAccountPayload;
-        this.senderUserProfile = senderUserProfile;
 
         verify();
     }
@@ -69,17 +69,17 @@ public final class MuSigPaymentDetailsResponse implements MailboxMessage, Extern
     public bisq.support.protobuf.MuSigPaymentDetailsResponse.Builder getValueBuilder(boolean serializeForHash) {
         return bisq.support.protobuf.MuSigPaymentDetailsResponse.newBuilder()
                 .setTradeId(tradeId)
+                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash))
                 .setTakerAccountPayload(takerAccountPayload.toProto(serializeForHash))
-                .setMakerAccountPayload(makerAccountPayload.toProto(serializeForHash))
-                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash));
+                .setMakerAccountPayload(makerAccountPayload.toProto(serializeForHash));
     }
 
     public static MuSigPaymentDetailsResponse fromProto(bisq.support.protobuf.MuSigPaymentDetailsResponse proto) {
         return new MuSigPaymentDetailsResponse(
                 proto.getTradeId(),
+                UserProfile.fromProto(proto.getSenderUserProfile()),
                 AccountPayload.fromProto(proto.getTakerAccountPayload()),
-                AccountPayload.fromProto(proto.getMakerAccountPayload()),
-                UserProfile.fromProto(proto.getSenderUserProfile())
+                AccountPayload.fromProto(proto.getMakerAccountPayload())
         );
     }
 

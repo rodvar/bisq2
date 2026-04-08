@@ -118,13 +118,13 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
     @Override
     public void onMessage(EnvelopePayloadMessage envelopePayloadMessage) {
         if (envelopePayloadMessage instanceof MuSigMediationRequest message) {
-            verifyMediationRequest(message, bannedUserService)
+            authorizeMediationRequest(message, bannedUserService)
                     .ifPresent(sender -> processMediationRequest(message, sender));
         } else if (envelopePayloadMessage instanceof MuSigDisputeCaseDataMessage message) {
-            verifyDisputeCaseDataMessage(message, this::findMediationCase, bannedUserService)
+            authorizeDisputeCaseDataMessage(message, this::findMediationCase, bannedUserService)
                     .ifPresent(mediationCase -> processDisputeCaseDataMessage(message, mediationCase));
         } else if (envelopePayloadMessage instanceof MuSigPaymentDetailsResponse message) {
-            verifyPaymentDetailsResponse(message, this::findMediationCase, bannedUserService)
+            authorizePaymentDetailsResponse(message, this::findMediationCase, bannedUserService)
                     .ifPresent(mediationCase -> processPaymentDetailsResponse(message, mediationCase));
         }
     }
@@ -192,7 +192,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
         UserIdentity myUserIdentity = myMediatorUserIdentity.orElseThrow();
         MuSigPaymentDetailsRequest message = new MuSigPaymentDetailsRequest(
                 muSigMediationRequest.getTradeId(),
-                myUserIdentity.getUserProfile().getId()
+                myUserIdentity.getUserProfile()
         );
         NetworkIdWithKeyPair networkIdWithKeyPair = myUserIdentity.getNetworkIdWithKeyPair();
         networkService.confidentialSend(message,
@@ -240,8 +240,8 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
     // Private
     /* --------------------------------------------------------------------- */
 
-    static Optional<UserProfile> verifyMediationRequest(MuSigMediationRequest muSigMediationRequest,
-                                                        BannedUserService bannedUserService) {
+    static Optional<UserProfile> authorizeMediationRequest(MuSigMediationRequest muSigMediationRequest,
+                                                           BannedUserService bannedUserService) {
         UserProfile requester = muSigMediationRequest.getRequester();
         if (bannedUserService.isUserProfileBanned(requester)) {
             log.warn("Message ignored as sender is banned");
@@ -289,6 +289,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
             MuSigMediationStateChangeMessage openMessage = new MuSigMediationStateChangeMessage(
                     StringUtils.createUid(),
                     tradeId,
+                    myUserIdentity.getUserProfile(),
                     MediationCaseState.OPEN,
                     Optional.empty(),
                     Optional.empty());
@@ -308,12 +309,12 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
         });
     }
 
-    static Optional<MuSigMediationCase> verifyPaymentDetailsResponse(MuSigPaymentDetailsResponse response,
-                                                                     Function<String, Optional<MuSigMediationCase>> findMediationCase,
-                                                                     BannedUserService bannedUserService) {
+    static Optional<MuSigMediationCase> authorizePaymentDetailsResponse(MuSigPaymentDetailsResponse response,
+                                                                        Function<String, Optional<MuSigMediationCase>> findMediationCase,
+                                                                        BannedUserService bannedUserService) {
         String tradeId = response.getTradeId();
         return findMediationCase.apply(tradeId)
-                .flatMap(mediationCase -> {
+                .<Optional<MuSigMediationCase>>map(mediationCase -> {
                     MuSigMediationRequest muSigMediationRequest = mediationCase.getMuSigMediationRequest();
                     UserProfile senderUserProfile = response.getSenderUserProfile();
                     UserProfile requester = muSigMediationRequest.getRequester();
@@ -332,7 +333,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
                     }
                     return Optional.of(mediationCase);
                 })
-                .or(() -> {
+                .orElseGet(() -> {
                     log.warn("Ignoring MuSigPaymentDetailsResponse for unknown trade {}.", tradeId);
                     return Optional.empty();
                 });
@@ -363,27 +364,27 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
         }
     }
 
-    static Optional<MuSigMediationCase> verifyDisputeCaseDataMessage(MuSigDisputeCaseDataMessage message,
-                                                                     Function<String, Optional<MuSigMediationCase>> findMediationCase,
-                                                                     BannedUserService bannedUserService) {
+    static Optional<MuSigMediationCase> authorizeDisputeCaseDataMessage(MuSigDisputeCaseDataMessage message,
+                                                                        Function<String, Optional<MuSigMediationCase>> findMediationCase,
+                                                                        BannedUserService bannedUserService) {
         String tradeId = message.getTradeId();
         return findMediationCase.apply(tradeId)
-                .flatMap(mediationCase -> {
+                .<Optional<MuSigMediationCase>>map(mediationCase -> {
                     UserProfile senderUserProfile = message.getSenderUserProfile();
                     UserProfile peer = mediationCase.getMuSigMediationRequest().getPeer();
                     if (!peer.getId().equals(senderUserProfile.getId())) {
-                        log.warn("Ignoring MuSigDisputeCaseDataMessage for trade {} with unexpected senderUserProfileId {}.",
+                        log.warn("Ignoring MuSigDisputeCaseDataMessage for trade {} with unexpected senderUserProfile {}.",
                                 tradeId, senderUserProfile);
                         return Optional.empty();
                     }
                     if (bannedUserService.isUserProfileBanned(senderUserProfile)) {
-                        log.warn("Ignoring MuSigDisputeCaseDataMessage for trade {} from banned senderUserProfileId {}.",
+                        log.warn("Ignoring MuSigDisputeCaseDataMessage for trade {} from banned senderUserProfile {}.",
                                 tradeId, senderUserProfile);
                         return Optional.empty();
                     }
                     return Optional.of(mediationCase);
                 })
-                .or(() -> {
+                .orElseGet(() -> {
                     log.warn("Ignoring MuSigDisputeCaseDataMessage for unknown trade {}.", tradeId);
                     return Optional.empty();
                 });
@@ -501,6 +502,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
                     String id = StringUtils.createUid();
                     MuSigMediationStateChangeMessage message = new MuSigMediationStateChangeMessage(id,
                             muSigMediationRequest.getTradeId(),
+                            myUserIdentity.getUserProfile(),
                             mediationCaseState,
                             muSigMediationResult,
                             muSigMediationCase.getMediationResultSignature());

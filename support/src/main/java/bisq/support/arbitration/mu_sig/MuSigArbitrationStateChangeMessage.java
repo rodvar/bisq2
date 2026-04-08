@@ -22,15 +22,18 @@ import bisq.common.proto.UnresolvableProtobufMessageException;
 import bisq.common.util.OptionalUtils;
 import bisq.common.validation.NetworkDataValidation;
 import bisq.network.p2p.message.ExternalNetworkMessage;
+import bisq.network.p2p.message.SenderPublicKeyProvidingPayload;
 import bisq.network.p2p.services.data.storage.MetaData;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
 import bisq.support.arbitration.ArbitrationCaseState;
+import bisq.user.profile.UserProfile;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.security.PublicKey;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
@@ -41,21 +44,24 @@ import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 @Slf4j
 @Getter
 @ToString
-public final class MuSigArbitrationStateChangeMessage implements MailboxMessage, ExternalNetworkMessage {
+public final class MuSigArbitrationStateChangeMessage implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final String id;
     private final String tradeId;
+    private final UserProfile senderUserProfile;
     private final ArbitrationCaseState arbitrationCaseState;
     private final Optional<MuSigArbitrationResult> muSigArbitrationResult;
     private final Optional<byte[]> arbitrationResultSignature;
 
     public MuSigArbitrationStateChangeMessage(String id,
                                               String tradeId,
+                                              UserProfile senderUserProfile,
                                               ArbitrationCaseState arbitrationCaseState,
                                               Optional<MuSigArbitrationResult> muSigArbitrationResult,
                                               Optional<byte[]> arbitrationResultSignature) {
         this.id = id;
         this.tradeId = tradeId;
+        this.senderUserProfile = senderUserProfile;
         this.arbitrationCaseState = arbitrationCaseState;
         this.muSigArbitrationResult = muSigArbitrationResult;
         this.arbitrationResultSignature = arbitrationResultSignature.map(byte[]::clone);
@@ -74,6 +80,7 @@ public final class MuSigArbitrationStateChangeMessage implements MailboxMessage,
         bisq.support.protobuf.MuSigArbitrationStateChangeMessage.Builder builder = bisq.support.protobuf.MuSigArbitrationStateChangeMessage.newBuilder()
                 .setId(id)
                 .setTradeId(tradeId)
+                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash))
                 .setArbitrationCaseState(arbitrationCaseState.toProtoEnum());
         muSigArbitrationResult.ifPresent(result -> builder.setMuSigArbitrationResult(result.toProto(serializeForHash)));
         arbitrationResultSignature.ifPresent(signature -> builder.setArbitrationResultSignature(ByteString.copyFrom(signature)));
@@ -84,6 +91,7 @@ public final class MuSigArbitrationStateChangeMessage implements MailboxMessage,
         return new MuSigArbitrationStateChangeMessage(
                 proto.getId(),
                 proto.getTradeId(),
+                UserProfile.fromProto(proto.getSenderUserProfile()),
                 ArbitrationCaseState.fromProto(proto.getArbitrationCaseState()),
                 proto.hasMuSigArbitrationResult()
                         ? Optional.of(MuSigArbitrationResult.fromProto(proto.getMuSigArbitrationResult()))
@@ -110,6 +118,11 @@ public final class MuSigArbitrationStateChangeMessage implements MailboxMessage,
         return getCostFactor(0.1, 0.2);
     }
 
+    @Override
+    public PublicKey getSenderPublicKey() {
+        return senderUserProfile.getPublicKey();
+    }
+
     public Optional<byte[]> getArbitrationResultSignature() {
         return arbitrationResultSignature.map(byte[]::clone);
     }
@@ -121,6 +134,7 @@ public final class MuSigArbitrationStateChangeMessage implements MailboxMessage,
         }
         return Objects.equals(id, that.id) &&
                 Objects.equals(tradeId, that.tradeId) &&
+                Objects.equals(senderUserProfile, that.senderUserProfile) &&
                 arbitrationCaseState == that.arbitrationCaseState &&
                 Objects.equals(muSigArbitrationResult, that.muSigArbitrationResult) &&
                 OptionalUtils.optionalByteArrayEquals(arbitrationResultSignature, that.arbitrationResultSignature);
@@ -128,7 +142,7 @@ public final class MuSigArbitrationStateChangeMessage implements MailboxMessage,
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(id, tradeId, arbitrationCaseState, muSigArbitrationResult);
+        int result = Objects.hash(id, tradeId, senderUserProfile, arbitrationCaseState, muSigArbitrationResult);
         result = 31 * result + arbitrationResultSignature.map(Arrays::hashCode).orElse(0);
         return result;
     }

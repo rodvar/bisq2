@@ -21,13 +21,17 @@ import bisq.common.proto.ProtoResolver;
 import bisq.common.proto.UnresolvableProtobufMessageException;
 import bisq.common.validation.NetworkDataValidation;
 import bisq.network.p2p.message.ExternalNetworkMessage;
+import bisq.network.p2p.message.SenderPublicKeyProvidingPayload;
 import bisq.network.p2p.services.data.storage.MetaData;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
+import bisq.user.profile.UserProfile;
 import com.google.protobuf.InvalidProtocolBufferException;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
+
+import java.security.PublicKey;
 
 import static bisq.network.p2p.services.data.storage.MetaData.HIGH_PRIORITY;
 import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
@@ -36,14 +40,14 @@ import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 @Getter
 @ToString
 @EqualsAndHashCode
-public final class MuSigPaymentDetailsRequest implements MailboxMessage, ExternalNetworkMessage {
+public final class MuSigPaymentDetailsRequest implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final String tradeId;
-    private final String senderUserProfileId;
+    private final UserProfile senderUserProfile;
 
-    public MuSigPaymentDetailsRequest(String tradeId, String senderUserProfileId) {
+    public MuSigPaymentDetailsRequest(String tradeId, UserProfile senderUserProfile) {
         this.tradeId = tradeId;
-        this.senderUserProfileId = senderUserProfileId;
+        this.senderUserProfile = senderUserProfile;
 
         verify();
     }
@@ -51,20 +55,19 @@ public final class MuSigPaymentDetailsRequest implements MailboxMessage, Externa
     @Override
     public void verify() {
         NetworkDataValidation.validateTradeId(tradeId);
-        NetworkDataValidation.validateProfileId(senderUserProfileId);
     }
 
     @Override
     public bisq.support.protobuf.MuSigPaymentDetailsRequest.Builder getValueBuilder(boolean serializeForHash) {
         return bisq.support.protobuf.MuSigPaymentDetailsRequest.newBuilder()
                 .setTradeId(tradeId)
-                .setSenderUserProfileId(senderUserProfileId);
+                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash));
     }
 
     public static MuSigPaymentDetailsRequest fromProto(bisq.support.protobuf.MuSigPaymentDetailsRequest proto) {
         return new MuSigPaymentDetailsRequest(
                 proto.getTradeId(),
-                proto.getSenderUserProfileId()
+                UserProfile.fromProto(proto.getSenderUserProfile())
         );
     }
 
@@ -82,5 +85,10 @@ public final class MuSigPaymentDetailsRequest implements MailboxMessage, Externa
     @Override
     public double getCostFactor() {
         return getCostFactor(0.1, 0.3);
+    }
+
+    @Override
+    public PublicKey getSenderPublicKey() {
+        return senderUserProfile.getPublicKey();
     }
 }
