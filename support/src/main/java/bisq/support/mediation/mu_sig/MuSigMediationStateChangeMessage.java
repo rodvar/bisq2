@@ -22,15 +22,18 @@ import bisq.common.proto.UnresolvableProtobufMessageException;
 import bisq.common.util.OptionalUtils;
 import bisq.common.validation.NetworkDataValidation;
 import bisq.network.p2p.message.ExternalNetworkMessage;
+import bisq.network.p2p.message.SenderPublicKeyProvidingPayload;
 import bisq.network.p2p.services.data.storage.MetaData;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
 import bisq.support.mediation.MediationCaseState;
+import bisq.user.profile.UserProfile;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.security.PublicKey;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
@@ -41,21 +44,24 @@ import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 @Slf4j
 @Getter
 @ToString
-public final class MuSigMediationStateChangeMessage implements MailboxMessage, ExternalNetworkMessage {
+public final class MuSigMediationStateChangeMessage implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final String id;
     private final String tradeId;
+    private final UserProfile senderUserProfile;
     private final MediationCaseState mediationCaseState;
     private final Optional<MuSigMediationResult> muSigMediationResult;
     private final Optional<byte[]> mediationResultSignature;
 
     public MuSigMediationStateChangeMessage(String id,
                                             String tradeId,
+                                            UserProfile senderUserProfile,
                                             MediationCaseState mediationCaseState,
                                             Optional<MuSigMediationResult> muSigMediationResult,
                                             Optional<byte[]> mediationResultSignature) {
         this.id = id;
         this.tradeId = tradeId;
+        this.senderUserProfile = senderUserProfile;
         this.mediationCaseState = mediationCaseState;
         this.muSigMediationResult = muSigMediationResult;
         this.mediationResultSignature = mediationResultSignature.map(byte[]::clone);
@@ -74,6 +80,7 @@ public final class MuSigMediationStateChangeMessage implements MailboxMessage, E
         bisq.support.protobuf.MuSigMediationStateChangeMessage.Builder builder = bisq.support.protobuf.MuSigMediationStateChangeMessage.newBuilder()
                 .setId(id)
                 .setTradeId(tradeId)
+                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash))
                 .setMediationCaseState(mediationCaseState.toProtoEnum());
         muSigMediationResult.ifPresent(result -> builder.setMuSigMediationResult(result.toProto(serializeForHash)));
         mediationResultSignature.ifPresent(signature -> builder.setMediationResultSignature(ByteString.copyFrom(signature)));
@@ -84,6 +91,7 @@ public final class MuSigMediationStateChangeMessage implements MailboxMessage, E
         return new MuSigMediationStateChangeMessage(
                 proto.getId(),
                 proto.getTradeId(),
+                UserProfile.fromProto(proto.getSenderUserProfile()),
                 MediationCaseState.fromProto(proto.getMediationCaseState()),
                 proto.hasMuSigMediationResult()
                         ? Optional.of(MuSigMediationResult.fromProto(proto.getMuSigMediationResult()))
@@ -110,6 +118,11 @@ public final class MuSigMediationStateChangeMessage implements MailboxMessage, E
         return getCostFactor(0.1, 0.2);
     }
 
+    @Override
+    public PublicKey getSenderPublicKey() {
+        return senderUserProfile.getPublicKey();
+    }
+
     public Optional<byte[]> getMediationResultSignature() {
         return mediationResultSignature.map(byte[]::clone);
     }
@@ -121,6 +134,7 @@ public final class MuSigMediationStateChangeMessage implements MailboxMessage, E
         }
         return Objects.equals(id, that.id) &&
                 Objects.equals(tradeId, that.tradeId) &&
+                Objects.equals(senderUserProfile, that.senderUserProfile) &&
                 mediationCaseState == that.mediationCaseState &&
                 Objects.equals(muSigMediationResult, that.muSigMediationResult) &&
                 OptionalUtils.optionalByteArrayEquals(mediationResultSignature, that.mediationResultSignature);
@@ -128,7 +142,7 @@ public final class MuSigMediationStateChangeMessage implements MailboxMessage, E
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(id, tradeId, mediationCaseState, muSigMediationResult);
+        int result = Objects.hash(id, tradeId, senderUserProfile, mediationCaseState, muSigMediationResult);
         result = 31 * result + mediationResultSignature.map(Arrays::hashCode).orElse(0);
         return result;
     }

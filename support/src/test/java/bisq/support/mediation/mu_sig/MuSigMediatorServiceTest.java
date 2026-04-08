@@ -129,9 +129,9 @@ class MuSigMediatorServiceTest {
         MuSigContract contract = createContract(maker, taker, "offer-1", takerPayload, makerPayload);
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 "trade-1",
+                taker,
                 takerPayload,
-                makerPayload,
-                taker
+                makerPayload
         );
 
         Object verification = invokeVerifyPaymentDetails(contract, response, Role.TAKER);
@@ -154,9 +154,9 @@ class MuSigMediatorServiceTest {
 
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 tradeId,
+                taker,
                 takerPayload,
-                makerPayload,
-                taker
+                makerPayload
         );
 
         invokeProcessPaymentDetailsResponse(response);
@@ -180,9 +180,9 @@ class MuSigMediatorServiceTest {
 
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 tradeId,
+                maker,
                 wrongTakerPayload,
-                makerPayload,
-                maker
+                makerPayload
         );
 
         invokeProcessPaymentDetailsResponse(response);
@@ -211,9 +211,9 @@ class MuSigMediatorServiceTest {
 
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 tradeId,
+                taker,
                 takerPayload,
-                wrongMakerPayload,
-                taker
+                wrongMakerPayload
         );
 
         invokeProcessPaymentDetailsResponse(response);
@@ -242,9 +242,9 @@ class MuSigMediatorServiceTest {
 
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 tradeId,
+                taker,
                 takerPayload,
-                wrongMakerPayload,
-                taker
+                wrongMakerPayload
         );
 
         invokeProcessPaymentDetailsResponse(response);
@@ -272,15 +272,15 @@ class MuSigMediatorServiceTest {
 
         MuSigPaymentDetailsResponse takerResponse = new MuSigPaymentDetailsResponse(
                 tradeId,
+                taker,
                 takerPayload,
-                wrongMakerPayload,
-                taker
+                wrongMakerPayload
         );
         MuSigPaymentDetailsResponse makerResponse = new MuSigPaymentDetailsResponse(
                 tradeId,
+                maker,
                 takerPayload,
-                wrongMakerPayload,
-                maker
+                wrongMakerPayload
         );
 
         invokeProcessPaymentDetailsResponse(takerResponse);
@@ -307,9 +307,9 @@ class MuSigMediatorServiceTest {
         MuSigContract contract = createContract(maker, taker, "offer-8", expectedTakerPayload, makerPayload);
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 "trade-8",
+                taker,
                 wrongTakerPayload,
-                makerPayload,
-                taker
+                makerPayload
         );
 
         Object verification = invokeVerifyPaymentDetails(contract, response, Role.TAKER);
@@ -330,9 +330,9 @@ class MuSigMediatorServiceTest {
         MuSigContract contract = createContractWithoutMakerHash(maker, taker, "offer-9", takerPayload);
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 "trade-9",
+                maker,
                 takerPayload,
-                makerPayload,
-                maker
+                makerPayload
         );
 
         Object verification = invokeVerifyPaymentDetails(contract, response, Role.MAKER);
@@ -345,7 +345,7 @@ class MuSigMediatorServiceTest {
     }
 
     @Test
-    void verifyMediationRequestMatchesAndPartiesAndMediatorAreConsistent() {
+    void authorizeMediationRequestMatchesAndPartiesAndMediatorAreConsistent() {
         UserProfile requester = createUserProfile(1001);
         UserProfile peer = createUserProfile(1002);
         UserProfile mediator = createUserProfile(1003);
@@ -361,7 +361,7 @@ class MuSigMediatorServiceTest {
                 mediator.getNetworkId()
         );
 
-        Optional<UserProfile> authenticatedSender = MuSigMediatorService.verifyMediationRequest(
+        Optional<UserProfile> authenticatedSender = MuSigMediatorService.authorizeMediationRequest(
                 request,
                 bannedUserService
         );
@@ -370,19 +370,19 @@ class MuSigMediatorServiceTest {
     }
 
     @Test
-    void verifyPaymentDetailsResponse_returnsCase_whenKnownSenderIsNotBanned() {
+    void authorizePaymentDetailsResponse_returnsCase_whenKnownSenderIsNotBanned() {
         UserProfile requester = createUserProfile(1001);
         UserProfile peer = createUserProfile(1002);
         MuSigMediationRequest request = createMediationRequest("trade-12", requester, peer);
         MuSigMediationCase mediationCase = new MuSigMediationCase(request);
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 "trade-12",
+                requester,
                 createNationalBankPayload("taker-account-12", "DE121"),
-                createNationalBankPayload("maker-account-12", "DE122"),
-                requester
+                createNationalBankPayload("maker-account-12", "DE122")
         );
 
-        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.verifyPaymentDetailsResponse(
+        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.authorizePaymentDetailsResponse(
                 response,
                 tradeId -> tradeId.equals(mediationCase.getMuSigMediationRequest().getTradeId()) ? Optional.of(mediationCase) : Optional.empty(),
                 bannedUserService
@@ -392,7 +392,7 @@ class MuSigMediatorServiceTest {
     }
 
     @Test
-    void verifyPaymentDetailsResponse_returnsEmpty_whenSenderUserProfileIdIsUnknown() {
+    void authorizePaymentDetailsResponse_returnsEmpty_whenSenderUserProfileIsUnknown() {
         UserProfile requester = createUserProfile(1001);
         UserProfile peer = createUserProfile(1002);
         UserProfile stranger = createUserProfile(1003);
@@ -400,12 +400,12 @@ class MuSigMediatorServiceTest {
         MuSigMediationCase mediationCase = new MuSigMediationCase(request);
         MuSigPaymentDetailsResponse response = new MuSigPaymentDetailsResponse(
                 "trade-13",
+                stranger,
                 createNationalBankPayload("taker-account-13", "DE131"),
-                createNationalBankPayload("maker-account-13", "DE132"),
-                stranger
+                createNationalBankPayload("maker-account-13", "DE132")
         );
 
-        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.verifyPaymentDetailsResponse(
+        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.authorizePaymentDetailsResponse(
                 response,
                 tradeId -> tradeId.equals(mediationCase.getMuSigMediationRequest().getTradeId()) ? Optional.of(mediationCase) : Optional.empty(),
                 bannedUserService
@@ -415,7 +415,7 @@ class MuSigMediatorServiceTest {
     }
 
     @Test
-    void verifyDisputeCaseDataMessage_returnsCase_whenPeerIsNotBanned() {
+    void authorizeDisputeCaseDataMessage_returnsCase_whenPeerIsNotBanned() {
         UserProfile requester = createUserProfile(1001);
         UserProfile peer = createUserProfile(1002);
         MuSigMediationRequest request = createMediationRequest("trade-14", requester, peer);
@@ -427,7 +427,7 @@ class MuSigMediatorServiceTest {
                 List.of()
         );
 
-        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.verifyDisputeCaseDataMessage(
+        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.authorizeDisputeCaseDataMessage(
                 message,
                 tradeId -> tradeId.equals(mediationCase.getMuSigMediationRequest().getTradeId()) ? Optional.of(mediationCase) : Optional.empty(),
                 bannedUserService
@@ -437,7 +437,7 @@ class MuSigMediatorServiceTest {
     }
 
     @Test
-    void verifyDisputeCaseDataMessage_returnsEmpty_whenPeerIsBanned() {
+    void authorizeDisputeCaseDataMessage_returnsEmpty_whenPeerIsBanned() {
         UserProfile requester = createUserProfile(1001);
         UserProfile peer = createUserProfile(1002);
         when(bannedUserService.isUserProfileBanned(peer)).thenReturn(true);
@@ -450,7 +450,7 @@ class MuSigMediatorServiceTest {
                 List.of()
         );
 
-        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.verifyDisputeCaseDataMessage(
+        Optional<MuSigMediationCase> authenticatedCase = MuSigMediatorService.authorizeDisputeCaseDataMessage(
                 message,
                 tradeId -> tradeId.equals(mediationCase.getMuSigMediationRequest().getTradeId()) ? Optional.of(mediationCase) : Optional.empty(),
                 bannedUserService
@@ -652,7 +652,7 @@ class MuSigMediatorServiceTest {
     }
 
     private void invokeProcessPaymentDetailsResponse(MuSigPaymentDetailsResponse response) throws Exception {
-        Method verifyMethod = MuSigMediatorService.class.getDeclaredMethod("verifyPaymentDetailsResponse",
+        Method verifyMethod = MuSigMediatorService.class.getDeclaredMethod("authorizePaymentDetailsResponse",
                 MuSigPaymentDetailsResponse.class,
                 java.util.function.Function.class,
                 BannedUserService.class);
