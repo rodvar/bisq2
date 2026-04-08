@@ -91,7 +91,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
     final Observable<Integer> numDaysAfterRedactingTradeData = new Observable<>();
     final Observable<Boolean> muSigActivated = new Observable<>();
     final Observable<Boolean> autoAddToContactsList = new Observable<>();
-    final Map<String, Market> muSigLastSelectedMarketByBaseCurrencyMap = new ConcurrentHashMap<>();
+    final Observable<Market> muSigLastSelectedFiatMarket = new Observable<>();
+    final Observable<Market> muSigLastSelectedOtherMarket = new Observable<>();
     final Observable<Market> selectedWalletMarket = new Observable<>();
 
     SettingsStore() {
@@ -114,7 +115,7 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                 Set.of(LanguageRepository.getDefaultLanguageTag()),
                 NetworkLoad.DEFAULT_DIFFICULTY_ADJUSTMENT,
                 false,
-                new HashSet<>(),
+                Set.of(MarketRepository.getDefaultCryptoBtcMarket()),
                 false,
                 DEFAULT_MAX_TRADE_PRICE_DEVIATION,
                 false,
@@ -127,7 +128,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                 DEFAULT_NUM_DAYS_AFTER_REDACTING_TRADE_DATA,
                 DevMode.isDevMode(),
                 true,
-                new HashMap<>(),
+                MarketRepository.getDefaultBtcFiatMarket(),
+                MarketRepository.getDefaultCryptoBtcMarket(),
                 MarketRepository.getDefaultBtcFiatMarket());
     }
 
@@ -163,7 +165,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                   int numDaysAfterRedactingTradeData,
                   boolean muSigActivated,
                   boolean autoAddToContactsList,
-                  Map<String, Market> muSigLastSelectedMarketByBaseCurrencyMap,
+                  Market muSigLastSelectedFiatMarket,
+                  Market muSigLastSelectedOtherMarket,
                   Market selectedWalletMarket) {
         this.cookie = cookie;
         this.dontShowAgainMap.putAll(dontShowAgainMap);
@@ -197,7 +200,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
         this.numDaysAfterRedactingTradeData.set(numDaysAfterRedactingTradeData);
         this.muSigActivated.set(muSigActivated);
         this.autoAddToContactsList.set(autoAddToContactsList);
-        this.muSigLastSelectedMarketByBaseCurrencyMap.putAll(muSigLastSelectedMarketByBaseCurrencyMap);
+        this.muSigLastSelectedFiatMarket.set(muSigLastSelectedFiatMarket);
+        this.muSigLastSelectedOtherMarket.set(muSigLastSelectedOtherMarket);
         this.selectedWalletMarket.set(selectedWalletMarket);
     }
 
@@ -237,8 +241,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                 .setNumDaysAfterRedactingTradeData(numDaysAfterRedactingTradeData.get())
                 .setMuSigActivated(muSigActivated.get())
                 .setAutoAddToContactsList(autoAddToContactsList.get())
-                .putAllMuSigLastSelectedMarketByBaseCurrencyMap(muSigLastSelectedMarketByBaseCurrencyMap.entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().toProto(serializeForHash))))
+                .setMuSigLastSelectedFiatMarket(muSigLastSelectedFiatMarket.get().toProto(serializeForHash))
+                .setMuSigLastSelectedOtherMarket(muSigLastSelectedOtherMarket.get().toProto(serializeForHash))
                 .setSelectedWalletMarket(selectedWalletMarket.get().toProto(serializeForHash));
     }
 
@@ -275,7 +279,13 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
         if (StringUtils.isEmpty(currencyCode)) {
             currencyCode = FiatCurrencyRepository.getDefaultCurrency().getCode();
         }
-
+// ,
+        Market muSigLastSelectedFiatMarket = proto.hasMuSigLastSelectedFiatMarket()
+                ? Market.fromProto(proto.getMuSigLastSelectedFiatMarket())
+                : MarketRepository.getDefaultBtcFiatMarket();
+        Market muSigLastSelectedOtherMarket = proto.hasMuSigLastSelectedOtherMarket()
+                ? Market.fromProto(proto.getMuSigLastSelectedOtherMarket())
+                : MarketRepository.getDefaultCryptoBtcMarket();
         return new SettingsStore(Cookie.fromProto(proto.getCookie()),
                 proto.getDontShowAgainMapMap().entrySet().stream()
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
@@ -310,8 +320,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                 numDaysAfterRedactingTradeData,
                 proto.getMuSigActivated(),
                 proto.getAutoAddToContactsList(),
-                proto.getMuSigLastSelectedMarketByBaseCurrencyMapMap().entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, entry -> Market.fromProto(entry.getValue()))),
+                muSigLastSelectedFiatMarket,
+                muSigLastSelectedOtherMarket,
                 proto.hasSelectedWalletMarket() ? Market.fromProto(proto.getSelectedWalletMarket()) : MarketRepository.getDefaultBtcFiatMarket());
     }
 
@@ -360,7 +370,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
                 numDaysAfterRedactingTradeData.get(),
                 muSigActivated.get(),
                 autoAddToContactsList.get(),
-                Map.copyOf(muSigLastSelectedMarketByBaseCurrencyMap),
+                muSigLastSelectedFiatMarket.get(),
+                muSigLastSelectedOtherMarket.get(),
                 selectedWalletMarket.get());
     }
 
@@ -399,7 +410,8 @@ public final class SettingsStore implements PersistableStore<SettingsStore> {
             numDaysAfterRedactingTradeData.set(persisted.numDaysAfterRedactingTradeData.get());
             muSigActivated.set(persisted.muSigActivated.get());
             autoAddToContactsList.set(persisted.autoAddToContactsList.get());
-            muSigLastSelectedMarketByBaseCurrencyMap.putAll(persisted.muSigLastSelectedMarketByBaseCurrencyMap);
+            muSigLastSelectedFiatMarket.set(persisted.muSigLastSelectedFiatMarket.get());
+            muSigLastSelectedOtherMarket.set(persisted.muSigLastSelectedOtherMarket.get());
             selectedWalletMarket.set(persisted.selectedWalletMarket.get());
         } catch (Exception e) {
             log.error("Exception at applyPersisted", e);

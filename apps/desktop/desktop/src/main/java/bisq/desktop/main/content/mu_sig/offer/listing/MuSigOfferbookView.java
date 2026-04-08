@@ -18,9 +18,6 @@
 package bisq.desktop.main.content.mu_sig.offer.listing;
 
 import bisq.account.payment_method.fiat.FiatPaymentMethod;
-import bisq.common.asset.CryptoAsset;
-import bisq.common.asset.CryptoAssetRepository;
-import bisq.common.util.StringUtils;
 import bisq.desktop.common.Layout;
 import bisq.desktop.common.utils.ImageUtil;
 import bisq.desktop.common.view.View;
@@ -30,7 +27,6 @@ import bisq.desktop.components.controls.BisqMenuItem;
 import bisq.desktop.components.controls.BisqTooltip;
 import bisq.desktop.components.controls.DropdownBisqMenuItem;
 import bisq.desktop.components.controls.DropdownMenu;
-import bisq.desktop.components.controls.DropdownMenuItem;
 import bisq.desktop.components.controls.DropdownTitleMenuItem;
 import bisq.desktop.components.controls.SearchBox;
 import bisq.desktop.components.table.BisqTableColumn;
@@ -44,8 +40,8 @@ import bisq.offer.Direction;
 import javafx.beans.binding.Bindings;
 import javafx.beans.value.ChangeListener;
 import javafx.collections.ListChangeListener;
+import javafx.collections.ObservableList;
 import javafx.collections.SetChangeListener;
-import javafx.css.PseudoClass;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.CacheHint;
@@ -67,7 +63,6 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.util.Callback;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.fxmisc.easybind.EasyBind;
 import org.fxmisc.easybind.Subscription;
@@ -75,7 +70,6 @@ import org.fxmisc.easybind.Subscription;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, MuSigOfferbookController> {
@@ -95,14 +89,14 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
     private final ChangeListener<Toggle> toggleChangeListener;
     private final ListChangeListener<FiatPaymentMethod> availablePaymentsChangeListener;
     private final SetChangeListener<FiatPaymentMethod> selectedPaymentsChangeListener;
-    private HBox appliedFiltersSection, withOffersDisplayHint, onlyFavouritesDisplayHint;
+    private HBox marketListTitleLabelBox, appliedFiltersSection, withOffersDisplayHint, onlyFavouritesDisplayHint;
     private VBox marketListVBox;
     private Label marketListTitleLabel, marketHeaderIcon, marketTitle, marketDescription, marketPrice,
-            removeWithOffersFilter, removeFavouritesFilter;
+            removeWithOffersFilter, removeFavouritesFilter, paymentsFilterLabel;
     private Button createOfferButton;
     private SearchBox marketsSearchBox;
     private DropdownMenu sortAndFilterMarketsMenu, paymentsFilterMenu, baseCurrencySelectionMenu;
-    private SelectableMenuItem<CryptoAsset> btcMarketsMenuItem, xmrMarketsMenuItem;
+    private MarketsTypeMenuItem fiatMarketsMenuItem, otherMarketsMenuItem;
     private SortAndFilterDropdownMenuItem<MuSigMarketSortType> sortByMostOffers, sortByNameAZ, sortByNameZA;
     private SortAndFilterDropdownMenuItem<MuSigFilters.MarketFilter> filterShowAll, filterWithOffers, filterFavourites;
     private ToggleGroup offerFiltersToggleGroup;
@@ -111,8 +105,7 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
             favouritesRemoveFilterDefaultIcon, favouritesRemoveFilterActiveIcon;
     private Subscription selectedMarketItemPin, marketListViewSelectionPin, favouritesListViewNeedsHeightUpdatePin,
             favouritesListViewSelectionPin, selectedMarketFilterPin, selectedMarketSortTypePin, shouldShowAppliedFiltersPin,
-            selectedOffersFilterPin, activeMarketPaymentsCountPin, selectedBaseCryptoAssetPin, selectedMuSigOfferPin;
-    private Label paymentsFilterLabel;
+            selectedOffersFilterPin, activeMarketPaymentsCountPin, selectedMarketTypePin, selectedMuSigOfferPin;
 
     public MuSigOfferbookView(MuSigOfferbookModel model, MuSigOfferbookController controller) {
         super(new VBox(), model, controller);
@@ -186,7 +179,7 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
         marketListTitleLabel.textProperty().bind(model.getMarketListTitle());
 
         selectedMarketItemPin = EasyBind.subscribe(model.getSelectedMarketItem(), this::selectedMarketItemChanged);
-        selectedBaseCryptoAssetPin = EasyBind.subscribe(model.getSelectedBaseCryptoAsset(), this::selectedBaseCryptoAssetChanged);
+        selectedMarketTypePin = EasyBind.subscribe(model.getSelectedMarketType(), this::selectedMarketTypeChanged);
         marketListViewSelectionPin = EasyBind.subscribe(marketListView.getSelectionModel().selectedItemProperty(), item -> {
             if (item != null) {
                 controller.onSelectMarketItem(item);
@@ -248,8 +241,8 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
         sellToggleButton.setOnAction(e -> model.getSelectedMuSigOffersFilter().set(MuSigFilters.MuSigOffersFilter.BUY));
         myOffersToggleButton.setOnAction(e -> model.getSelectedMuSigOffersFilter().set(MuSigFilters.MuSigOffersFilter.MINE));
 
-        btcMarketsMenuItem.setOnAction(e -> controller.updateSelectedBaseCryptoAsset(btcMarketsMenuItem.getSelectableItem().orElseThrow()));
-        xmrMarketsMenuItem.setOnAction(e -> controller.updateSelectedBaseCryptoAsset(xmrMarketsMenuItem.getSelectableItem().orElseThrow()));
+        fiatMarketsMenuItem.setOnAction(e -> controller.onSelectMarketType(fiatMarketsMenuItem.getMarketType()));
+        otherMarketsMenuItem.setOnAction(e -> controller.onSelectMarketType(otherMarketsMenuItem.getMarketType()));
 
         model.getAvailablePaymentMethods().addListener(availablePaymentsChangeListener);
         updatePaymentsFilterMenu();
@@ -286,7 +279,7 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
         shouldShowAppliedFiltersPin.unsubscribe();
         selectedOffersFilterPin.unsubscribe();
         activeMarketPaymentsCountPin.unsubscribe();
-        selectedBaseCryptoAssetPin.unsubscribe();
+        selectedMarketTypePin.unsubscribe();
         selectedMuSigOfferPin.unsubscribe();
 
         sortByMostOffers.setOnAction(null);
@@ -300,8 +293,8 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
         buyToggleButton.setOnAction(null);
         sellToggleButton.setOnAction(null);
         myOffersToggleButton.setOnAction(null);
-        btcMarketsMenuItem.setOnAction(null);
-        xmrMarketsMenuItem.setOnAction(null);
+        fiatMarketsMenuItem.setOnAction(null);
+        otherMarketsMenuItem.setOnAction(null);
 
         removeWithOffersFilter.setOnMouseClicked(null);
         withOffersDisplayHint.setOnMouseEntered(null);
@@ -373,7 +366,7 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
         HBox header = new HBox(baseCurrencySelectionMenu);
         header.setMinHeight(HEADER_HEIGHT);
         header.setMaxHeight(HEADER_HEIGHT);
-        header.setAlignment(Pos.CENTER);
+        header.setAlignment(Pos.CENTER_LEFT);
         header.getStyleClass().add("chat-header-title");
         HBox.setHgrow(baseCurrencySelectionMenu, Priority.ALWAYS);
 
@@ -447,7 +440,7 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
                 if (item != null && !empty) {
                     numMessagesBadge.textProperty().bind(item.getNumMarketNotifications());
 
-                    Node marketLogo = MarketImageComposition.createMarketLogo(item.getMarket().getQuoteCurrencyCode());
+                    Node marketLogo = MarketImageComposition.createMarketLogo(item.getRelevantMarketCode());
                     marketLogo.setCache(true);
                     marketLogo.setCacheHint(CacheHint.SPEED);
                     marketLogo.setEffect(MuSigMarketItem.DIMMED);
@@ -519,10 +512,10 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
                             () -> getFormattedOfferNumber(item.getNumOffers().get()),
                             item.getNumOffers()
                     ));
-                    String quoteCurrencyDisplayName = StringUtils.capitalize(item.getMarket().getQuoteCurrencyDisplayName());
-                    marketDetailsTooltip.setText(getFormattedTooltip(item.getNumOffers().get(), quoteCurrencyDisplayName));
-                    marketName.setText(quoteCurrencyDisplayName);
-                    marketCode.setText(item.getMarket().getQuoteCurrencyCode());
+                    String relevantCurrencyDisplayName = item.getRelevantCurrencyDisplayName();
+                    marketDetailsTooltip.setText(getFormattedTooltip(item.getNumOffers().get(), relevantCurrencyDisplayName));
+                    marketName.setText(relevantCurrencyDisplayName);
+                    marketCode.setText(item.getRelevantMarketCode());
                     favouritesLabel.setOnMouseClicked(e -> item.toggleFavourite());
                     setGraphic(container);
                 } else {
@@ -733,19 +726,21 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
         }
     }
 
-    private void selectedBaseCryptoAssetChanged(CryptoAsset selectedBaseCryptoAsset) {
-        if (selectedBaseCryptoAsset != null) {
-            Node baseCryptoImage = MarketImageComposition.createMarketLogo(model.getBaseCurrencyIconId().get());
-            marketListTitleLabel.setGraphic(baseCryptoImage);
+    private void selectedMarketTypeChanged(MarketType marketType) {
+        if (marketType != null) {
+            ImageView icon = ImageUtil.getImageViewById(model.getMarketsIconId().get());
+            ObservableList<Node> children = marketListTitleLabelBox.getChildren();
+            if (children.size() > 1) {
+                children.removeFirst();
+            }
+            children.addFirst(icon);
 
             //noinspection unchecked
             baseCurrencySelectionMenu.getMenuItems().stream()
-                    .filter(item -> item instanceof SelectableMenuItem)
-                    .map(item -> (SelectableMenuItem<CryptoAsset>) item)
-                    .forEach(selectableMenuItem -> {
-                        selectableMenuItem.getSelectableItem().ifPresent(cryptoAsset ->
-                                selectableMenuItem.updateSelection(cryptoAsset.equals(selectedBaseCryptoAsset)));
-                    });
+                    .filter(MarketsTypeMenuItem.class::isInstance)
+                    .map(MarketsTypeMenuItem.class::cast)
+                    .forEach(selectableMenuItem ->
+                            selectableMenuItem.updateSelection(selectableMenuItem.getMarketType() == marketType));
         }
     }
 
@@ -831,22 +826,20 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
         DropdownMenu menu = new DropdownMenu("chevron-drop-menu-grey", "chevron-drop-menu-white", false);
         menu.getStyleClass().add("base-currency-dropdown-menu");
         marketListTitleLabel = new Label();
-        marketListTitleLabel.setGraphicTextGap(10);
-        menu.setContent(marketListTitleLabel);
+        marketListTitleLabelBox = new HBox(10, marketListTitleLabel);
+        marketListTitleLabelBox.setMinWidth(150);
+        marketListTitleLabelBox.setMaxWidth(150);
+        marketListTitleLabelBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setMargin(marketListTitleLabelBox, new Insets(0, 0, 0, -14));
+        menu.setContent(marketListTitleLabelBox);
 
-        CryptoAsset btc = CryptoAssetRepository.BITCOIN;
-        Label btcMarketLabel = new Label(String.format("%s %s", btc.getCode(), btc.getName()));
-        btcMarketLabel.setGraphicTextGap(10);
-        btcMarketLabel.setGraphic(getMarketLogo(btc.getCode()));
-        btcMarketsMenuItem = new SelectableMenuItem<>(btc, btcMarketLabel);
+        Label btcMarketLabel = new Label(MarketType.FIAT.getDisplayString());
+        fiatMarketsMenuItem = new MarketsTypeMenuItem(MarketType.FIAT, btcMarketLabel);
 
-        CryptoAsset xmr = CryptoAssetRepository.XMR;
-        Label xmrMarketLabel = new Label(String.format("%s %s", xmr.getCode(), xmr.getName()));
-        xmrMarketLabel.setGraphicTextGap(10);
-        xmrMarketLabel.setGraphic(getMarketLogo(xmr.getCode()));
-        xmrMarketsMenuItem = new SelectableMenuItem<>(xmr, xmrMarketLabel);
+        Label xmrMarketLabel = new Label(MarketType.OTHER.getDisplayString());
+        otherMarketsMenuItem = new MarketsTypeMenuItem(MarketType.OTHER, xmrMarketLabel);
 
-        menu.addMenuItems(btcMarketsMenuItem, xmrMarketsMenuItem);
+        menu.addMenuItems(fiatMarketsMenuItem, otherMarketsMenuItem);
         return menu;
     }
 
@@ -991,7 +984,7 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
     private void cleanUpPaymentsFilterMenu() {
         //noinspection unchecked
         paymentsFilterMenu.getMenuItems().stream()
-                .filter(item -> item instanceof SelectableMenuItem)
+                .filter(SelectableMenuItem.class::isInstance)
                 .map(item -> (SelectableMenuItem<FiatPaymentMethod>) item)
                 .forEach(SelectableMenuItem::dispose);
         paymentsFilterMenu.clearMenuItems();
@@ -1014,49 +1007,4 @@ public final class MuSigOfferbookView extends View<VBox, MuSigOfferbookModel, Mu
         }
     }
 
-    @Getter
-    private static final class SortAndFilterDropdownMenuItem<T> extends DropdownBisqMenuItem {
-        private static final PseudoClass SELECTED_PSEUDO_CLASS = PseudoClass.getPseudoClass("selected");
-
-        private final T menuItem;
-
-        SortAndFilterDropdownMenuItem(String defaultIconId, String activeIconId, String text, T menuItem) {
-            super(defaultIconId, activeIconId, text);
-
-            this.menuItem = menuItem;
-            getStyleClass().add("dropdown-menu-item");
-            updateSelection(false);
-        }
-
-        void updateSelection(boolean isSelected) {
-            getContent().pseudoClassStateChanged(SELECTED_PSEUDO_CLASS, isSelected);
-        }
-    }
-
-    @Getter
-    private static final class SelectableMenuItem<T> extends DropdownMenuItem {
-        private static final PseudoClass SELECTED_PSEUDO_CLASS = PseudoClass.getPseudoClass("selected");
-
-        private final Optional<T> selectableItem;
-
-        private SelectableMenuItem(T selectableItem, Label displayLabel) {
-            super("check-white", "check-white", displayLabel);
-
-            this.selectableItem = Optional.ofNullable(selectableItem);
-            getStyleClass().add("dropdown-menu-item");
-            updateSelection(false);
-        }
-
-        public void dispose() {
-            setOnAction(null);
-        }
-
-        void updateSelection(boolean isSelected) {
-            getContent().pseudoClassStateChanged(SELECTED_PSEUDO_CLASS, isSelected);
-        }
-
-        boolean isSelected() {
-            return getContent().getPseudoClassStates().contains(SELECTED_PSEUDO_CLASS);
-        }
-    }
 }

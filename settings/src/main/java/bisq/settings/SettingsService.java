@@ -41,7 +41,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -131,6 +130,8 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         pins.add(getNumDaysAfterRedactingTradeData().addObserver(value -> persist()));
         pins.add(getMuSigActivated().addObserver(value -> persist()));
         pins.add(getAutoAddToContactsList().addObserver(value -> persist()));
+        pins.add(getMuSigLastSelectedFiatMarket().addObserver(value -> persist()));
+        pins.add(getMuSigLastSelectedOtherMarket().addObserver(value -> persist()));
         pins.add(getSelectedWalletMarket().addObserver(value -> persist()));
 
         isInitialized = true;
@@ -303,8 +304,12 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         return getAutoAddToContactsList().get();
     }
 
-    public Map<String, Market> getMuSigLastSelectedMarketByBaseCurrencyMap() {
-        return Collections.unmodifiableMap(persistableStore.muSigLastSelectedMarketByBaseCurrencyMap);
+    public ReadOnlyObservable<Market> getMuSigLastSelectedFiatMarket() {
+        return persistableStore.muSigLastSelectedFiatMarket;
+    }
+
+    public ReadOnlyObservable<Market> getMuSigLastSelectedOtherMarket() {
+        return persistableStore.muSigLastSelectedOtherMarket;
     }
 
     public ReadOnlyObservable<Market> getSelectedWalletMarket() {
@@ -430,10 +435,15 @@ public class SettingsService extends RateLimitedPersistenceClient<SettingsStore>
         persistableStore.autoAddToContactsList.set(value);
     }
 
-    public void setMuSigLastSelectedMarketByBaseCurrencyMap(Market market) {
+    public void setMuSigLastSelectedFiatMarket(Market market) {
         if (market != null) {
-            persistableStore.muSigLastSelectedMarketByBaseCurrencyMap.put(market.getBaseCurrencyCode(), market);
-            persist();
+            persistableStore.muSigLastSelectedFiatMarket.set(market);
+        }
+    }
+
+    public void setMuSigLastSelectedOtherMarket(Market market) {
+        if (market != null) {
+            persistableStore.muSigLastSelectedOtherMarket.set(market);
         }
     }
 

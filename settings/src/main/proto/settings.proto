@@ -75,9 +75,11 @@ message SettingsStore {
   sint32 numDaysAfterRedactingTradeData = 27;
   bool muSigActivated = 28;
   bool autoAddToContactsList = 29;
-  map<string, common.Market> muSigLastSelectedMarketByBaseCurrencyMap = 30;
-  common.Market selectedWalletMarket = 31;
+  common.Market muSigLastSelectedFiatMarket = 30;
+  common.Market muSigLastSelectedOtherMarket = 31;
   bool muSigTradeRulesConfirmed = 32;
   string countryCode = 33;
   string currencyCode = 34;
+  //TODO what is selectedWalletMarket for?
+  common.Market selectedWalletMarket = 35;
 }

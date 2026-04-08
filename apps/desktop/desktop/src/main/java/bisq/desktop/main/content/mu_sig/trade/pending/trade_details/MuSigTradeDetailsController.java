@@ -107,7 +107,7 @@ public class MuSigTradeDetailsController extends NavigationController implements
                 ? Res.get("muSig.trade.details.offerTypeAndMarket.buyOffer")
                 : Res.get("muSig.trade.details.offerTypeAndMarket.sellOffer"));
         model.setMarket(Res.get("muSig.trade.details.offerTypeAndMarket.nonBtcMarket",
-                trade.getOffer().getMarket().getNonBtcCurrencyCode()));
+                trade.getOffer().getMarket().getRelevantCurrencyCode()));
 
         model.setPaymentMethod(contract.getNonBtcSidePaymentMethodSpec().getShortDisplayString());
         model.setPaymentMethodsBoxVisible(isBaseCurrencyBitcoin);
@@ -120,7 +120,7 @@ public class MuSigTradeDetailsController extends NavigationController implements
 
         model.setPeersPaymentAccountDataDescription(isBaseCurrencyBitcoin
                 ? Res.get("muSig.trade.details.paymentAccountData.fiat")
-                : Res.get("muSig.trade.details.paymentAccountData.crypto", trade.getMarket().getNonBtcCurrencyCode())
+                : Res.get("muSig.trade.details.paymentAccountData.crypto", trade.getMarket().getRelevantCurrencyCode())
         );
         model.setPeersPaymentAccountData(peersAccountPayload.isEmpty()
                 ? Res.get("muSig.trade.details.dataNotYetProvided")
