@@ -34,18 +34,6 @@ message MediatorStore {
   repeated MediationCase mediationCases = 1;
 }
 
-message MuSigPaymentDetailsRequest {
-  string tradeId = 1;
-  user.UserProfile senderUserProfile = 2;
-}
-
-message MuSigPaymentDetailsResponse {
-  string tradeId = 1;
-  user.UserProfile senderUserProfile = 2;
-  account.AccountPayload takerAccountPayload = 3;
-  account.AccountPayload makerAccountPayload = 4;
-}
-
 enum MediationCaseState {
   MEDIATIONCASESTATE_UNSPECIFIED = 0;
   MEDIATIONCASESTATE_OPEN = 1;
@@ -96,6 +84,18 @@ message MuSigMediationResult {
   optional sint64 proposedSellerPayoutAmount = 6;
   optional double payoutAdjustmentPercentage = 7;
   optional string summaryNotes = 8;
+}
+
+message MuSigDisputeCasePaymentDetailsRequest {
+  string tradeId = 1;
+  user.UserProfile senderUserProfile = 2;
+}
+
+message MuSigDisputeCasePaymentDetailsResponse {
+  string tradeId = 1;
+  user.UserProfile senderUserProfile = 2;
+  account.AccountPayload takerAccountPayload = 3;
+  account.AccountPayload makerAccountPayload = 4;
 }
 
 message MuSigMediationStateChangeMessage {

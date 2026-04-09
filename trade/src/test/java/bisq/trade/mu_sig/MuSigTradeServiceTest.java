@@ -46,9 +46,9 @@ import bisq.security.keys.PubKey;
 import bisq.security.keys.TorKeyGeneration;
 import bisq.security.pow.ProofOfWork;
 import bisq.support.mediation.MediationCaseState;
+import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
 import bisq.support.mediation.mu_sig.MuSigMediationResultAcceptanceMessage;
 import bisq.support.mediation.mu_sig.MuSigMediationStateChangeMessage;
-import bisq.support.mediation.mu_sig.MuSigPaymentDetailsRequest;
 import bisq.trade.MuSigDisputeState;
 import bisq.user.banned.BannedUserService;
 import bisq.user.profile.UserProfile;
@@ -131,14 +131,14 @@ class MuSigTradeServiceTest {
     }
 
     @Test
-    void authorizePaymentDetailsRequest_returnsTrade_whenMediatorMatchesDuringMediation() {
+    void authorizeDisputeCasePaymentDetailsRequest_returnsTrade_whenMediatorMatchesDuringMediation() {
         UserProfile mediator = createUserProfile(1001);
         UserProfile peer = createUserProfile(1002);
         UserProfile myProfile = createUserProfile(1003);
         MuSigTrade trade = createTrade(MuSigDisputeState.MEDIATION_OPEN, myProfile, peer, Optional.of(mediator), Optional.empty(), "trade-3");
-        MuSigPaymentDetailsRequest message = new MuSigPaymentDetailsRequest("trade-3", mediator);
+        MuSigDisputeCasePaymentDetailsRequest message = new MuSigDisputeCasePaymentDetailsRequest("trade-3", mediator);
 
-        Optional<MuSigTrade> authorized = MuSigTradeService.authorizePaymentDetailsRequest(
+        Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
                 tradeId -> Optional.of(trade),
                 notBannedUserService()
@@ -148,15 +148,15 @@ class MuSigTradeServiceTest {
     }
 
     @Test
-    void authorizePaymentDetailsRequest_returnsEmpty_whenSenderDoesNotMatchActiveDisputeRole() {
+    void authorizeDisputeCasePaymentDetailsRequest_returnsEmpty_whenSenderDoesNotMatchActiveDisputeRole() {
         UserProfile mediator = createUserProfile(1001);
         UserProfile stranger = createUserProfile(1004);
         UserProfile peer = createUserProfile(1002);
         UserProfile myProfile = createUserProfile(1003);
         MuSigTrade trade = createTrade(MuSigDisputeState.MEDIATION_OPEN, myProfile, peer, Optional.of(mediator), Optional.empty(), "trade-3b");
-        MuSigPaymentDetailsRequest message = new MuSigPaymentDetailsRequest("trade-3b", stranger);
+        MuSigDisputeCasePaymentDetailsRequest message = new MuSigDisputeCasePaymentDetailsRequest("trade-3b", stranger);
 
-        Optional<MuSigTrade> authorized = MuSigTradeService.authorizePaymentDetailsRequest(
+        Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
                 tradeId -> Optional.of(trade),
                 notBannedUserService()
@@ -166,14 +166,14 @@ class MuSigTradeServiceTest {
     }
 
     @Test
-    void authorizePaymentDetailsRequest_returnsTrade_whenArbitratorMatchesDuringArbitration() {
+    void authorizeDisputeCasePaymentDetailsRequest_returnsTrade_whenArbitratorMatchesDuringArbitration() {
         UserProfile arbitrator = createUserProfile(1005);
         UserProfile peer = createUserProfile(1002);
         UserProfile myProfile = createUserProfile(1003);
         MuSigTrade trade = createTrade(MuSigDisputeState.ARBITRATION_OPEN, myProfile, peer, Optional.empty(), Optional.of(arbitrator), "trade-4");
-        MuSigPaymentDetailsRequest message = new MuSigPaymentDetailsRequest("trade-4", arbitrator);
+        MuSigDisputeCasePaymentDetailsRequest message = new MuSigDisputeCasePaymentDetailsRequest("trade-4", arbitrator);
 
-        Optional<MuSigTrade> authorized = MuSigTradeService.authorizePaymentDetailsRequest(
+        Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
                 tradeId -> Optional.of(trade),
                 notBannedUserService()
@@ -183,14 +183,14 @@ class MuSigTradeServiceTest {
     }
 
     @Test
-    void authorizePaymentDetailsRequest_returnsEmpty_whenNoActiveDisputeRoleIsPresent() {
+    void authorizeDisputeCasePaymentDetailsRequest_returnsEmpty_whenNoActiveDisputeRoleIsPresent() {
         UserProfile mediator = createUserProfile(1001);
         UserProfile peer = createUserProfile(1002);
         UserProfile myProfile = createUserProfile(1003);
         MuSigTrade trade = createTrade(MuSigDisputeState.NO_DISPUTE, myProfile, peer, Optional.of(mediator), Optional.empty(), "trade-5");
-        MuSigPaymentDetailsRequest message = new MuSigPaymentDetailsRequest("trade-5", mediator);
+        MuSigDisputeCasePaymentDetailsRequest message = new MuSigDisputeCasePaymentDetailsRequest("trade-5", mediator);
 
-        Optional<MuSigTrade> authorized = MuSigTradeService.authorizePaymentDetailsRequest(
+        Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
                 tradeId -> Optional.of(trade),
                 notBannedUserService()
@@ -200,14 +200,14 @@ class MuSigTradeServiceTest {
     }
 
     @Test
-    void authorizePaymentDetailsRequest_returnsEmpty_whenSenderIsBanned() {
+    void authorizeDisputeCasePaymentDetailsRequest_returnsEmpty_whenSenderIsBanned() {
         UserProfile mediator = createUserProfile(1001);
         UserProfile peer = createUserProfile(1002);
         UserProfile myProfile = createUserProfile(1003);
         MuSigTrade trade = createTrade(MuSigDisputeState.MEDIATION_OPEN, myProfile, peer, Optional.of(mediator), Optional.empty(), "trade-6");
-        MuSigPaymentDetailsRequest message = new MuSigPaymentDetailsRequest("trade-6", mediator);
+        MuSigDisputeCasePaymentDetailsRequest message = new MuSigDisputeCasePaymentDetailsRequest("trade-6", mediator);
 
-        Optional<MuSigTrade> authorized = MuSigTradeService.authorizePaymentDetailsRequest(
+        Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
                 tradeId -> Optional.of(trade),
                 bannedUserService(mediator)

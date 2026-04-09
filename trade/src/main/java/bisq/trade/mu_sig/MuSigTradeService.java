@@ -55,12 +55,12 @@ import bisq.persistence.RateLimitedPersistenceClient;
 import bisq.settings.SettingsService;
 import bisq.support.mediation.MediationCaseState;
 import bisq.support.mediation.MuSigDisputeCaseDataMessage;
+import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
+import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsResponse;
 import bisq.support.mediation.mu_sig.MuSigMediationResult;
 import bisq.support.mediation.mu_sig.MuSigMediationResultAcceptanceMessage;
 import bisq.support.mediation.mu_sig.MuSigMediationResultService;
 import bisq.support.mediation.mu_sig.MuSigMediationStateChangeMessage;
-import bisq.support.mediation.mu_sig.MuSigPaymentDetailsRequest;
-import bisq.support.mediation.mu_sig.MuSigPaymentDetailsResponse;
 import bisq.trade.MuSigDisputeState;
 import bisq.trade.ServiceProvider;
 import bisq.trade.mu_sig.events.MuSigTradeEvent;
@@ -303,9 +303,9 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
         } else if (envelopePayloadMessage instanceof MuSigMediationResultAcceptanceMessage message) {
             authorizeMediationResultAcceptanceMessage(message, this::findTrade, bannedUserService)
                     .ifPresent(trade -> processMediationResultAcceptanceMessage(message, trade));
-        } else if (envelopePayloadMessage instanceof MuSigPaymentDetailsRequest message) {
-            authorizePaymentDetailsRequest(message, this::findTrade, bannedUserService)
-                    .ifPresent(trade -> processPaymentDetailsRequest(message, trade));
+        } else if (envelopePayloadMessage instanceof MuSigDisputeCasePaymentDetailsRequest message) {
+            authorizeDisputeCasePaymentDetailsRequest(message, this::findTrade, bannedUserService)
+                    .ifPresent(trade -> processDisputeCasePaymentDetailsRequest(message, trade));
         }
     }
 
@@ -846,44 +846,44 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
         }
     }
 
-    static Optional<MuSigTrade> authorizePaymentDetailsRequest(MuSigPaymentDetailsRequest message,
-                                                               Function<String, Optional<MuSigTrade>> findTrade,
-                                                               BannedUserService bannedUserService) {
+    static Optional<MuSigTrade> authorizeDisputeCasePaymentDetailsRequest(MuSigDisputeCasePaymentDetailsRequest message,
+                                                                          Function<String, Optional<MuSigTrade>> findTrade,
+                                                                          BannedUserService bannedUserService) {
         return findTrade.apply(message.getTradeId())
                 .<Optional<MuSigTrade>>map(trade -> {
                     Optional<UserProfile> disputeRole = findActiveDisputeRole(trade);
                     if (disputeRole.isEmpty()) {
-                        log.warn("Ignoring MuSigPaymentDetailsRequest for trade {} with unexpected senderUserProfile {}.",
+                        log.warn("Ignoring MuSigDisputeCasePaymentDetailsRequest for trade {} with unexpected senderUserProfile {}.",
                                 message.getTradeId(), message.getSenderUserProfile());
                         return Optional.empty();
                     }
                     if (!disputeRole.orElseThrow().getId().equals(message.getSenderUserProfile().getId())) {
-                        log.warn("Ignoring MuSigPaymentDetailsRequest for trade {} with unexpected senderUserProfile {}.",
+                        log.warn("Ignoring MuSigDisputeCasePaymentDetailsRequest for trade {} with unexpected senderUserProfile {}.",
                                 message.getTradeId(), message.getSenderUserProfile());
                         return Optional.empty();
                     }
 
                     if (bannedUserService.isUserProfileBanned(message.getSenderUserProfile())) {
-                        log.warn("Ignoring MuSigPaymentDetailsRequest as sender is banned");
+                        log.warn("Ignoring MuSigDisputeCasePaymentDetailsRequest as sender is banned");
                         return Optional.empty();
                     }
                     return Optional.of(trade);
                 })
                 .orElseGet(() -> {
-                    log.warn("Ignoring MuSigPaymentDetailsRequest for unknown trade {}.", message.getTradeId());
+                    log.warn("Ignoring MuSigDisputeCasePaymentDetailsRequest for unknown trade {}.", message.getTradeId());
                     return Optional.empty();
                 });
     }
 
-    private void processPaymentDetailsRequest(MuSigPaymentDetailsRequest message, MuSigTrade trade) {
+    private void processDisputeCasePaymentDetailsRequest(MuSigDisputeCasePaymentDetailsRequest message, MuSigTrade trade) {
         if (trade.getMyself().getAccountPayload().isEmpty() || trade.getPeer().getAccountPayload().isEmpty()) {
-            log.warn("Ignoring MuSigPaymentDetailsRequest for trade {} because account payloads are incomplete.",
+            log.warn("Ignoring MuSigDisputeCasePaymentDetailsRequest for trade {} because account payloads are incomplete.",
                     message.getTradeId());
             return;
         }
 
         Identity myIdentity = identityService.findAnyIdentityByNetworkId(trade.getMyself().getNetworkId()).orElseThrow();
-        MuSigPaymentDetailsResponse paymentDetailsResponse = new MuSigPaymentDetailsResponse(
+        MuSigDisputeCasePaymentDetailsResponse paymentDetailsResponse = new MuSigDisputeCasePaymentDetailsResponse(
                 message.getTradeId(),
                 userProfileService.findUserProfile(trade.getMyIdentity().getId()).orElseThrow(),
                 trade.getTaker().getAccountPayload().orElseThrow(),
