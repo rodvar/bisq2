@@ -1,8 +1,5 @@
 package bisq.desktop.main.content.mu_sig.trade.pending.trade_state;
 
-import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
-import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
-import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
 import bisq.common.encoding.Csv;
 import bisq.common.file.FileMutatorUtils;
 import bisq.common.monetary.Monetary;
@@ -11,7 +8,6 @@ import bisq.desktop.common.utils.FileChooserUtil;
 import bisq.desktop.components.overlay.Popup;
 import bisq.i18n.Res;
 import bisq.presentation.formatters.AmountFormatter;
-import bisq.support.mediation.mu_sig.MuSigMediationRequestService;
 import bisq.trade.mu_sig.MuSigTrade;
 import bisq.trade.mu_sig.MuSigTradeService;
 import bisq.trade.mu_sig.MuSigTradeUtils;
@@ -69,23 +65,14 @@ public class MuSigPendingTTradesUtils {
         }
     }
 
-    public static void requestMediation(MuSigOpenTradeChannel channel,
-                                        MuSigContract contract,
-                                        MuSigMediationRequestService muSigMediationRequestService,
-                                        MuSigOpenTradeChannelService channelService,
-                                        MuSigTradeService tradeService) {
-        Optional<UserProfile> mediator = channel.getMediator();
+    public static void requestMediation(MuSigTrade trade, MuSigTradeService tradeService) {
+        Optional<UserProfile> mediator = trade.getContract().getMediator();
         if (mediator.isPresent()) {
             new Popup().headline(Res.get("muSig.mediation.request.confirm.headline"))
                     .information(Res.get("muSig.mediation.request.confirm.msg"))
                     .actionButtonText(Res.get("muSig.mediation.request.confirm.openMediation"))
                     .onAction(() -> {
-                        tradeService.maybeApplyDisputeStateFromMediationRequest(channel.getTradeId());
-                        String encoded = Res.encode("muSig.mediation.requester.tradeLogMessage", channel.getMyUserIdentity().getUserName());
-                        channelService.sendTradeLogMessage(encoded, channel);
-                        channel.setDisputeAgentType(MuSigDisputeAgentType.MEDIATOR);
-                        channelService.persist();
-                        muSigMediationRequestService.requestMediation(channel, contract);
+                        tradeService.requestMediation(trade);
                         new Popup().headline(Res.get("muSig.mediation.request.feedback.headline"))
                                 .feedback(Res.get("muSig.mediation.request.feedback.msg"))
                                 .show();
