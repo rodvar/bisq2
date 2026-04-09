@@ -17,7 +17,6 @@
 
 package bisq.support.mediation.mu_sig;
 
-import bisq.account.accounts.AccountPayload;
 import bisq.common.proto.ProtoResolver;
 import bisq.common.proto.UnresolvableProtobufMessageException;
 import bisq.common.validation.NetworkDataValidation;
@@ -41,21 +40,14 @@ import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 @Getter
 @ToString
 @EqualsAndHashCode
-public final class MuSigPaymentDetailsResponse implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
+public final class MuSigDisputeCasePaymentDetailsRequest implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final String tradeId;
     private final UserProfile senderUserProfile;
-    private final AccountPayload<?> takerAccountPayload;
-    private final AccountPayload<?> makerAccountPayload;
 
-    public MuSigPaymentDetailsResponse(String tradeId,
-                                       UserProfile senderUserProfile,
-                                       AccountPayload<?> takerAccountPayload,
-                                       AccountPayload<?> makerAccountPayload) {
+    public MuSigDisputeCasePaymentDetailsRequest(String tradeId, UserProfile senderUserProfile) {
         this.tradeId = tradeId;
         this.senderUserProfile = senderUserProfile;
-        this.takerAccountPayload = takerAccountPayload;
-        this.makerAccountPayload = makerAccountPayload;
 
         verify();
     }
@@ -66,28 +58,24 @@ public final class MuSigPaymentDetailsResponse implements MailboxMessage, Extern
     }
 
     @Override
-    public bisq.support.protobuf.MuSigPaymentDetailsResponse.Builder getValueBuilder(boolean serializeForHash) {
-        return bisq.support.protobuf.MuSigPaymentDetailsResponse.newBuilder()
+    public bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest.Builder getValueBuilder(boolean serializeForHash) {
+        return bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest.newBuilder()
                 .setTradeId(tradeId)
-                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash))
-                .setTakerAccountPayload(takerAccountPayload.toProto(serializeForHash))
-                .setMakerAccountPayload(makerAccountPayload.toProto(serializeForHash));
+                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash));
     }
 
-    public static MuSigPaymentDetailsResponse fromProto(bisq.support.protobuf.MuSigPaymentDetailsResponse proto) {
-        return new MuSigPaymentDetailsResponse(
+    public static MuSigDisputeCasePaymentDetailsRequest fromProto(bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest proto) {
+        return new MuSigDisputeCasePaymentDetailsRequest(
                 proto.getTradeId(),
-                UserProfile.fromProto(proto.getSenderUserProfile()),
-                AccountPayload.fromProto(proto.getTakerAccountPayload()),
-                AccountPayload.fromProto(proto.getMakerAccountPayload())
+                UserProfile.fromProto(proto.getSenderUserProfile())
         );
     }
 
     public static ProtoResolver<ExternalNetworkMessage> getNetworkMessageResolver() {
         return any -> {
             try {
-                bisq.support.protobuf.MuSigPaymentDetailsResponse proto = any.unpack(bisq.support.protobuf.MuSigPaymentDetailsResponse.class);
-                return MuSigPaymentDetailsResponse.fromProto(proto);
+                bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest proto = any.unpack(bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest.class);
+                return MuSigDisputeCasePaymentDetailsRequest.fromProto(proto);
             } catch (InvalidProtocolBufferException e) {
                 throw new UnresolvableProtobufMessageException(e);
             }
@@ -96,7 +84,7 @@ public final class MuSigPaymentDetailsResponse implements MailboxMessage, Extern
 
     @Override
     public double getCostFactor() {
-        return getCostFactor(0.1, 0.4);
+        return getCostFactor(0.1, 0.3);
     }
 
     @Override
