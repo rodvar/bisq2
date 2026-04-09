@@ -1105,6 +1105,14 @@
     -fx-image: url("/images/icons/market/market-grey.png");
 }
 
+#fiat-markets{
+    -fx-image: url("/images/markets/fiat-markets.png");
+}
+
+#other-markets{
+    -fx-image: url("/images/markets/other-markets.png");
+}
+
 #language-green {
     -fx-image: url("/images/icons/language/language_green.png");
 }

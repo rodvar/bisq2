@@ -49,7 +49,6 @@ import bisq.presentation.formatters.PriceFormatter;
 import bisq.settings.CookieKey;
 import bisq.settings.FavouriteMarketsService;
 import bisq.settings.SettingsService;
-import bisq.user.banned.BannedUserService;
 import bisq.user.banned.RateLimitExceededException;
 import bisq.user.banned.UserProfileBannedException;
 import bisq.user.identity.UserIdentityService;
@@ -80,14 +79,13 @@ public class MuSigOfferbookController implements Controller {
     private final UserProfileService userProfileService;
     private final SettingsService settingsService;
     private final IdentityService identityService;
-    private final BannedUserService bannedUserService;
     private final FavouriteMarketsService favouriteMarketsService;
     private final UserIdentityService userIdentityService;
     private final ReputationService reputationService;
     private final AccountService accountService;
     private Pin offersPin, selectedMarketPin, favouriteMarketsPin, marketPriceByCurrencyMapPin, selectedMuSigOfferPin;
     private Subscription selectedMarketItemPin, marketsSearchBoxTextPin, selectedMarketFilterPin, selectedMarketSortTypePin,
-            selectedOffersFilterPin, activeMarketPaymentsCountPin, selectedMarketPricePin, selectedBaseCryptoAssetPin,
+            selectedOffersFilterPin, activeMarketPaymentsCountPin, selectedMarketPricePin, selectedMarketTypePin,
             selectedMarketFromModelPin;
 
     public MuSigOfferbookController(ServiceProvider serviceProvider) {
@@ -96,7 +94,6 @@ public class MuSigOfferbookController implements Controller {
         userProfileService = serviceProvider.getUserService().getUserProfileService();
         identityService = serviceProvider.getIdentityService();
         settingsService = serviceProvider.getSettingsService();
-        bannedUserService = serviceProvider.getUserService().getBannedUserService();
         favouriteMarketsService = serviceProvider.getSettingsService().getFavouriteMarketsService();
         userIdentityService = serviceProvider.getUserService().getUserIdentityService();
         reputationService = serviceProvider.getUserService().getReputationService();
@@ -115,22 +112,21 @@ public class MuSigOfferbookController implements Controller {
 
         selectBaseCurrency();
 
-        selectedBaseCryptoAssetPin = EasyBind.subscribe(model.getSelectedBaseCryptoAsset(), selectedCrypto -> {
-            if (selectedCrypto != null) {
-                if (selectedCrypto.equals(CryptoAssetRepository.XMR)) {
-                    updateQuoteMarketItems(MarketRepository.getXmrCryptoMarkets());
-                    updateSelectedMuSigMarketWithBaseCurrency(selectedCrypto.getCode());
-                } else if (selectedCrypto.equals(CryptoAssetRepository.BITCOIN)) {
-                    updateQuoteMarketItems(MarketRepository.getAllFiatMarkets());
-                    updateSelectedMuSigMarketWithBaseCurrency(selectedCrypto.getCode());
+        selectedMarketTypePin = EasyBind.subscribe(model.getSelectedMarketType(), selectedMarketType -> {
+            if (selectedMarketType != null) {
+                if (selectedMarketType == MarketType.FIAT) {
+                    // BTC/Fiat
+                    model.getMarketsIconId().set("fiat-markets");
+                    updateMarketItems(MarketRepository.getAllFiatMarkets());
+                } else {
+                    // Crypto/Btc
+                    model.getMarketsIconId().set("other-markets");
+                    updateMarketItems(MarketRepository.getAllCryptoAssetMarkets());
                 }
-                model.getMarketListTitle().set(getMarketListTitleString(selectedCrypto));
-                model.getBaseCurrencyIconId().set(selectedCrypto.getCode());
-            } else {
-                model.getMarketListTitle().set("");
+                model.getMarketListTitle().set(selectedMarketType.getDisplayString());
+                updateSelectedMuSigMarketWithBaseCurrency(selectedMarketType);
+                updateFavouriteMarketsObserver();
             }
-
-            updateFavouriteMarketsObserver();
         });
 
         offersPin = muSigService.getObservableOffers().addObserver(new CollectionObserver<>() {
@@ -215,8 +211,8 @@ public class MuSigOfferbookController implements Controller {
             } else {
                 String search = searchText.trim().toLowerCase(Locale.ROOT);
                 model.setMarketSearchTextPredicate(item -> item != null
-                        && (item.getMarket().getQuoteCurrencyCode().toLowerCase().contains(search)
-                        || item.getMarket().getQuoteCurrencyDisplayName().toLowerCase().contains(search))
+                        && (item.getMarket().getRelevantCurrencyCode().toLowerCase().contains(search)
+                        || item.getMarket().getRelevantCurrencyDisplayName().toLowerCase().contains(search))
                 );
             }
             updateFilteredMarketItems();
@@ -276,7 +272,6 @@ public class MuSigOfferbookController implements Controller {
         selectedMarketFromModelPin = EasyBind.subscribe(model.getSelectedMarket(), market -> {
             if (market != null) {
                 UIThread.run(() -> {
-                    CryptoAssetRepository.find(market.getBaseCurrencyCode()).ifPresent(this::updateSelectedBaseCryptoAsset);
                     findMarketItem(market).ifPresent(item -> model.getSelectedMarketItem().set(item));
                 });
             }
@@ -302,7 +297,7 @@ public class MuSigOfferbookController implements Controller {
         marketPriceByCurrencyMapPin.unbind();
 
         selectedMarketItemPin.unsubscribe();
-        selectedBaseCryptoAssetPin.unsubscribe();
+        selectedMarketTypePin.unsubscribe();
         marketsSearchBoxTextPin.unsubscribe();
         selectedMarketFilterPin.unsubscribe();
         selectedMarketSortTypePin.unsubscribe();
@@ -379,8 +374,8 @@ public class MuSigOfferbookController implements Controller {
         settingsService.removeCookie(CookieKey.MU_SIG_OFFER_PAYMENT_FILTERS, getCookieSubKey());
     }
 
-    void updateSelectedBaseCryptoAsset(CryptoAsset baseCrypto) {
-        model.getSelectedBaseCryptoAsset().set(baseCrypto);
+    void onSelectMarketType(MarketType marketsType) {
+        model.getSelectedMarketType().set(marketsType);
     }
 
     private void updateFavouriteMarketsObserver() {
@@ -419,21 +414,18 @@ public class MuSigOfferbookController implements Controller {
         });
     }
 
-    private void updateSelectedMuSigMarketWithBaseCurrency(String baseCurrencyCode) {
-        Market market = Optional.ofNullable(settingsService.getMuSigLastSelectedMarketByBaseCurrencyMap().get(baseCurrencyCode))
-                .orElseGet(() -> {
-                    if (baseCurrencyCode.equals(CryptoAssetRepository.XMR.getCode())) {
-                        return MarketRepository.getXmrCryptoMarkets().get(0);
-                    } else if (baseCurrencyCode.equals(CryptoAssetRepository.BITCOIN.getCode())) {
-                        return MarketRepository.getDefaultBtcFiatMarket();
-                    }
-                    return null;
-                });
-        findMarketItem(market).ifPresent(item -> model.getSelectedMarketItem().set(item));
+    private void updateSelectedMuSigMarketWithBaseCurrency(MarketType marketType) {
+        if (marketType == MarketType.FIAT) {
+            findMarketItem(settingsService.getMuSigLastSelectedFiatMarket().get())
+                    .ifPresent(item -> model.getSelectedMarketItem().set(item));
+        } else {
+            findMarketItem(settingsService.getMuSigLastSelectedOtherMarket().get())
+                    .ifPresent(item -> model.getSelectedMarketItem().set(item));
+        }
     }
 
-    private void updateQuoteMarketItems(List<Market> availableMarkets) {
-        List<MuSigMarketItem> marketItems = availableMarkets.stream()
+    private void updateMarketItems(List<Market> markets) {
+        List<MuSigMarketItem> marketItems = markets.stream()
                 .map(market -> new MuSigMarketItem(market,
                         favouriteMarketsService,
                         marketPriceService,
@@ -495,18 +487,12 @@ public class MuSigOfferbookController implements Controller {
                 model.getBaseCodeTitle().set(Res.get("muSig.offer.listing.table.header.amount", selectedMarket.getBaseCurrencyCode()).toUpperCase());
                 model.getQuoteCodeTitle().set(Res.get("muSig.offer.listing.table.header.amount", selectedMarket.getQuoteCurrencyCode()).toUpperCase());
                 model.getPriceTitle().set(Res.get("muSig.offer.listing.table.header.price", selectedMarket.getMarketCodes()).toUpperCase());
-                model.getQuoteCurrencyIconId().set(selectedMarket.getQuoteCurrencyCode());
             }
         } else {
             model.getMarketTitle().set("");
             model.getMarketDescription().set("");
             model.getMarketPrice().set("");
         }
-    }
-
-    private String getMarketListTitleString(CryptoAsset cryptoAsset) {
-        String key = "muSig.offer.listing.marketListTitle." + cryptoAsset.getCode().toLowerCase(Locale.ROOT);
-        return Res.get(key);
     }
 
     private void updateFilteredMarketItems() {
@@ -584,15 +570,23 @@ public class MuSigOfferbookController implements Controller {
     private void saveMuSigMarketPreferences(Market market) {
         if (market != null) {
             model.getSelectedMarket().set(market);
-            settingsService.setMuSigLastSelectedMarketByBaseCurrencyMap(market);
+            if (market.isBtcFiatMarket()) {
+                settingsService.setMuSigLastSelectedFiatMarket(market);
+            } else {
+                settingsService.setMuSigLastSelectedOtherMarket(market);
+            }
         }
     }
 
     private void selectBaseCurrency() {
-        CryptoAsset cryptoAsset = Optional.ofNullable(model.getSelectedMarket().get())
+        CryptoAsset baseAsset = Optional.ofNullable(model.getSelectedMarket().get())
                 .flatMap(market -> CryptoAssetRepository.find(market.getBaseCurrencyCode()))
                 .orElse(CryptoAssetRepository.BITCOIN);
-        model.getSelectedBaseCryptoAsset().set(cryptoAsset);
+        if (baseAsset.equals(CryptoAssetRepository.BITCOIN)) {
+            model.getSelectedMarketType().set(MarketType.FIAT);
+        } else {
+            model.getSelectedMarketType().set(MarketType.OTHER);
+        }
     }
 
     private void maybeSelectOffer(MuSigOffer selectedOffer) {

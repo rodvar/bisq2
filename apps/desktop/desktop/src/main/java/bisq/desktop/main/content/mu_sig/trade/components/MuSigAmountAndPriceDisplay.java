@@ -72,7 +72,7 @@ public class MuSigAmountAndPriceDisplay extends HBox {
         boolean isBaseCurrencyBitcoin = market.isBaseCurrencyBitcoin();
 
         nonBtcAmountLabel.setText(MuSigTradeFormatter.formatNonBtcSideAmount(contract));
-        nonBtcCurrencyLabel.setText(market.getNonBtcCurrencyCode());
+        nonBtcCurrencyLabel.setText(market.getRelevantCurrencyCode());
         btcAmountLabel.setText(MuSigTradeFormatter.formatBtcSideAmount(contract));
         priceLabel.setText(PriceFormatter.format(MuSigTradeUtils.getPriceQuote(contract), isBaseCurrencyBitcoin));
         priceCodesLabel.setText(market.getMarketCodes());
