@@ -79,6 +79,7 @@ public class MuSigAmountSelectionController implements Controller {
     private final MuSigPriceInput priceInput;
     private final ChangeListener<Number> maxOrFixedSliderListener, minSliderListener;
     private final Set<Subscription> subscriptions = new HashSet<>();
+    private final Set<UIScheduler> schedulers = new HashSet<>();
 
     public MuSigAmountSelectionController(ServiceProvider serviceProvider, MuSigPriceInput priceInput) {
         marketPriceService = serviceProvider.getBondedRolesService().getMarketPriceService();
@@ -387,19 +388,19 @@ public class MuSigAmountSelectionController implements Controller {
             minQuoteSideAmountInput.setTextInputMaxCharCount(RANGE_INPUT_TEXT_MAX_LENGTH);
             applyTextInputPrefWidth();
             deselectAll();
-            UIScheduler.run(this::requestFocusForAmountInput).after(150);
+            schedulers.add(UIScheduler.run(this::requestFocusForAmountInput).after(150));
         }));
 
         subscriptions.add(EasyBind.subscribe(model.getAreBaseAndQuoteCurrenciesInverted(), areBaseAndQuoteCurrenciesInverted -> {
             updateShouldShowAmounts();
             applyInitialRangeValues();
-            UIScheduler.run(this::requestFocusForAmountInput).after(150);
+            schedulers.add(UIScheduler.run(this::requestFocusForAmountInput).after(150));
         }));
 
         model.getMaxOrFixedAmountSliderValue().addListener(maxOrFixedSliderListener);
         model.getMinAmountSliderValue().addListener(minSliderListener);
 
-        UIScheduler.run(() -> {
+        schedulers.add(UIScheduler.run(() -> {
             requestFocusForAmountInput();
 
             subscriptions.add(EasyBind.subscribe(maxOrFixedQuoteSideAmountInput.focusedProperty(),
@@ -415,11 +416,16 @@ public class MuSigAmountSelectionController implements Controller {
             subscriptions.add(EasyBind.subscribe(minQuoteSideAmountInput.lengthProperty(), length -> applyNewStyles()));
             subscriptions.add(EasyBind.subscribe(invertedMaxOrFixedBaseSideAmountInput.lengthProperty(), length -> applyNewStyles()));
             subscriptions.add(EasyBind.subscribe(invertedMinBaseSideAmountInput.lengthProperty(), length -> applyNewStyles()));
-        }).after(700);
+        }).after(700));
     }
 
     @Override
     public void onDeactivate() {
+        schedulers.forEach(UIScheduler::stop);
+        schedulers.clear();
+        subscriptions.forEach(Subscription::unsubscribe);
+        subscriptions.clear();
+
         model.getMaxOrFixedQuoteSideAmount().removeListener(maxOrFixedQuoteSideAmountFromModelListener);
         model.getMinQuoteSideAmount().removeListener(minQuoteSideAmountFromModelListener);
         model.getMaxOrFixedBaseSideAmount().removeListener(maxOrFixedBaseSideAmountFromModelListener);
@@ -427,9 +433,6 @@ public class MuSigAmountSelectionController implements Controller {
         priceInput.getQuote().removeListener(quoteListener);
         model.getMaxOrFixedAmountSliderValue().removeListener(maxOrFixedSliderListener);
         model.getMinAmountSliderValue().removeListener(minSliderListener);
-
-        subscriptions.forEach(Subscription::unsubscribe);
-        subscriptions.clear();
 
         maxOrFixedQuoteSideAmountInput.isAmountValidProperty().set(true);
         minQuoteSideAmountInput.isAmountValidProperty().set(true);
