@@ -81,9 +81,8 @@ public class MuSigAmountSelectionController implements Controller {
     private final Set<Subscription> subscriptions = new HashSet<>();
     private final Set<UIScheduler> schedulers = new HashSet<>();
 
-    public MuSigAmountSelectionController(ServiceProvider serviceProvider, MuSigPriceInput priceInput) {
+    public MuSigAmountSelectionController(ServiceProvider serviceProvider) {
         marketPriceService = serviceProvider.getBondedRolesService().getMarketPriceService();
-        this.priceInput = priceInput;
 
         // max or fixed amount
         maxOrFixedQuoteSideAmountInput = new MuSigBigAmountNumberBox(false, true);
@@ -98,6 +97,8 @@ public class MuSigAmountSelectionController implements Controller {
         // inverted to select amount using base
         invertedMinQuoteSideAmountDisplay = new MuSigSmallAmountNumberBox(false, false);
         invertedMinBaseSideAmountInput = new MuSigBigAmountNumberBox(true, false);
+
+        priceInput = new MuSigPriceInput(serviceProvider.getBondedRolesService().getMarketPriceService());
 
         model = new MuSigAmountSelectionModel();
         view = new MuSigAmountSelectionView(model,

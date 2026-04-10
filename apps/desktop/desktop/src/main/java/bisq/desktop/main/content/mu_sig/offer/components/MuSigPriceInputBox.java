@@ -66,16 +66,14 @@ public class MuSigPriceInputBox extends MaterialTextField {
         getStyleClass().add("price-input-box");
 
         textInputTextListener = (observable, oldValue, newValue) -> {
-            if (newValue != null) {
-                if (newValue.length() > INPUT_TEXT_MAX_LENGTH || !newValue.matches(numericRegex)) {
-                    textInputControl.setText(oldValue);
-                }
-                // If using an integer we need to count one more char since a dot occupies much less space.
-                int calculatedLength = !textInputControl.getText().contains(".")
-                        ? textInputControl.getLength() + 1
-                        : textInputControl.getLength();
-                applyFontStyle(calculatedLength);
+            if (newValue.length() > INPUT_TEXT_MAX_LENGTH || !newValue.matches(numericRegex)) {
+                textInputControl.setText(oldValue);
             }
+            // If using an integer we need to count one more char since a dot occupies much less space.
+            int calculatedLength = !textInputControl.getText().contains(".")
+                    ? textInputControl.getLength() + 1
+                    : textInputControl.getLength();
+            applyFontStyle(calculatedLength);
         };
         initialize();
     }

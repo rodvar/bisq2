@@ -85,17 +85,16 @@ public class MuSigTakeOfferReviewController implements Controller {
     private UIScheduler timeoutScheduler;
 
     public MuSigTakeOfferReviewController(ServiceProvider serviceProvider,
-                                          MuSigPriceInput priceInput,
                                           Consumer<Boolean> mainButtonsVisibleHandler,
                                           Consumer<NavigationTarget> closeAndNavigateToHandler) {
         this.mainButtonsVisibleHandler = mainButtonsVisibleHandler;
         userIdentityService = serviceProvider.getUserService().getUserIdentityService();
-        this.priceInput = priceInput;
         this.closeAndNavigateToHandler = closeAndNavigateToHandler;
         marketPriceService = serviceProvider.getBondedRolesService().getMarketPriceService();
         muSigService = serviceProvider.getMuSigService();
         bannedUserService = serviceProvider.getUserService().getBannedUserService();
 
+        priceInput = new MuSigPriceInput(serviceProvider.getBondedRolesService().getMarketPriceService());
         muSigReviewDataDisplay = new MuSigReviewDataDisplay();
 
         model = new MuSigTakeOfferReviewModel();
