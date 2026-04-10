@@ -38,7 +38,7 @@ import org.fxmisc.easybind.Subscription;
 
 @Slf4j
 public class MuSigCreateOfferAmountView extends View<VBox, MuSigCreateOfferAmountModel, MuSigCreateOfferAmountController> {
-    private static final String SELECTED_PRICE_MODEL_STYLE_CLASS = "selected-model";
+    private static final String SELECTED_MODEL_STYLE_CLASS = "selected-model";
 
     private final Label amountLimitInfo, amountLimitInfoOverlayInfo, linkToWikiText, warningIcon;
     private final Hyperlink learnMore, linkToWiki;
@@ -139,12 +139,12 @@ public class MuSigCreateOfferAmountView extends View<VBox, MuSigCreateOfferAmoun
         warningIcon.managedProperty().bind(model.getShouldShowWarningIcon());
 
         isRangeAmountEnabledPin = EasyBind.subscribe(model.getIsRangeAmountEnabled(), isRangeAmountEnabled -> {
-            fixedAmountButton.getStyleClass().remove(SELECTED_PRICE_MODEL_STYLE_CLASS);
-            rangeAmountButton.getStyleClass().remove(SELECTED_PRICE_MODEL_STYLE_CLASS);
+            fixedAmountButton.getStyleClass().remove(SELECTED_MODEL_STYLE_CLASS);
+            rangeAmountButton.getStyleClass().remove(SELECTED_MODEL_STYLE_CLASS);
             if (isRangeAmountEnabled) {
-                rangeAmountButton.getStyleClass().add(SELECTED_PRICE_MODEL_STYLE_CLASS);
+                rangeAmountButton.getStyleClass().add(SELECTED_MODEL_STYLE_CLASS);
             } else {
-                fixedAmountButton.getStyleClass().add(SELECTED_PRICE_MODEL_STYLE_CLASS);
+                fixedAmountButton.getStyleClass().add(SELECTED_MODEL_STYLE_CLASS);
             }
         });
 
