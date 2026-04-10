@@ -32,6 +32,7 @@ import bisq.common.application.Service;
 import bisq.common.monetary.Monetary;
 import bisq.common.observable.Pin;
 import bisq.common.observable.collection.CollectionObserver;
+import bisq.common.observable.map.HashMapObserver;
 import bisq.common.observable.map.ObservableHashMap;
 import bisq.common.platform.Version;
 import bisq.common.threading.ExecutorFactory;
@@ -149,9 +150,10 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
     private Optional<String> minRequiredVersionForTrading = Optional.empty();
 
     private Pin authorizedAlertDataSetPin, numDaysAfterRedactingTradeDataPin;
+    private Pin tradeByIdPin, muSigOpenTradeChannelPin;
     private Scheduler numDaysAfterRedactingTradeDataScheduler;
     private final Set<MuSigTradeMessage> pendingTradeMessages = new CopyOnWriteArraySet<>();
-    private final Set<EnvelopePayloadMessage> pendingMediationMessages = new CopyOnWriteArraySet<>();
+    private final Map<String, Set<EnvelopePayloadMessage>> pendingMediationMessagesByTradeId = new ConcurrentHashMap<>();
     private final Map<String, Scheduler> closeTradeTimeoutSchedulerByTradeId = new ConcurrentHashMap<>();
     private final Map<String, CompletableFuture<Void>> observeDepositTxConfirmationStatusFutureByTradeId = new ConcurrentHashMap<>();
 
@@ -196,6 +198,28 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
                     networkService.getConfidentialMessageServices().stream()
                             .flatMap(service -> service.getProcessedEnvelopePayloadMessages().stream())
                             .forEach(this::onMessage);
+
+                    tradeByIdPin = getTradeById().addObserver(new HashMapObserver<>() {
+                        @Override
+                        public void put(String key, MuSigTrade value) {
+                            maybeProcessPendingMediationMessages(key);
+                        }
+                    });
+                    muSigOpenTradeChannelPin = muSigOpenTradeChannelService.getChannels().addObserver(new CollectionObserver<>() {
+                        @Override
+                        public void onAdded(MuSigOpenTradeChannel element) {
+                            maybeProcessPendingMediationMessages(element.getTradeId());
+                        }
+
+                        @Override
+                        public void onRemoved(Object element) {
+                        }
+
+                        @Override
+                        public void onCleared() {
+                        }
+                    });
+
                     networkService.addConfidentialMessageListener(this);
 
                     // At startup we observe all unconfirmed deposit txs
@@ -258,6 +282,14 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
             numDaysAfterRedactingTradeDataPin.unbind();
             numDaysAfterRedactingTradeDataPin = null;
         }
+        if (tradeByIdPin != null) {
+            tradeByIdPin.unbind();
+            tradeByIdPin = null;
+        }
+        if (muSigOpenTradeChannelPin != null) {
+            muSigOpenTradeChannelPin.unbind();
+            muSigOpenTradeChannelPin = null;
+        }
         if (numDaysAfterRedactingTradeDataScheduler != null) {
             numDaysAfterRedactingTradeDataScheduler.stop();
             numDaysAfterRedactingTradeDataScheduler = null;
@@ -273,7 +305,7 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
 
         tradeProtocolById.clear();
         pendingTradeMessages.clear();
-        pendingMediationMessages.clear();
+        pendingMediationMessagesByTradeId.clear();
 
         ExecutorFactory.shutdownAndAwaitTermination(executor, 100);
         executor = null;
@@ -303,15 +335,15 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
                 handleMuSigTradeMessage(muSigTradeMessage);
             }
         } else if (envelopePayloadMessage instanceof MuSigMediationStateChangeMessage message) {
-            findTradeOrQueue(message.getTradeId(), envelopePayloadMessage)
+            findTradeAndChannelOrQueue(message.getTradeId(), envelopePayloadMessage)
                     .flatMap(trade -> authorizeMediationStateChangeMessage(message, trade, bannedUserService))
                     .ifPresent(trade -> processMediationStateChangeMessage(message, trade));
         } else if (envelopePayloadMessage instanceof MuSigMediationResultAcceptanceMessage message) {
-            findTradeOrQueue(message.getTradeId(), envelopePayloadMessage)
+            findTradeAndChannelOrQueue(message.getTradeId(), envelopePayloadMessage)
                     .flatMap(trade -> authorizeMediationResultAcceptanceMessage(message, trade, bannedUserService))
                     .ifPresent(trade -> processMediationResultAcceptanceMessage(message, trade));
         } else if (envelopePayloadMessage instanceof MuSigDisputeCasePaymentDetailsRequest message) {
-            findTradeOrQueue(message.getTradeId(), envelopePayloadMessage)
+            findTradeAndChannelOrQueue(message.getTradeId(), envelopePayloadMessage)
                     .flatMap(trade -> authorizeDisputeCasePaymentDetailsRequest(message, trade, bannedUserService))
                     .ifPresent(trade -> processDisputeCasePaymentDetailsRequest(message, trade));
         }
@@ -483,8 +515,6 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
         persistableStore.addTrade(muSigTrade);
         persist();
 
-        maybeProcessPendingMediationMessages();
-
         maybeAddPeerToContactList(makerNetworkId.getId(), takerNetworkId.getId());
 
         return createAndAddTradeProtocol(muSigTrade);
@@ -553,10 +583,6 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
     /* --------------------------------------------------------------------- */
     // Misc
     /* --------------------------------------------------------------------- */
-
-    public Optional<MuSigOpenTradeChannel> findMuSigOpenTradeChannel(String tradeId) {
-        return muSigOpenTradeChannelService.findChannelByTradeId(tradeId);
-    }
 
     public Optional<MuSigProtocol> findProtocol(String id) {
         return Optional.ofNullable(tradeProtocolById.get(id));
@@ -629,8 +655,6 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
         checkArgument(!tradeExists(tradeId), "A trade with that ID exists already");
         persistableStore.addTrade(trade);
         persist();
-
-        maybeProcessPendingMediationMessages();
 
         maybeAddPeerToContactList(sender.getId(), myIdentity.getId());
 
@@ -886,17 +910,35 @@ public final class MuSigTradeService extends RateLimitedPersistenceClient<MuSigT
         return Optional.empty();
     }
 
-    private Optional<MuSigTrade> findTradeOrQueue(String tradeId, EnvelopePayloadMessage message) {
+    private Optional<MuSigTrade> findTradeAndChannelOrQueue(String tradeId, EnvelopePayloadMessage message) {
         Optional<MuSigTrade> trade = findTrade(tradeId);
-        if (trade.isEmpty()) {
-            pendingMediationMessages.add(message);
-        } else {
-            pendingMediationMessages.remove(message);
+        Optional<MuSigOpenTradeChannel> channel = muSigOpenTradeChannelService.findChannelByTradeId(tradeId);
+        if (trade.isEmpty() || channel.isEmpty()) {
+            addPendingMediationMessage(tradeId, message);
+            return Optional.empty();
         }
+
+        removePendingMediationMessage(tradeId, message);
         return trade;
     }
 
-    private void maybeProcessPendingMediationMessages() {
-        pendingMediationMessages.forEach(this::onMessage);
+    private void addPendingMediationMessage(String tradeId, EnvelopePayloadMessage message) {
+        pendingMediationMessagesByTradeId
+                .computeIfAbsent(tradeId, key -> new CopyOnWriteArraySet<>())
+                .add(message);
+    }
+
+    private void removePendingMediationMessage(String tradeId, EnvelopePayloadMessage message) {
+        pendingMediationMessagesByTradeId.computeIfPresent(tradeId, (key, pendingMessages) -> {
+            pendingMessages.remove(message);
+            return pendingMessages.isEmpty() ? null : pendingMessages;
+        });
+    }
+
+    private void maybeProcessPendingMediationMessages(String tradeId) {
+        Set<EnvelopePayloadMessage> pendingMessages = pendingMediationMessagesByTradeId.get(tradeId);
+        if (pendingMessages != null) {
+            pendingMessages.forEach(this::onMessage);
+        }
     }
 }
