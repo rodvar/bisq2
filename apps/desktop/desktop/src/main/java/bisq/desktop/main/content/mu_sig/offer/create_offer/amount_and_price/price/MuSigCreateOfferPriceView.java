@@ -49,7 +49,7 @@ import java.text.DecimalFormat;
 
 @Slf4j
 public class MuSigCreateOfferPriceView extends View<VBox, MuSigCreateOfferPriceModel, MuSigCreateOfferPriceController> {
-    private static final String SELECTED_PRICE_MODEL_STYLE_CLASS = "selected-model";
+    private static final String SELECTED_MODEL_STYLE_CLASS = "selected-model";
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("00");
 
     private final MuSigPriceInputBox percentageInputBox;
@@ -255,14 +255,14 @@ public class MuSigCreateOfferPriceView extends View<VBox, MuSigCreateOfferPriceM
     }
 
     private void updatePriceSpecButtonsStyle() {
-        fixedPriceButton.getStyleClass().remove(SELECTED_PRICE_MODEL_STYLE_CLASS);
-        percentagePriceButton.getStyleClass().remove(SELECTED_PRICE_MODEL_STYLE_CLASS);
+        fixedPriceButton.getStyleClass().remove(SELECTED_MODEL_STYLE_CLASS);
+        percentagePriceButton.getStyleClass().remove(SELECTED_MODEL_STYLE_CLASS);
         if (model.getUseFixPrice().get()) {
-            fixedPriceButton.getStyleClass().add(SELECTED_PRICE_MODEL_STYLE_CLASS);
+            fixedPriceButton.getStyleClass().add(SELECTED_MODEL_STYLE_CLASS);
             fixedPriceButton.setGraphic(fixedPriceIconGreen);
             percentagePriceButton.setGraphic(percentagePriceIconGrey);
         } else {
-            percentagePriceButton.getStyleClass().add(SELECTED_PRICE_MODEL_STYLE_CLASS);
+            percentagePriceButton.getStyleClass().add(SELECTED_MODEL_STYLE_CLASS);
             percentagePriceButton.setGraphic(percentagePriceIconGreen);
             fixedPriceButton.setGraphic(fixedPriceIconGrey);
         }
