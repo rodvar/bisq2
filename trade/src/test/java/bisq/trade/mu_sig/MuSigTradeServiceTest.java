@@ -18,20 +18,28 @@
 package bisq.trade.mu_sig;
 
 import bisq.account.accounts.AccountPayload;
-import bisq.account.accounts.fiat.NationalBankAccountPayload;
 import bisq.account.accounts.fiat.BankAccountType;
+import bisq.account.accounts.fiat.NationalBankAccountPayload;
 import bisq.account.payment_method.PaymentMethod;
 import bisq.account.payment_method.PaymentMethodSpec;
 import bisq.account.payment_method.PaymentMethodSpecUtil;
 import bisq.account.payment_method.fiat.FiatPaymentMethod;
 import bisq.account.payment_method.fiat.FiatPaymentRail;
+import bisq.bonded_roles.BondedRolesService;
+import bisq.bonded_roles.security_manager.alert.AlertService;
+import bisq.chat.ChatService;
+import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
+import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
+import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
+import bisq.common.market.Market;
 import bisq.common.network.AddressByTransportTypeMap;
 import bisq.common.network.TransportType;
 import bisq.common.network.clear_net_address_types.LocalHostAddressTypeFacade;
-import bisq.common.market.Market;
 import bisq.contract.mu_sig.MuSigContract;
 import bisq.identity.Identity;
+import bisq.network.NetworkService;
 import bisq.network.identity.NetworkId;
+import bisq.network.p2p.message.EnvelopePayloadMessage;
 import bisq.offer.Direction;
 import bisq.offer.amount.spec.BaseSideFixedAmountSpec;
 import bisq.offer.mu_sig.MuSigOffer;
@@ -39,28 +47,41 @@ import bisq.offer.options.AccountOption;
 import bisq.offer.options.OfferOptionUtil;
 import bisq.offer.price.spec.MarketPriceSpec;
 import bisq.offer.price.spec.PriceSpec;
-import bisq.security.keys.KeyGeneration;
-import bisq.security.keys.KeyBundle;
+import bisq.persistence.Persistence;
+import bisq.persistence.PersistenceService;
 import bisq.security.keys.I2PKeyGeneration;
+import bisq.security.keys.KeyBundle;
+import bisq.security.keys.KeyGeneration;
 import bisq.security.keys.PubKey;
 import bisq.security.keys.TorKeyGeneration;
 import bisq.security.pow.ProofOfWork;
+import bisq.settings.SettingsService;
 import bisq.support.mediation.MediationCaseState;
 import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
 import bisq.support.mediation.mu_sig.MuSigMediationResultAcceptanceMessage;
 import bisq.support.mediation.mu_sig.MuSigMediationStateChangeMessage;
 import bisq.trade.MuSigDisputeState;
+import bisq.trade.ServiceProvider;
+import bisq.user.UserService;
 import bisq.user.banned.BannedUserService;
+import bisq.user.contact_list.ContactListService;
+import bisq.user.identity.UserIdentity;
+import bisq.user.identity.UserIdentityService;
 import bisq.user.profile.UserProfile;
+import bisq.user.profile.UserProfileService;
 import org.junit.jupiter.api.Test;
-
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.security.KeyPair;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -216,6 +237,108 @@ class MuSigTradeServiceTest {
         assertThat(authorized).isEmpty();
     }
 
+    @Test
+    void findTradeAndChannelOrQueue_storesMessageUnderTradeId_whenTradeIsMissing() throws Exception {
+        MuSigTradeService service = createTradeServiceForPendingQueueTests();
+        UserProfile mediator = createUserProfile(1001);
+        MuSigMediationStateChangeMessage message = new MuSigMediationStateChangeMessage(
+                "id-queue-1",
+                "trade-queue-1",
+                mediator,
+                MediationCaseState.OPEN,
+                Optional.empty(),
+                Optional.empty()
+        );
+
+        Optional<MuSigTrade> result = invokeFindTradeAndChannelOrQueue(service, "trade-queue-1", message);
+
+        assertThat(result).isEmpty();
+        assertThat(getPendingMediationMessagesByTradeId(service))
+                .containsKey("trade-queue-1");
+        assertThat(getPendingMediationMessagesByTradeId(service).get("trade-queue-1"))
+                .contains(message);
+    }
+
+    @Test
+    void findTradeAndChannelOrQueue_keepsMessagesSeparatedByTradeId() throws Exception {
+        MuSigTradeService service = createTradeServiceForPendingQueueTests();
+        UserProfile mediator = createUserProfile(1001);
+        MuSigMediationStateChangeMessage first = new MuSigMediationStateChangeMessage(
+                "id-queue-2a",
+                "trade-queue-2a",
+                mediator,
+                MediationCaseState.OPEN,
+                Optional.empty(),
+                Optional.empty()
+        );
+        MuSigMediationStateChangeMessage second = new MuSigMediationStateChangeMessage(
+                "id-queue-2b",
+                "trade-queue-2b",
+                mediator,
+                MediationCaseState.OPEN,
+                Optional.empty(),
+                Optional.empty()
+        );
+
+        invokeFindTradeAndChannelOrQueue(service, "trade-queue-2a", first);
+        invokeFindTradeAndChannelOrQueue(service, "trade-queue-2b", second);
+
+        Map<String, Set<EnvelopePayloadMessage>> pendingMessagesByTradeId = getPendingMediationMessagesByTradeId(service);
+        assertThat(pendingMessagesByTradeId).containsOnlyKeys("trade-queue-2a", "trade-queue-2b");
+        assertThat(pendingMessagesByTradeId.get("trade-queue-2a")).containsExactly(first);
+        assertThat(pendingMessagesByTradeId.get("trade-queue-2b")).containsExactly(second);
+    }
+
+    @Test
+    void findTradeAndChannelOrQueue_returnsEmptyAndQueuesMessage_whenTradeExistsButChannelIsMissing() throws Exception {
+        UserProfile myProfile = createUserProfile(1003);
+        UserProfile peer = createUserProfile(1002);
+        UserProfile mediator = createUserProfile(1001);
+        MuSigTrade trade = createTrade(MuSigDisputeState.NO_DISPUTE, myProfile, peer, Optional.of(mediator), Optional.empty(), "trade-queue-2c");
+        MuSigTradeService service = createTradeServiceForPendingQueueTests(trade, null);
+        MuSigMediationStateChangeMessage message = new MuSigMediationStateChangeMessage(
+                "id-queue-2c",
+                trade.getId(),
+                mediator,
+                MediationCaseState.OPEN,
+                Optional.empty(),
+                Optional.empty()
+        );
+
+        Optional<MuSigTrade> result = invokeFindTradeAndChannelOrQueue(service, trade.getId(), message);
+
+        assertThat(result).isEmpty();
+        assertThat(getPendingMediationMessagesByTradeId(service))
+                .containsKey(trade.getId());
+        assertThat(getPendingMediationMessagesByTradeId(service).get(trade.getId()))
+                .containsExactly(message);
+    }
+
+    @Test
+    void findTradeAndChannelOrQueue_removesPendingMessage_whenTradeAndChannelAreAvailable() throws Exception {
+        UserProfile myProfile = createUserProfile(1003);
+        UserProfile peer = createUserProfile(1002);
+        UserProfile mediator = createUserProfile(1001);
+        MuSigTrade trade = createTrade(MuSigDisputeState.NO_DISPUTE, myProfile, peer, Optional.of(mediator), Optional.empty(), "trade-queue-3");
+        MuSigOpenTradeChannel channel = createOpenTradeChannel(trade, myProfile, peer, mediator);
+        MuSigTradeService service = createTradeServiceForPendingQueueTests(trade, channel);
+        MuSigMediationStateChangeMessage message = new MuSigMediationStateChangeMessage(
+                "id-queue-3",
+                trade.getId(),
+                mediator,
+                MediationCaseState.OPEN,
+                Optional.empty(),
+                Optional.empty()
+        );
+
+        getPendingMediationMessagesByTradeId(service).put(trade.getId(), new java.util.concurrent.CopyOnWriteArraySet<>(Set.of(message)));
+
+        Optional<MuSigTrade> result = invokeFindTradeAndChannelOrQueue(service, trade.getId(), message);
+
+        assertThat(result).containsSame(trade);
+        assertThat(getPendingMediationMessagesByTradeId(service)).doesNotContainKey(trade.getId());
+    }
+
     private MuSigTrade createTrade(MuSigDisputeState disputeState,
                                    UserProfile myProfile,
                                    UserProfile peer,
@@ -229,6 +352,96 @@ class MuSigTradeServiceTest {
         MuSigTrade trade = new MuSigTrade(contract, true, false, myIdentity, contract.getOffer(), peer.getNetworkId(), myProfile.getNetworkId());
         trade.setDisputeState(disputeState);
         return trade;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Set<EnvelopePayloadMessage>> getPendingMediationMessagesByTradeId(MuSigTradeService service) throws Exception {
+        Field field = MuSigTradeService.class.getDeclaredField("pendingMediationMessagesByTradeId");
+        field.setAccessible(true);
+        return (Map<String, Set<EnvelopePayloadMessage>>) field.get(service);
+    }
+
+    private Optional<MuSigTrade> invokeFindTradeAndChannelOrQueue(MuSigTradeService service,
+                                                                  String tradeId,
+                                                                  EnvelopePayloadMessage message) throws Exception {
+        Method method = MuSigTradeService.class.getDeclaredMethod("findTradeAndChannelOrQueue", String.class, EnvelopePayloadMessage.class);
+        method.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Optional<MuSigTrade> result = (Optional<MuSigTrade>) method.invoke(service, tradeId, message);
+        return result;
+    }
+
+    private MuSigTradeService createTradeServiceForPendingQueueTests() {
+        return createTradeServiceForPendingQueueTests(null, null);
+    }
+
+    private MuSigTradeService createTradeServiceForPendingQueueTests(MuSigTrade trade, MuSigOpenTradeChannel channel) {
+        ServiceProvider serviceProvider = mock(ServiceProvider.class);
+        NetworkService networkService = mock(NetworkService.class);
+        bisq.identity.IdentityService identityService = mock(bisq.identity.IdentityService.class);
+        SettingsService settingsService = mock(SettingsService.class);
+        PersistenceService persistenceService = mock(PersistenceService.class);
+        @SuppressWarnings("unchecked")
+        Persistence<MuSigTradeStore> persistence = mock(Persistence.class);
+        UserService userService = mock(UserService.class);
+        BannedUserService bannedUserService = mock(BannedUserService.class);
+        ContactListService contactListService = mock(ContactListService.class);
+        UserProfileService userProfileService = mock(UserProfileService.class);
+        UserIdentityService userIdentityService = mock(UserIdentityService.class);
+        BondedRolesService bondedRolesService = mock(BondedRolesService.class);
+        AlertService alertService = mock(AlertService.class);
+        ChatService chatService = mock(ChatService.class);
+        MuSigOpenTradeChannelService openTradeChannelService = mock(MuSigOpenTradeChannelService.class);
+
+        when(serviceProvider.getNetworkService()).thenReturn(networkService);
+        when(serviceProvider.getIdentityService()).thenReturn(identityService);
+        when(serviceProvider.getSettingsService()).thenReturn(settingsService);
+        when(serviceProvider.getPersistenceService()).thenReturn(persistenceService);
+        when(serviceProvider.getUserService()).thenReturn(userService);
+        when(serviceProvider.getBondedRolesService()).thenReturn(bondedRolesService);
+        when(serviceProvider.getChatService()).thenReturn(chatService);
+
+        when(userService.getBannedUserService()).thenReturn(bannedUserService);
+        when(userService.getContactListService()).thenReturn(contactListService);
+        when(userService.getUserProfileService()).thenReturn(userProfileService);
+        when(userService.getUserIdentityService()).thenReturn(userIdentityService);
+
+        when(bondedRolesService.getAlertService()).thenReturn(alertService);
+        when(chatService.getMuSigOpenTradeChannelService()).thenReturn(openTradeChannelService);
+
+        doReturn(persistence)
+                .when(persistenceService)
+                .getOrCreatePersistence(any(), any(), any(MuSigTradeStore.class));
+        when(networkService.getConfidentialMessageServices()).thenReturn(Set.of());
+        when(openTradeChannelService.getChannels()).thenReturn(new bisq.common.observable.collection.ObservableSet<>());
+        when(openTradeChannelService.findChannelByTradeId(anyString())).thenAnswer(invocation -> {
+            String requestedTradeId = invocation.getArgument(0);
+            return Optional.ofNullable(channel).filter(value -> value.getTradeId().equals(requestedTradeId));
+        });
+        when(bannedUserService.isUserProfileBanned(any(UserProfile.class))).thenReturn(false);
+        when(bannedUserService.isUserProfileBanned(any(NetworkId.class))).thenReturn(false);
+        when(userProfileService.findUserProfile(anyString())).thenAnswer(invocation -> Optional.empty());
+
+        MuSigTradeService service = new MuSigTradeService(new MuSigTradeService.Config("localhost", 9999), serviceProvider, null);
+        if (trade != null) {
+            service.getTradeById().put(trade.getId(), trade);
+        }
+        return service;
+    }
+
+    private MuSigOpenTradeChannel createOpenTradeChannel(MuSigTrade trade,
+                                                         UserProfile myProfile,
+                                                         UserProfile peer,
+                                                         UserProfile mediator) {
+        UserIdentity myUserIdentity = new UserIdentity(trade.getMyIdentity(), myProfile);
+        return MuSigOpenTradeChannel.create(
+                trade.getId(),
+                myUserIdentity,
+                Set.of(peer),
+                Optional.of(mediator),
+                Optional.empty(),
+                MuSigDisputeAgentType.NONE
+        );
     }
 
     private BannedUserService notBannedUserService() {
