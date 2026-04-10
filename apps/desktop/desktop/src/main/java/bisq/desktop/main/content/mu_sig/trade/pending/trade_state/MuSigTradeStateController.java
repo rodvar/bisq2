@@ -19,7 +19,6 @@ package bisq.desktop.main.content.mu_sig.trade.pending.trade_state;
 
 import bisq.chat.ChatService;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
-import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
 import bisq.common.observable.Observable;
 import bisq.common.observable.Pin;
 import bisq.common.observable.map.HashMapObserver;
@@ -46,7 +45,6 @@ import bisq.network.p2p.services.confidential.ack.MessageDeliveryStatus;
 import bisq.network.p2p.services.confidential.resend.ResendMessageService;
 import bisq.settings.DontShowAgainService;
 import bisq.support.mediation.mu_sig.MuSigMediationRequest;
-import bisq.support.mediation.mu_sig.MuSigMediationRequestService;
 import bisq.trade.MuSigDisputeState;
 import bisq.trade.mu_sig.MuSigTrade;
 import bisq.trade.mu_sig.MuSigTradeService;
@@ -72,8 +70,6 @@ public class MuSigTradeStateController implements Controller {
     private final NetworkService networkService;
     private final MuSigTradeService tradeService;
     private final MuSigService muSigService;
-    private final MuSigOpenTradeChannelService openTradeChannelService;
-    private final MuSigMediationRequestService muSigMediationRequestService;
     private final DontShowAgainService dontShowAgainService;
     private final Optional<ResendMessageService> resendMessageService;
     private Pin tradeStatePin, errorMessagePin, peersErrorMessagePin, isInMediationPin,
@@ -86,8 +82,6 @@ public class MuSigTradeStateController implements Controller {
         tradeService = serviceProvider.getTradeService().getMuSigTradeService();
         muSigService = serviceProvider.getMuSigService();
         ChatService chatService = serviceProvider.getChatService();
-        openTradeChannelService = chatService.getMuSigOpenTradeChannelService();
-        muSigMediationRequestService = serviceProvider.getSupportService().getMuSigMediationRequestService();
         dontShowAgainService = serviceProvider.getDontShowAgainService();
         resendMessageService = serviceProvider.getNetworkService().getResendMessageService();
 
@@ -244,9 +238,7 @@ public class MuSigTradeStateController implements Controller {
     }
 
     void onRequestMediation() {
-        MuSigPendingTTradesUtils.requestMediation(model.getChannel().get(),
-                model.getTrade().get().getContract(),
-                muSigMediationRequestService, openTradeChannelService, tradeService);
+        MuSigPendingTTradesUtils.requestMediation(model.getTrade().get(), tradeService);
     }
 
     public void onResendMediationRequest() {
@@ -260,14 +252,14 @@ public class MuSigTradeStateController implements Controller {
     public void onAcceptMediationResult() {
         MuSigTrade trade = model.getTrade().get();
         if (trade != null) {
-            muSigService.acceptMediationResult(trade);
+            tradeService.acceptMediationResult(trade);
         }
     }
 
     public void onRejectMediationResult() {
         MuSigTrade trade = model.getTrade().get();
         if (trade != null) {
-            muSigService.rejectMediationResult(trade);
+            tradeService.rejectMediationResult(trade);
         }
     }
 

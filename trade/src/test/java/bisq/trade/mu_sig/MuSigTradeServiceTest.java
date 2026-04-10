@@ -82,7 +82,7 @@ class MuSigTradeServiceTest {
 
         Optional<MuSigTrade> authorized = MuSigTradeService.authorizeMediationStateChangeMessage(
                 message,
-                tradeId -> Optional.of(trade),
+                trade,
                 notBannedUserService()
         );
 
@@ -103,7 +103,7 @@ class MuSigTradeServiceTest {
 
         Optional<MuSigTrade> authorized = MuSigTradeService.authorizeMediationResultAcceptanceMessage(
                 message,
-                tradeId -> Optional.of(trade),
+                trade,
                 notBannedUserService()
         );
 
@@ -123,7 +123,7 @@ class MuSigTradeServiceTest {
 
         Optional<MuSigTrade> authorized = MuSigTradeService.authorizeMediationResultAcceptanceMessage(
                 message,
-                tradeId -> Optional.of(trade),
+                trade,
                 notBannedUserService()
         );
 
@@ -140,7 +140,7 @@ class MuSigTradeServiceTest {
 
         Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
-                tradeId -> Optional.of(trade),
+                trade,
                 notBannedUserService()
         );
 
@@ -158,7 +158,7 @@ class MuSigTradeServiceTest {
 
         Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
-                tradeId -> Optional.of(trade),
+                trade,
                 notBannedUserService()
         );
 
@@ -175,7 +175,7 @@ class MuSigTradeServiceTest {
 
         Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
-                tradeId -> Optional.of(trade),
+                trade,
                 notBannedUserService()
         );
 
@@ -192,7 +192,7 @@ class MuSigTradeServiceTest {
 
         Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
-                tradeId -> Optional.of(trade),
+                trade,
                 notBannedUserService()
         );
 
@@ -209,7 +209,7 @@ class MuSigTradeServiceTest {
 
         Optional<MuSigTrade> authorized = MuSigTradeService.authorizeDisputeCasePaymentDetailsRequest(
                 message,
-                tradeId -> Optional.of(trade),
+                trade,
                 bannedUserService(mediator)
         );
 
