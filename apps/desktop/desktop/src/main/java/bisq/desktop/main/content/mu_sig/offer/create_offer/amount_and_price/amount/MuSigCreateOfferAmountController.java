@@ -28,6 +28,7 @@ import bisq.desktop.common.Browser;
 import bisq.desktop.common.utils.KeyHandlerUtil;
 import bisq.desktop.common.view.Controller;
 import bisq.desktop.components.overlay.Popup;
+import bisq.desktop.main.content.mu_sig.offer.components.MuSigPriceInput;
 import bisq.desktop.main.content.mu_sig.offer.components.amount_selection.MuSigAmountSelectionController;
 import bisq.desktop.navigation.NavigationTarget;
 import bisq.i18n.Res;
@@ -85,6 +86,7 @@ public class MuSigCreateOfferAmountController implements Controller {
             areBaseAndQuoteCurrenciesInvertedPin;
 
     public MuSigCreateOfferAmountController(ServiceProvider serviceProvider,
+                                            MuSigPriceInput priceInput,
                                             Region owner,
                                             Consumer<Boolean> navigationButtonsVisibleHandler,
                                             Consumer<NavigationTarget> closeAndNavigateToHandler) {
@@ -97,7 +99,7 @@ public class MuSigCreateOfferAmountController implements Controller {
         this.closeAndNavigateToHandler = closeAndNavigateToHandler;
         model = new MuSigCreateOfferAmountModel();
 
-        amountSelectionController = new MuSigAmountSelectionController(serviceProvider);
+        amountSelectionController = new MuSigAmountSelectionController(serviceProvider, priceInput);
         view = new MuSigCreateOfferAmountView(model, this, amountSelectionController.getView().getRoot());
     }
 

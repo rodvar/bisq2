@@ -29,6 +29,7 @@ import bisq.desktop.common.view.Controller;
 import bisq.desktop.common.view.InitWithDataController;
 import bisq.desktop.common.view.Navigation;
 import bisq.desktop.common.view.NavigationController;
+import bisq.desktop.main.content.mu_sig.offer.components.MuSigPriceInput;
 import bisq.desktop.main.content.mu_sig.offer.create_offer.amount_and_price.MuSigCreateOfferAmountAndPriceController;
 import bisq.desktop.main.content.mu_sig.offer.create_offer.direction_and_market.MuSigCreateOfferDirectionAndMarketController;
 import bisq.desktop.main.content.mu_sig.offer.create_offer.payment.MuSigCreateOfferPaymentController;
@@ -86,8 +87,11 @@ public class MuSigCreateOfferController extends NavigationController implements 
         model = new MuSigCreateOfferModel();
         view = new MuSigCreateOfferView(model, this);
 
+        MuSigPriceInput priceInput = new MuSigPriceInput(serviceProvider.getBondedRolesService().getMarketPriceService());
+
         muSigCreateOfferDirectionAndMarketController = new MuSigCreateOfferDirectionAndMarketController(serviceProvider, this::onNext);
         muSigCreateOfferAmountAndPriceController = new MuSigCreateOfferAmountAndPriceController(serviceProvider,
+                priceInput,
                 view.getRoot(),
                 this::setMainButtonsVisibleState,
                 this::closeAndNavigateTo);
@@ -95,6 +99,7 @@ public class MuSigCreateOfferController extends NavigationController implements 
                 view.getRoot(),
                 this::setMainButtonsVisibleState);
         muSigCreateOfferReviewController = new MuSigCreateOfferReviewController(serviceProvider,
+                priceInput,
                 this::setMainButtonsVisibleState,
                 this::closeAndNavigateTo);
     }
@@ -236,7 +241,7 @@ public class MuSigCreateOfferController extends NavigationController implements 
 
     void onKeyPressed(KeyEvent keyEvent) {
         KeyHandlerUtil.handleEscapeKeyEvent(keyEvent, this::onClose);
-        KeyHandlerUtil.handleEnterKeyEventWithTextInputFocusCheck(keyEvent,getView().getRoot(),this::onNext);
+        KeyHandlerUtil.handleEnterKeyEventWithTextInputFocusCheck(keyEvent, getView().getRoot(), this::onNext);
     }
 
     void onBack() {

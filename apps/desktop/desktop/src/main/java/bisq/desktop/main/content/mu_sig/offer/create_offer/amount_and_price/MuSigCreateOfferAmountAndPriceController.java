@@ -21,6 +21,7 @@ import bisq.account.payment_method.PaymentMethod;
 import bisq.common.market.Market;
 import bisq.desktop.ServiceProvider;
 import bisq.desktop.common.view.Controller;
+import bisq.desktop.main.content.mu_sig.offer.components.MuSigPriceInput;
 import bisq.desktop.main.content.mu_sig.offer.create_offer.amount_and_price.amount.MuSigCreateOfferAmountController;
 import bisq.desktop.main.content.mu_sig.offer.create_offer.amount_and_price.price.MuSigCreateOfferPriceController;
 import bisq.desktop.navigation.NavigationTarget;
@@ -45,14 +46,17 @@ public class MuSigCreateOfferAmountAndPriceController implements Controller {
     private final MuSigCreateOfferPriceController muSigCreateOfferPriceController;
 
     public MuSigCreateOfferAmountAndPriceController(ServiceProvider serviceProvider,
+                                                    MuSigPriceInput priceInput,
                                                     Region owner,
                                                     Consumer<Boolean> navigationButtonsVisibleHandler,
                                                     Consumer<NavigationTarget> closeAndNavigateToHandler) {
         muSigCreateOfferAmountController = new MuSigCreateOfferAmountController(serviceProvider,
+                priceInput,
                 owner,
                 navigationButtonsVisibleHandler,
                 closeAndNavigateToHandler);
         muSigCreateOfferPriceController = new MuSigCreateOfferPriceController(serviceProvider,
+                priceInput,
                 owner,
                 navigationButtonsVisibleHandler);
 

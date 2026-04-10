@@ -64,11 +64,12 @@ public class MuSigCreateOfferPriceController implements Controller {
     private Subscription priceInputPin, isPriceInvalidPin, priceSpecPin, percentageInputPin, priceSliderValuePin, percentagePin;
 
     public MuSigCreateOfferPriceController(ServiceProvider serviceProvider,
+                                           MuSigPriceInput priceInput,
                                            Region owner,
                                            Consumer<Boolean> navigationButtonsVisibleHandler) {
         marketPriceService = serviceProvider.getBondedRolesService().getMarketPriceService();
         settingsService = serviceProvider.getSettingsService();
-        priceInput = new MuSigPriceInput(serviceProvider.getBondedRolesService().getMarketPriceService());
+        this.priceInput = priceInput;
         this.owner = owner;
         this.navigationButtonsVisibleHandler = navigationButtonsVisibleHandler;
         model = new MuSigCreateOfferPriceModel();
