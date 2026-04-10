@@ -27,6 +27,7 @@ import bisq.desktop.common.view.Controller;
 import bisq.desktop.common.view.InitWithDataController;
 import bisq.desktop.common.view.Navigation;
 import bisq.desktop.common.view.NavigationController;
+import bisq.desktop.main.content.mu_sig.offer.components.MuSigPriceInput;
 import bisq.desktop.main.content.mu_sig.offer.take_offer.amount.MuSigTakeOfferAmountController;
 import bisq.desktop.main.content.mu_sig.offer.take_offer.payment.MuSigTakeOfferPaymentController;
 import bisq.desktop.main.content.mu_sig.offer.take_offer.review.MuSigTakeOfferReviewController;
@@ -86,9 +87,10 @@ public class MuSigTakeOfferController extends NavigationController implements In
         model = new MuSigTakeOfferModel();
         view = new MuSigTakeOfferView(model, this);
 
-        muSigTakeOfferAmountController = new MuSigTakeOfferAmountController(serviceProvider, this::setMainButtonsVisibleState);
+        MuSigPriceInput priceInput = new MuSigPriceInput(serviceProvider.getBondedRolesService().getMarketPriceService());
+        muSigTakeOfferAmountController = new MuSigTakeOfferAmountController(serviceProvider, priceInput, this::setMainButtonsVisibleState);
         muSigTakeOfferPaymentController = new MuSigTakeOfferPaymentController(serviceProvider, this::setMainButtonsVisibleState);
-        muSigTakeOfferReviewController = new MuSigTakeOfferReviewController(serviceProvider, this::setMainButtonsVisibleState, this::closeAndNavigateTo);
+        muSigTakeOfferReviewController = new MuSigTakeOfferReviewController(serviceProvider, priceInput, this::setMainButtonsVisibleState, this::closeAndNavigateTo);
     }
 
     @Override
