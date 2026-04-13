@@ -56,13 +56,13 @@ import bisq.persistence.PersistenceService;
 import bisq.security.SecurityService;
 import bisq.settings.SettingsService;
 import bisq.support.SupportService;
-import bisq.support.arbitration.mu_sig.MuSigArbitrationRequestService;
 import bisq.support.arbitration.mu_sig.NoMuSigArbitratorAvailableException;
 import bisq.support.mediation.mu_sig.NoMuSigMediatorAvailableException;
 import bisq.trade.TradeService;
-import bisq.trade.mu_sig.mediation.MuSigTraderMediationService;
 import bisq.trade.mu_sig.MuSigTrade;
 import bisq.trade.mu_sig.MuSigTradeService;
+import bisq.trade.mu_sig.arbitration.MuSigTraderArbitrationService;
+import bisq.trade.mu_sig.mediation.MuSigTraderMediationService;
 import bisq.trade.mu_sig.protocol.MuSigProtocol;
 import bisq.user.UserService;
 import bisq.user.banned.BannedUserService;
@@ -110,9 +110,9 @@ public class MuSigService extends LifecycleService {
     private final Observable<Boolean> muSigActivated = new Observable<>(false);
     @Getter
     private final Observable<MuSigOffer> selectedMuSigOffer = new Observable<>();
-    private final MuSigArbitrationRequestService muSigArbitrationRequestService;
     private final MuSigTradeService muSigTradeService;
     private final MuSigTraderMediationService muSigTraderMediationService;
+    private final MuSigTraderArbitrationService muSigTraderArbitrationService;
     private final MuSigOpenTradeChannelService muSigOpenTradeChannelService;
     private final UserProfileService userProfileService;
     private Pin muSigActivatedPin;
@@ -150,11 +150,11 @@ public class MuSigService extends LifecycleService {
         this.tradeService = tradeService;
         userProfileService = userService.getUserProfileService();
         userIdentityService = userService.getUserIdentityService();
-        muSigArbitrationRequestService = supportService.getMuSigArbitrationRequestService();
         alertService = bondedRolesService.getAlertService();
         bannedUserService = userService.getBannedUserService();
         muSigTradeService = tradeService.getMuSigTradeService();
         muSigTraderMediationService = muSigTradeService.getMuSigTraderMediationService();
+        muSigTraderArbitrationService = muSigTradeService.getMuSigTraderArbitrationService();
         muSigOpenTradeChannelService = chatService.getMuSigOpenTradeChannelService();
     }
 
@@ -281,7 +281,7 @@ public class MuSigService extends LifecycleService {
             throw new NoMuSigMediatorAvailableException();
         }
 
-        Optional<UserProfile> arbitrator = muSigArbitrationRequestService.selectArbitrator(makersUserProfileId,
+        Optional<UserProfile> arbitrator = muSigTraderArbitrationService.selectArbitrator(makersUserProfileId,
                 takerIdentity.getId(),
                 muSigOffer.getId(),
                 mediator.map(UserProfile::getId));

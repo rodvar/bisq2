@@ -29,7 +29,6 @@ import bisq.contract.ContractService;
 import bisq.i18n.Res;
 import bisq.network.NetworkService;
 import bisq.network.identity.NetworkId;
-import bisq.security.DigestUtil;
 import bisq.support.mediation.MuSigDisputeCaseDataMessage;
 import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsResponse;
 import bisq.support.mediation.mu_sig.MuSigMediationRequest;
@@ -41,13 +40,12 @@ import bisq.user.profile.UserProfile;
 import bisq.user.profile.UserProfileService;
 import lombok.extern.slf4j.Slf4j;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static bisq.support.dispute.DisputeAgentSelection.selectDeterministicProfileId;
 
 /**
  * Service used by traders to select mediators, request mediation and process mediation state changes.
@@ -90,19 +88,8 @@ public class MuSigTraderMediationService {
                                                 String makersProfileId,
                                                 String takersProfileId,
                                                 String offerId) {
-        if (mediators.isEmpty()) {
-            return Optional.empty();
-        }
-
-        if (mediators.size() == 1) {
-            return userProfileService.findUserProfile(mediators.iterator().next().getProfileId());
-        }
-
-        int index = getDeterministicIndex(mediators, makersProfileId, takersProfileId, offerId);
-
-        ArrayList<AuthorizedBondedRole> list = new ArrayList<>(mediators);
-        list.sort(Comparator.comparing(AuthorizedBondedRole::getProfileId));
-        return userProfileService.findUserProfile(list.get(index).getProfileId());
+        return selectDeterministicProfileId(mediators, makersProfileId, takersProfileId, offerId)
+                .flatMap(userProfileService::findUserProfile);
     }
 
     public void requestMediation(MuSigTrade trade) {
@@ -203,22 +190,6 @@ public class MuSigTraderMediationService {
     /* --------------------------------------------------------------------- */
     // Private
     /* --------------------------------------------------------------------- */
-
-    private int getDeterministicIndex(Set<AuthorizedBondedRole> mediators,
-                                      String makersProfileId,
-                                      String takersProfileId,
-                                      String offerId) {
-        String input = makersProfileId + takersProfileId + offerId;
-        byte[] hash = DigestUtil.hash(input.getBytes(StandardCharsets.UTF_8)); // returns 20 bytes
-        // XOR multiple 4-byte chunks to use more of the hash
-        ByteBuffer buffer = ByteBuffer.wrap(hash);
-        int space = buffer.getInt(); // First 4 bytes
-        space ^= buffer.getInt();    // XOR with next 4 bytes
-        space ^= buffer.getInt();    // XOR with next 4 bytes
-        space ^= buffer.getInt();    // XOR with next 4 bytes
-        space ^= buffer.getInt();    // XOR with last 4 bytes (20 bytes total)
-        return Math.floorMod(space, mediators.size());
-    }
 
     private Optional<MuSigOpenTradeChannel> findMuSigOpenTradeChannel(String tradeId) {
         return muSigOpenTradeChannelService.findChannelByTradeId(tradeId);

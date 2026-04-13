@@ -63,6 +63,8 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
+import static bisq.support.mediation.mu_sig.MuSigMediatorService.createMuSigMediationResult;
+
 public class MuSigMediationResultSection {
     private final Controller controller;
 
@@ -457,7 +459,7 @@ public class MuSigMediationResultSection {
                 }
 
                 String summaryNotes = model.getSummaryNotes().get();
-                MuSigMediationResult muSigMediationResult = muSigMediatorService.createMuSigMediationResult(
+                MuSigMediationResult muSigMediationResult = createMuSigMediationResult(
                         muSigMediationCase.getMuSigMediationRequest().getContract(),
                         selectedReason,
                         selectedPayoutDistributionType,
