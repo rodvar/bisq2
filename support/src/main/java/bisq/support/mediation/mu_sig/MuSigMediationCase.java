@@ -249,7 +249,7 @@ public class MuSigMediationCase implements PersistableProto {
         return hasPeerReportedContractHash.set(true);
     }
 
-    public synchronized boolean addIssues(List<MuSigMediationIssue> newIssues) {
+    public boolean addIssues(List<MuSigMediationIssue> newIssues) {
         if (newIssues.isEmpty()) {
             return false;
         }

@@ -38,4 +38,17 @@ public enum MuSigDisputeState implements ProtoEnum {
     public static MuSigDisputeState fromProto(bisq.trade.protobuf.MuSigDisputeState proto) {
         return ProtobufUtils.enumFromProto(MuSigDisputeState.class, proto.name(), NO_DISPUTE);
     }
+
+    public static boolean isMediationState(MuSigDisputeState disputeState) {
+        return disputeState == MEDIATION_REQUESTED ||
+                disputeState == MEDIATION_OPEN ||
+                disputeState == MEDIATION_CLOSED ||
+                disputeState == MEDIATION_RE_OPENED;
+    }
+
+    public static boolean isArbitrationState(MuSigDisputeState disputeState) {
+        return disputeState == ARBITRATION_REQUESTED ||
+                disputeState == ARBITRATION_OPEN ||
+                disputeState == ARBITRATION_CLOSED;
+    }
 }

@@ -15,33 +15,30 @@
  * along with Bisq. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package bisq.support.arbitration.mu_sig;
+package bisq.trade.mu_sig.arbitration;
 
 import bisq.bonded_roles.BondedRoleType;
 import bisq.bonded_roles.BondedRolesService;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRole;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRolesService;
 import bisq.common.application.Service;
-import bisq.security.DigestUtil;
 import bisq.user.UserService;
 import bisq.user.profile.UserProfile;
 import bisq.user.profile.UserProfileService;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
-public class MuSigArbitrationRequestService implements Service {
+import static bisq.support.dispute.DisputeAgentSelection.selectDeterministicProfileId;
+
+public class MuSigTraderArbitrationService implements Service {
     private final UserProfileService userProfileService;
     private final AuthorizedBondedRolesService authorizedBondedRolesService;
 
-    public MuSigArbitrationRequestService(UserService userService,
-                                          BondedRolesService bondedRolesService) {
+    public MuSigTraderArbitrationService(UserService userService,
+                                         BondedRolesService bondedRolesService) {
         userProfileService = userService.getUserProfileService();
         authorizedBondedRolesService = bondedRolesService.getAuthorizedBondedRolesService();
     }
@@ -79,38 +76,13 @@ public class MuSigArbitrationRequestService implements Service {
         return selectArbitrator(arbitrators, makersUserProfileId, takersUserProfileId, offerId);
     }
 
+    // This method can be used for verification when taker provides arbitrators list.
+    // If arbitrator list was not matching the expected one present in the network it might have been a manipulation attempt.
     public Optional<UserProfile> selectArbitrator(Set<AuthorizedBondedRole> arbitrators,
                                                   String makersProfileId,
                                                   String takersProfileId,
                                                   String offerId) {
-        if (arbitrators.isEmpty()) {
-            return Optional.empty();
-        }
-
-        if (arbitrators.size() == 1) {
-            return userProfileService.findUserProfile(arbitrators.iterator().next().getProfileId());
-        }
-
-        int index = getDeterministicIndex(arbitrators, makersProfileId, takersProfileId, offerId);
-
-        ArrayList<AuthorizedBondedRole> list = new ArrayList<>(arbitrators);
-        list.sort(Comparator.comparing(AuthorizedBondedRole::getProfileId));
-        return userProfileService.findUserProfile(list.get(index).getProfileId());
-    }
-
-    private int getDeterministicIndex(Set<AuthorizedBondedRole> arbitrators,
-                                      String makersProfileId,
-                                      String takersProfileId,
-                                      String offerId) {
-        String input = makersProfileId + takersProfileId + offerId;
-        byte[] hash = DigestUtil.hash(input.getBytes(StandardCharsets.UTF_8)); // returns 20 bytes
-        // XOR multiple 4-byte chunks to use more of the hash
-        ByteBuffer buffer = ByteBuffer.wrap(hash);
-        int space = buffer.getInt(); // First 4 bytes
-        space ^= buffer.getInt();    // XOR with next 4 bytes
-        space ^= buffer.getInt();    // XOR with next 4 bytes
-        space ^= buffer.getInt();    // XOR with next 4 bytes
-        space ^= buffer.getInt();    // XOR with last 4 bytes (20 bytes total)
-        return Math.floorMod(space, arbitrators.size());
+        return selectDeterministicProfileId(arbitrators, makersProfileId, takersProfileId, offerId)
+                .flatMap(userProfileService::findUserProfile);
     }
 }
