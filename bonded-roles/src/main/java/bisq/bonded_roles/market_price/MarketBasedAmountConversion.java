@@ -67,15 +67,15 @@ public class MarketBasedAmountConversion {
     public static Optional<Monetary> usdToFiat(MarketPriceService marketPriceService,
                                                Market btcFiatMarket,
                                                Monetary usdAmount) {
-        return usdToBtc(marketPriceService, usdAmount).
-                flatMap(btc -> btcToFiat(marketPriceService, btcFiatMarket, btc));
+        return usdToBtc(marketPriceService, usdAmount)
+                .flatMap(btc -> btcToFiat(marketPriceService, btcFiatMarket, btc));
     }
 
     public static Optional<Monetary> fiatToUsd(MarketPriceService marketPriceService,
                                                Market btcFiatMarket,
                                                Monetary fiatAmount) {
-        return fiatToBtc(marketPriceService, btcFiatMarket, fiatAmount).
-                flatMap(btc -> btcToUsd(marketPriceService, btc));
+        return fiatToBtc(marketPriceService, btcFiatMarket, fiatAmount)
+                .flatMap(btc -> btcToUsd(marketPriceService, btc));
     }
 
 
@@ -106,15 +106,15 @@ public class MarketBasedAmountConversion {
     public static Optional<Monetary> usdToOtherCrypto(MarketPriceService marketPriceService,
                                                       Market otherCryptoBtcMarket,
                                                       Monetary usdAmount) {
-        return usdToBtc(marketPriceService, usdAmount).
-                flatMap(btc -> btcToOtherCrypto(marketPriceService, otherCryptoBtcMarket, btc));
+        return usdToBtc(marketPriceService, usdAmount)
+                .flatMap(btc -> btcToOtherCrypto(marketPriceService, otherCryptoBtcMarket, btc));
     }
 
     public static Optional<Monetary> otherCryptoToUsd(MarketPriceService marketPriceService,
                                                       Market otherCryptoBtcMarket,
                                                       Monetary otherCryptoAmount) {
-        return otherCryptoToBtc(marketPriceService, otherCryptoBtcMarket, otherCryptoAmount).
-                flatMap(btc -> btcToUsd(marketPriceService, btc));
+        return otherCryptoToBtc(marketPriceService, otherCryptoBtcMarket, otherCryptoAmount)
+                .flatMap(btc -> btcToUsd(marketPriceService, btc));
 
     }
 }

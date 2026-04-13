@@ -181,7 +181,6 @@ public class MuSigCreateOfferAmountController implements Controller {
     @Override
     public void onActivate() {
         amountSelectionController.setAllowInvertingBaseAndQuoteCurrencies(true);
-        amountSelectionController.setBaseAsInputCurrency(true);
         model.getShouldShowWarningIcon().set(false);
         applyQuoteSideMinMaxRange();
 
@@ -243,7 +242,7 @@ public class MuSigCreateOfferAmountController implements Controller {
         });
         applyAmountSpec();
 
-        areBaseAndQuoteCurrenciesInvertedPin = EasyBind.subscribe(amountSelectionController.getAreBaseAndQuoteCurrenciesInverted(), areInverted -> {
+        areBaseAndQuoteCurrenciesInvertedPin = EasyBind.subscribe(amountSelectionController.getIsDefaultAmountInputBtc(), isDefaultAmountInputBtc -> {
             String quoteCode = model.getPriceQuote().get().getMarket().getQuoteCurrencyCode();
             model.getPriceTooltip().set(amountSelectionController.isUsingInvertedBaseAndQuoteCurrencies()
                     ? Res.get("muSig.offer.wizard.amount.quoteSide.tooltip.fiatAmount.selectedPrice", quoteCode)
