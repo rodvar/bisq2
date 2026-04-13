@@ -17,12 +17,13 @@
 
 package bisq.bisq_easy;
 
+import bisq.bonded_roles.market_price.MarketBasedAmountConversion;
 import bisq.bonded_roles.market_price.MarketPriceService;
 import bisq.chat.bisq_easy.offerbook.BisqEasyOfferbookChannel;
 import bisq.chat.bisq_easy.offerbook.BisqEasyOfferbookChannelService;
+import bisq.common.data.Pair;
 import bisq.common.market.Market;
 import bisq.common.market.MarketRepository;
-import bisq.common.data.Pair;
 import bisq.common.monetary.Coin;
 import bisq.common.monetary.Fiat;
 import bisq.common.monetary.Monetary;
@@ -165,47 +166,9 @@ public class BisqEasyTradeAmountLimits {
     public static Optional<Long> findRequiredReputationScoreByFiatAmount(MarketPriceService marketPriceService,
                                                                          Market market,
                                                                          Monetary fiatAmount) {
-        return fiatToBtc(marketPriceService, market, fiatAmount)
-                .flatMap(btc -> btcToUsd(marketPriceService, btc))
+        return MarketBasedAmountConversion.fiatToBtc(marketPriceService, market, fiatAmount)
+                .flatMap(btc -> MarketBasedAmountConversion.btcToUsd(marketPriceService, btc))
                 .map(BisqEasyTradeAmountLimits::getRequiredReputationScoreByUsdAmount);
-    }
-
-    private static Optional<Monetary> fiatToBtc(MarketPriceService marketPriceService,
-                                                Market market,
-                                                Monetary fiatAmount) {
-        return marketPriceService.findMarketPriceQuote(market)
-                .map(btcFiatPriceQuote -> btcFiatPriceQuote.toBaseSideMonetary(fiatAmount));
-    }
-
-    private static Optional<Monetary> usdToBtc(MarketPriceService marketPriceService, Monetary usdAmount) {
-        Market usdBitcoinMarket = MarketRepository.getUSDBitcoinMarket();
-        return fiatToBtc(marketPriceService, usdBitcoinMarket, usdAmount);
-    }
-
-    private static Optional<Monetary> btcToFiat(MarketPriceService marketPriceService,
-                                                Market market,
-                                                Monetary btcAmount) {
-        return marketPriceService.findMarketPriceQuote(market)
-                .map(priceQuote -> priceQuote.toQuoteSideMonetary(btcAmount));
-    }
-
-    private static Optional<Monetary> btcToUsd(MarketPriceService marketPriceService, Monetary btcAmount) {
-        Market usdBitcoinMarket = MarketRepository.getUSDBitcoinMarket();
-        return btcToFiat(marketPriceService, usdBitcoinMarket, btcAmount);
-    }
-
-    public static Optional<Monetary> usdToFiat(MarketPriceService marketPriceService,
-                                               Market market,
-                                               Monetary usdAmount) {
-        return usdToBtc(marketPriceService, usdAmount).
-                flatMap(btc -> btcToFiat(marketPriceService, market, btc));
-    }
-
-    public static Optional<Monetary> fiatToUsd(MarketPriceService marketPriceService,
-                                               Market market,
-                                               Monetary fiatAmount) {
-        return fiatToBtc(marketPriceService, market, fiatAmount).
-                flatMap(btc -> btcToUsd(marketPriceService, btc));
     }
 
 
@@ -276,7 +239,7 @@ public class BisqEasyTradeAmountLimits {
 
                         Market offerMarket = offer.getMarket();
                         Monetary quoteSideMaxOrFixedFiatAmount = OfferAmountUtil.findQuoteSideMaxOrFixedAmount(marketPriceService, offer).orElseThrow().round(0);
-                        Monetary quoteSideMaxOrFixedUsdAmount = fiatToUsd(marketPriceService, offerMarket, quoteSideMaxOrFixedFiatAmount).orElseThrow().round(0);
+                        Monetary quoteSideMaxOrFixedUsdAmount = MarketBasedAmountConversion.fiatToUsd(marketPriceService, offerMarket, quoteSideMaxOrFixedFiatAmount).orElseThrow().round(0);
                         long requiredReputationScoreByUsdAmount = getRequiredReputationScoreByUsdAmount(quoteSideMaxOrFixedUsdAmount);
 
                         if (sellersReputationScoreWithTolerance >= requiredReputationScoreByUsdAmount) {
@@ -289,7 +252,7 @@ public class BisqEasyTradeAmountLimits {
                         // We have a range amount and max amount is higher as rep score. We use rep score based amount as result.
                         // Min amounts are handled by the filtered collection already.
                         Monetary usdAmountFromSellersReputationScore = getUsdAmountFromReputationScore(sellersReputationScore);
-                        Monetary fiatAmountFromSellersReputationScore = usdToFiat(marketPriceService, offerMarket, usdAmountFromSellersReputationScore).orElseThrow();
+                        Monetary fiatAmountFromSellersReputationScore = MarketBasedAmountConversion.usdToFiat(marketPriceService, offerMarket, usdAmountFromSellersReputationScore).orElseThrow();
                         return Optional.of(fiatAmountFromSellersReputationScore);
                     } catch (Exception e) {
                         log.warn("Failed to evaluate highest amount for offer {}: {}", offer.getId(), e.getMessage(), e);

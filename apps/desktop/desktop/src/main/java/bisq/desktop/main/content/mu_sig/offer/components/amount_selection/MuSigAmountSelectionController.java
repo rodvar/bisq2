@@ -32,6 +32,8 @@ import bisq.desktop.main.content.mu_sig.offer.components.MuSigPriceInput;
 import bisq.i18n.Res;
 import bisq.offer.Direction;
 import bisq.presentation.formatters.AmountFormatter;
+import bisq.settings.CookieKey;
+import bisq.settings.SettingsService;
 import javafx.beans.property.ReadOnlyBooleanProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
 import javafx.beans.value.ChangeListener;
@@ -80,8 +82,10 @@ public class MuSigAmountSelectionController implements Controller {
     private final ChangeListener<Number> maxOrFixedSliderListener, minSliderListener;
     private final Set<Subscription> subscriptions = new HashSet<>();
     private final Set<UIScheduler> schedulers = new HashSet<>();
+    private final SettingsService settingsService;
 
     public MuSigAmountSelectionController(ServiceProvider serviceProvider) {
+        settingsService = serviceProvider.getSettingsService();
         marketPriceService = serviceProvider.getBondedRolesService().getMarketPriceService();
 
         // max or fixed amount
@@ -165,8 +169,8 @@ public class MuSigAmountSelectionController implements Controller {
         return model.getMinQuoteSideAmount();
     }
 
-    public ReadOnlyBooleanProperty getAreBaseAndQuoteCurrenciesInverted() {
-        return model.getAreBaseAndQuoteCurrenciesInverted();
+    public ReadOnlyBooleanProperty getIsDefaultAmountInputBtc() {
+        return model.getIsDefaultAmountInputBtc();
     }
 
     public void setDirection(Direction direction) {
@@ -180,10 +184,6 @@ public class MuSigAmountSelectionController implements Controller {
     public void setAllowInvertingBaseAndQuoteCurrencies(boolean allowInvertingBaseAndQuoteCurrencies) {
         model.getAllowInvertingBaseAndQuoteCurrencies().set(allowInvertingBaseAndQuoteCurrencies);
         model.getBaseAmountSelectionHBoxWidth().set(allowInvertingBaseAndQuoteCurrencies ? model.getAmountBoxWidth() - 10 : model.getAmountBoxWidth());
-    }
-
-    public void setBaseAsInputCurrency(boolean setBaseAsInputCurrency) {
-        model.getAreBaseAndQuoteCurrenciesInverted().set(setBaseAsInputCurrency);
     }
 
     public void setTooltip(String tooltip) {
@@ -274,7 +274,7 @@ public class MuSigAmountSelectionController implements Controller {
 
     public boolean isUsingInvertedBaseAndQuoteCurrencies() {
         return model.getAllowInvertingBaseAndQuoteCurrencies().get()
-                && model.getAreBaseAndQuoteCurrenciesInverted().get();
+                && model.getIsDefaultAmountInputBtc().get();
     }
 
     public void reset() {
@@ -292,6 +292,14 @@ public class MuSigAmountSelectionController implements Controller {
 
     @Override
     public void onActivate() {
+        if (model.getMarket().isBtcFiatMarket()) {
+            model.getIsDefaultAmountInputBtc().set(settingsService.getCookie().asBoolean(CookieKey.MU_SIG_FIAT_MARKET_IS_DEFAULT_AMOUNT_INPUT_BTC)
+                    .orElse(true));
+        } else {
+            model.getIsDefaultAmountInputBtc().set(settingsService.getCookie().asBoolean(CookieKey.MU_SIG_OTHER_MARKET_IS_DEFAULT_AMOUNT_INPUT_BTC)
+                    .orElse(true));
+        }
+
         model.getMinRangeBaseSideValue().set(null);
         model.getMaxRangeBaseSideValue().set(null);
         model.getMinRangeQuoteSideValue().set(null);
@@ -392,7 +400,14 @@ public class MuSigAmountSelectionController implements Controller {
             schedulers.add(UIScheduler.run(this::requestFocusForAmountInput).after(150));
         }));
 
-        subscriptions.add(EasyBind.subscribe(model.getAreBaseAndQuoteCurrenciesInverted(), areBaseAndQuoteCurrenciesInverted -> {
+
+        subscriptions.add(EasyBind.subscribe(model.getIsDefaultAmountInputBtc(), isDefaultAmountInputBtc -> {
+            if (model.getMarket().isBtcFiatMarket()) {
+                settingsService.setCookie(CookieKey.MU_SIG_FIAT_MARKET_IS_DEFAULT_AMOUNT_INPUT_BTC, isDefaultAmountInputBtc);
+            } else {
+                settingsService.setCookie(CookieKey.MU_SIG_OTHER_MARKET_IS_DEFAULT_AMOUNT_INPUT_BTC, isDefaultAmountInputBtc);
+            }
+
             updateShouldShowAmounts();
             applyInitialRangeValues();
             schedulers.add(UIScheduler.run(this::requestFocusForAmountInput).after(150));
@@ -451,8 +466,8 @@ public class MuSigAmountSelectionController implements Controller {
             return;
         }
 
-        boolean currentValue = model.getAreBaseAndQuoteCurrenciesInverted().get();
-        model.getAreBaseAndQuoteCurrenciesInverted().set(!currentValue);
+        boolean currentValue = model.getIsDefaultAmountInputBtc().get();
+        model.getIsDefaultAmountInputBtc().set(!currentValue);
         applyNewStyles();
     }
 
@@ -740,7 +755,7 @@ public class MuSigAmountSelectionController implements Controller {
     }
 
     private void applyQuote() {
-        if (model.getAreBaseAndQuoteCurrenciesInverted().get()) {
+        if (model.getIsDefaultAmountInputBtc().get()) {
             setMaxOrFixedQuoteFromBase();
             setMinQuoteFromBase();
         } else {
@@ -750,8 +765,8 @@ public class MuSigAmountSelectionController implements Controller {
     }
 
     private void updateShouldShowAmounts() {
-        if (model.getAreBaseAndQuoteCurrenciesInverted() != null) {
-            boolean areCurrenciesInverted = model.getAreBaseAndQuoteCurrenciesInverted().get();
+        if (model.getIsDefaultAmountInputBtc() != null) {
+            boolean areCurrenciesInverted = model.getIsDefaultAmountInputBtc().get();
             model.getShouldShowMaxOrFixedAmounts().set(!areCurrenciesInverted);
             model.getShouldShowInvertedMaxOrFixedAmounts().set(areCurrenciesInverted);
             if (model.getIsRangeAmountEnabled() != null) {

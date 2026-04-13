@@ -46,6 +46,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static bisq.bonded_roles.market_price.MarketBasedAmountConversion.btcToUsd;
+import static bisq.bonded_roles.market_price.MarketBasedAmountConversion.fiatToBtc;
+import static bisq.bonded_roles.market_price.MarketBasedAmountConversion.fiatToUsd;
+import static bisq.bonded_roles.market_price.MarketBasedAmountConversion.usdToFiat;
+
 @Slf4j
 public class MuSigTradeAmountLimits {
     public static final Fiat DEFAULT_MIN_USD_TRADE_AMOUNT = Fiat.fromFaceValue(10, "USD");
@@ -216,44 +221,6 @@ public class MuSigTradeAmountLimits {
         return fiatToBtc(marketPriceService, market, fiatAmount)
                 .flatMap(btc -> btcToUsd(marketPriceService, btc))
                 .map(MuSigTradeAmountLimits::getRequiredReputationScoreByUsdAmount);
-    }
-
-    private static Optional<Monetary> fiatToBtc(MarketPriceService marketPriceService,
-                                                Market market,
-                                                Monetary fiatAmount) {
-        return marketPriceService.findMarketPriceQuote(market)
-                .map(btcFiatPriceQuote -> btcFiatPriceQuote.toBaseSideMonetary(fiatAmount));
-    }
-
-    public static Optional<Monetary> usdToBtc(MarketPriceService marketPriceService, Monetary usdAmount) {
-        Market usdBitcoinMarket = MarketRepository.getUSDBitcoinMarket();
-        return fiatToBtc(marketPriceService, usdBitcoinMarket, usdAmount);
-    }
-
-    private static Optional<Monetary> btcToFiat(MarketPriceService marketPriceService,
-                                                Market market,
-                                                Monetary btcAmount) {
-        return marketPriceService.findMarketPriceQuote(market)
-                .map(priceQuote -> priceQuote.toQuoteSideMonetary(btcAmount));
-    }
-
-    private static Optional<Monetary> btcToUsd(MarketPriceService marketPriceService, Monetary btcAmount) {
-        Market usdBitcoinMarket = MarketRepository.getUSDBitcoinMarket();
-        return btcToFiat(marketPriceService, usdBitcoinMarket, btcAmount);
-    }
-
-    public static Optional<Monetary> usdToFiat(MarketPriceService marketPriceService,
-                                               Market market,
-                                               Monetary usdAmount) {
-        return usdToBtc(marketPriceService, usdAmount).
-                flatMap(btc -> btcToFiat(marketPriceService, market, btc));
-    }
-
-    public static Optional<Monetary> fiatToUsd(MarketPriceService marketPriceService,
-                                               Market market,
-                                               Monetary fiatAmount) {
-        return fiatToBtc(marketPriceService, market, fiatAmount).
-                flatMap(btc -> btcToUsd(marketPriceService, btc));
     }
 
 

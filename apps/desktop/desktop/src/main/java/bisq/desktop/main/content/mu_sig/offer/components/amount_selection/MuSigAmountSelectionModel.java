@@ -88,7 +88,7 @@ public class MuSigAmountSelectionModel implements Model {
     private final BooleanProperty showRangeAmountSelection = new SimpleBooleanProperty(false);
     private final BooleanProperty allowInvertingBaseAndQuoteCurrencies = new SimpleBooleanProperty(false);
     private final IntegerProperty baseAmountSelectionHBoxWidth = new SimpleIntegerProperty(amountBoxWidth);
-    private final BooleanProperty areBaseAndQuoteCurrenciesInverted = new SimpleBooleanProperty(false);
+    private final BooleanProperty isDefaultAmountInputBtc = new SimpleBooleanProperty(false);
     private final BooleanProperty shouldShowMinAmounts = new SimpleBooleanProperty(false);
     private final BooleanProperty shouldShowInvertedMinAmounts = new SimpleBooleanProperty(false);
     private final BooleanProperty shouldShowMaxOrFixedAmounts = new SimpleBooleanProperty(false);
@@ -130,7 +130,7 @@ public class MuSigAmountSelectionModel implements Model {
         showRangeAmountSelection.set(false);
         allowInvertingBaseAndQuoteCurrencies.set(false);
         baseAmountSelectionHBoxWidth.set(amountBoxWidth);
-        areBaseAndQuoteCurrenciesInverted.set(false);
+        isDefaultAmountInputBtc.set(false);
         shouldShowMinAmounts.set(false);
         shouldShowInvertedMinAmounts.set(false);
         shouldShowMaxOrFixedAmounts.set(false);
