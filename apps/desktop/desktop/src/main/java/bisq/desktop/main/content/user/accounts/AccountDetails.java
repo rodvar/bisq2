@@ -160,7 +160,7 @@ public abstract class AccountDetails<A extends Account<?, ?>, R extends PaymentR
     }
 
     protected Label addTradeLimitInfo() {
-        String maxTradeLimit = MuSigTradeAmountLimits.getFormattedMaxTradeLimit(account.getPaymentMethod().getPaymentRail());
+        String maxTradeLimit = MuSigTradeAmountLimits.getFormattedMaxTradeLimitInUsd(account.getPaymentMethod().getPaymentRail());
         return addDescriptionAndValue(Res.get("paymentAccounts.tradeLimit"), maxTradeLimit);
     }
 
