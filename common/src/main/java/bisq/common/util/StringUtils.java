@@ -51,6 +51,7 @@ public class StringUtils {
     }
 
     public static String truncate(Object value, int maxLength) {
+        checkNotNull(value, "value at truncate must not be null", value);
         return truncate(value.toString(), maxLength);
     }
 
