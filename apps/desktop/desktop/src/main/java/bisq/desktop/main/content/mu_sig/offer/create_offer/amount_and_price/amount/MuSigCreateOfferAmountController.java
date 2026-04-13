@@ -18,6 +18,7 @@
 package bisq.desktop.main.content.mu_sig.offer.create_offer.amount_and_price.amount;
 
 import bisq.account.payment_method.PaymentMethod;
+import bisq.bonded_roles.market_price.MarketBasedAmountConversion;
 import bisq.bonded_roles.market_price.MarketPriceService;
 import bisq.common.market.Market;
 import bisq.common.monetary.Fiat;
@@ -431,19 +432,19 @@ public class MuSigCreateOfferAmountController implements Controller {
         Market market = model.getMarket();
 
         Monetary maxRangeValue = market.isCrypto()
-                ? MuSigTradeAmountLimits.usdToBtc(marketPriceService, MAX_USD_TRADE_AMOUNT).orElseThrow()
-                : MuSigTradeAmountLimits.usdToFiat(marketPriceService, market, MAX_USD_TRADE_AMOUNT)
+                ? MarketBasedAmountConversion.usdToBtc(marketPriceService, MAX_USD_TRADE_AMOUNT).orElseThrow()
+                : MarketBasedAmountConversion.usdToFiat(marketPriceService, market, MAX_USD_TRADE_AMOUNT)
                 .orElseThrow().round(0);
         Monetary minRangeValue = market.isCrypto()
-                ? MuSigTradeAmountLimits.usdToBtc(marketPriceService, DEFAULT_MIN_USD_TRADE_AMOUNT).orElseThrow()
-                : MuSigTradeAmountLimits.usdToFiat(marketPriceService, market, DEFAULT_MIN_USD_TRADE_AMOUNT)
+                ? MarketBasedAmountConversion.usdToBtc(marketPriceService, DEFAULT_MIN_USD_TRADE_AMOUNT).orElseThrow()
+                : MarketBasedAmountConversion.usdToFiat(marketPriceService, market, DEFAULT_MIN_USD_TRADE_AMOUNT)
                 .orElseThrow().round(0);
         applyMaxAmountBasedOnReputation();
 
         Fiat defaultUsdAmount = MAX_USD_TRADE_AMOUNT_WITHOUT_REPUTATION.multiply(2);
         Monetary defaultAmount = market.isCrypto()
-                ? MuSigTradeAmountLimits.usdToBtc(marketPriceService, defaultUsdAmount).orElseThrow()
-                : MuSigTradeAmountLimits.usdToFiat(marketPriceService, market, defaultUsdAmount)
+                ? MarketBasedAmountConversion.usdToBtc(marketPriceService, defaultUsdAmount).orElseThrow()
+                : MarketBasedAmountConversion.usdToFiat(marketPriceService, market, defaultUsdAmount)
                 .orElseThrow().round(0);
         boolean isBuyer = model.getDisplayDirection().isBuy();
         Monetary reputationBasedMaxAmount = model.getReputationBasedMaxAmount().round(0);
