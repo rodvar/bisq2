@@ -29,11 +29,6 @@ public class MarketBasedAmountConversion {
     // Bitcoin - Fiat conversions
     /* --------------------------------------------------------------------- */
 
-    public static Optional<Monetary> usdToBtc(MarketPriceService marketPriceService, Monetary usdAmount) {
-        Market usdBitcoinMarket = MarketRepository.getUSDBitcoinMarket();
-        return fiatToBtc(marketPriceService, usdBitcoinMarket, usdAmount);
-    }
-
     public static Optional<Monetary> fiatToBtc(MarketPriceService marketPriceService,
                                                Market btcFiatMarket,
                                                Monetary fiatAmount) {
@@ -41,17 +36,26 @@ public class MarketBasedAmountConversion {
                 .map(priceQuote -> priceQuote.toBaseSideMonetary(fiatAmount));
     }
 
-    public static Optional<Monetary> btcToUsd(MarketPriceService marketPriceService, Monetary btcAmount) {
-        Market usdBitcoinMarket = MarketRepository.getUSDBitcoinMarket();
-        return btcToFiat(marketPriceService, usdBitcoinMarket, btcAmount);
-    }
-
-
     public static Optional<Monetary> btcToFiat(MarketPriceService marketPriceService,
                                                Market btcFiatMarket,
                                                Monetary btcAmount) {
         return marketPriceService.findMarketPriceQuote(btcFiatMarket)
                 .map(priceQuote -> priceQuote.toQuoteSideMonetary(btcAmount));
+    }
+
+
+    /* --------------------------------------------------------------------- */
+    // Bitcoin - USD conversions
+    /* --------------------------------------------------------------------- */
+
+    public static Optional<Monetary> usdToBtc(MarketPriceService marketPriceService, Monetary usdAmount) {
+        Market usdBitcoinMarket = MarketRepository.getUSDBitcoinMarket();
+        return fiatToBtc(marketPriceService, usdBitcoinMarket, usdAmount);
+    }
+
+    public static Optional<Monetary> btcToUsd(MarketPriceService marketPriceService, Monetary btcAmount) {
+        Market usdBitcoinMarket = MarketRepository.getUSDBitcoinMarket();
+        return btcToFiat(marketPriceService, usdBitcoinMarket, btcAmount);
     }
 
 
@@ -74,4 +78,43 @@ public class MarketBasedAmountConversion {
                 flatMap(btc -> btcToUsd(marketPriceService, btc));
     }
 
+
+    /* --------------------------------------------------------------------- */
+    // OtherCrypto - Bitcoin conversions
+    /* --------------------------------------------------------------------- */
+
+    public static Optional<Monetary> btcToOtherCrypto(MarketPriceService marketPriceService,
+                                                      Market otherCryptoBtcMarket,
+                                                      Monetary btcAmount) {
+        return marketPriceService.findMarketPriceQuote(otherCryptoBtcMarket)
+                .map(priceQuote -> priceQuote.toBaseSideMonetary(btcAmount));
+    }
+
+    public static Optional<Monetary> otherCryptoToBtc(MarketPriceService marketPriceService,
+                                                      Market otherCryptoBtcMarket,
+                                                      Monetary otherCryptoAmount) {
+        return marketPriceService.findMarketPriceQuote(otherCryptoBtcMarket)
+                .map(priceQuote -> priceQuote.toQuoteSideMonetary(otherCryptoAmount));
+    }
+
+
+    /* --------------------------------------------------------------------- */
+    // OtherCrypto - USD conversions
+    /* --------------------------------------------------------------------- */
+
+    // Convert USD to Bitcoin and then back to the other crypto derived from the otherCryptoBtcMarket
+    public static Optional<Monetary> usdToOtherCrypto(MarketPriceService marketPriceService,
+                                                      Market otherCryptoBtcMarket,
+                                                      Monetary usdAmount) {
+        return usdToBtc(marketPriceService, usdAmount).
+                flatMap(btc -> btcToOtherCrypto(marketPriceService, otherCryptoBtcMarket, btc));
+    }
+
+    public static Optional<Monetary> otherCryptoToUsd(MarketPriceService marketPriceService,
+                                                      Market otherCryptoBtcMarket,
+                                                      Monetary otherCryptoAmount) {
+        return otherCryptoToBtc(marketPriceService, otherCryptoBtcMarket, otherCryptoAmount).
+                flatMap(btc -> btcToUsd(marketPriceService, btc));
+
+    }
 }
