@@ -84,10 +84,6 @@ public class MuSigCreateOfferAmountController implements Controller {
     private final UserIdentityService userIdentityService;
     private final Consumer<Boolean> navigationButtonsVisibleHandler;
     private final Consumer<NavigationTarget> closeAndNavigateToHandler;
-    private Subscription isRangeAmountEnabledPin, maxOrFixAmountCompBaseSideAmountPin, minAmountCompBaseSideAmountPin,
-            maxAmountCompQuoteSideAmountPin, minAmountCompQuoteSideAmountPin, priceTooltipPin,
-            areBaseAndQuoteCurrenciesInvertedPin;
-
     private final Set<Subscription> subscriptions = new HashSet<>();
 
     public MuSigCreateOfferAmountController(ServiceProvider serviceProvider,
@@ -125,7 +121,7 @@ public class MuSigCreateOfferAmountController implements Controller {
         model.getIsRangeAmountEnabled().set(cookieValue);
         model.getShouldShowHowToBuildReputationButton().set(model.getDisplayDirection().isSell());
 
-        minAmountCompBaseSideAmountPin = EasyBind.subscribe(amountSelectionController.getMinBaseSideAmount(),
+        subscriptions.add(EasyBind.subscribe(amountSelectionController.getMinBaseSideAmount(),
                 value -> {
                     if (model.getIsRangeAmountEnabled().get()) {
                         if (value != null && amountSelectionController.getMaxOrFixedBaseSideAmount().get() != null &&
@@ -133,8 +129,8 @@ public class MuSigCreateOfferAmountController implements Controller {
                             amountSelectionController.setMaxOrFixedBaseSideAmount(value);
                         }
                     }
-                });
-        maxOrFixAmountCompBaseSideAmountPin = EasyBind.subscribe(amountSelectionController.getMaxOrFixedBaseSideAmount(),
+                }));
+        subscriptions.add(EasyBind.subscribe(amountSelectionController.getMaxOrFixedBaseSideAmount(),
                 value -> {
                     if (value != null &&
                             model.getIsRangeAmountEnabled().get() &&
@@ -142,9 +138,9 @@ public class MuSigCreateOfferAmountController implements Controller {
                             value.getValue() < amountSelectionController.getMinBaseSideAmount().get().getValue()) {
                         amountSelectionController.setMinBaseSideAmount(value);
                     }
-                });
+                }));
 
-        minAmountCompQuoteSideAmountPin = EasyBind.subscribe(amountSelectionController.getMinQuoteSideAmount(),
+        subscriptions.add(EasyBind.subscribe(amountSelectionController.getMinQuoteSideAmount(),
                 value -> {
                     if (value != null) {
                         if (model.getIsRangeAmountEnabled().get() &&
@@ -155,8 +151,8 @@ public class MuSigCreateOfferAmountController implements Controller {
                         applyAmountSpec();
                         quoteSideAmountsChanged(false);
                     }
-                });
-        maxAmountCompQuoteSideAmountPin = EasyBind.subscribe(amountSelectionController.getMaxOrFixedQuoteSideAmount(),
+                }));
+        subscriptions.add(EasyBind.subscribe(amountSelectionController.getMaxOrFixedQuoteSideAmount(),
                 value -> {
                     if (value != null) {
                         if (model.getIsRangeAmountEnabled().get() &&
@@ -167,37 +163,32 @@ public class MuSigCreateOfferAmountController implements Controller {
                         applyAmountSpec();
                         quoteSideAmountsChanged(true);
                     }
-                });
+                }));
 
-        isRangeAmountEnabledPin = EasyBind.subscribe(model.getIsRangeAmountEnabled(), isRangeAmountEnabled -> {
+        subscriptions.add(EasyBind.subscribe(model.getIsRangeAmountEnabled(), isRangeAmountEnabled -> {
             applyAmountSpec();
             amountSelectionController.setUseRangeAmount(isRangeAmountEnabled);
-        });
+        }));
         applyAmountSpec();
 
-        areBaseAndQuoteCurrenciesInvertedPin = EasyBind.subscribe(amountSelectionController.getIsDefaultAmountInputBtc(), isDefaultAmountInputBtc -> {
+        subscriptions.add(EasyBind.subscribe(amountSelectionController.getIsDefaultAmountInputBtc(), isDefaultAmountInputBtc -> {
             String quoteCode = model.getPriceQuote().get().getMarket().getQuoteCurrencyCode();
             model.getPriceTooltip().set(amountSelectionController.isDefaultAmountInputBtc()
                     ? Res.get("muSig.offer.wizard.amount.quoteSide.tooltip.fiatAmount.selectedPrice", quoteCode)
                     : Res.get("muSig.offer.wizard.amount.baseSide.tooltip.btcAmount.selectedPrice"));
-        });
+        }));
 
-        priceTooltipPin = EasyBind.subscribe(model.getPriceTooltip(), priceTooltip -> {
+        subscriptions.add(EasyBind.subscribe(model.getPriceTooltip(), priceTooltip -> {
             if (priceTooltip != null) {
                 amountSelectionController.setTooltip(priceTooltip);
             }
-        });
+        }));
     }
 
     @Override
     public void onDeactivate() {
-        isRangeAmountEnabledPin.unsubscribe();
-        maxOrFixAmountCompBaseSideAmountPin.unsubscribe();
-        maxAmountCompQuoteSideAmountPin.unsubscribe();
-        minAmountCompBaseSideAmountPin.unsubscribe();
-        minAmountCompQuoteSideAmountPin.unsubscribe();
-        areBaseAndQuoteCurrenciesInvertedPin.unsubscribe();
-        priceTooltipPin.unsubscribe();
+        subscriptions.forEach(Subscription::unsubscribe);
+        subscriptions.clear();
         navigationButtonsVisibleHandler.accept(true);
         model.getIsOverlayVisible().set(false);
     }
