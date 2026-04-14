@@ -150,4 +150,8 @@ public final class Market implements NetworkProto, PersistableProto, Comparable<
     public String getRelevantCodeAndDisplayName() {
         return getRelevantCurrencyCode() + " (" + getRelevantCurrencyDisplayName() + ")";
     }
+
+    public boolean isUsdMarket() {
+        return isBtcFiatMarket() && getQuoteCurrencyCode().equalsIgnoreCase("USD");
+    }
 }

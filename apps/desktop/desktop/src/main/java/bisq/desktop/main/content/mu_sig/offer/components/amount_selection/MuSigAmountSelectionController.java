@@ -31,6 +31,7 @@ import bisq.desktop.common.threading.UIThread;
 import bisq.desktop.common.view.Controller;
 import bisq.desktop.main.content.mu_sig.offer.components.MuSigPriceInput;
 import bisq.i18n.Res;
+import bisq.mu_sig.MuSigTradeAmountLimits;
 import bisq.offer.Direction;
 import bisq.presentation.formatters.AmountFormatter;
 import bisq.settings.CookieKey;
@@ -179,6 +180,7 @@ public class MuSigAmountSelectionController implements Controller {
             return;
         }
         model.setMarket(market);
+
         maxOrFixedBaseSideAmountDisplay.setSelectedMarket(market);
         invertedMaxOrFixedBaseSideAmountInput.setSelectedMarket(market);
         maxOrFixedQuoteSideAmountInput.setSelectedMarket(market);
@@ -194,6 +196,8 @@ public class MuSigAmountSelectionController implements Controller {
         model.getMinQuoteSideAmount().set(null);
         model.getMaxOrFixedBaseSideAmount().set(null);
         model.getMinBaseSideAmount().set(null);
+
+        updateShowTradeAmountLimitInUsd();
     }
 
     public void setDescription(String description) {
@@ -377,7 +381,7 @@ public class MuSigAmountSelectionController implements Controller {
             } else {
                 settingsService.setCookie(CookieKey.MU_SIG_OTHER_MARKET_IS_DEFAULT_AMOUNT_INPUT_BTC, isDefaultAmountInputBtc);
             }
-
+            updateShowTradeAmountLimitInUsd();
             updateShouldShowAmounts();
             applyInitialRangeValues();
             schedulers.add(UIScheduler.run(this::requestFocusForAmountInput).after(150));
@@ -533,6 +537,8 @@ public class MuSigAmountSelectionController implements Controller {
         if (priceQuote == null || quoteSideTradeAmountLimits == null) {
             return;
         }
+        model.getFormattedMinTradeAmountLimitInUsd().set(AmountFormatter.formatAmount(MuSigTradeAmountLimits.MIN_USD_TRADE_AMOUNT, true));
+        model.getFormattedMaxTradeAmountLimitInUsd().set(AmountFormatter.formatAmount(MuSigTradeAmountLimits.MAX_USD_TRADE_AMOUNT, true));
 
         if (model.getMarket().isCrypto()) {
             Monetary minRangeQuoteMonetary = quoteSideTradeAmountLimits.getMin();
@@ -545,14 +551,14 @@ public class MuSigAmountSelectionController implements Controller {
 
             if (isDefaultAmountInputBtc()) {
                 // Input now is base side
-                model.getFormattedMinRangeAmount().set(AmountFormatter.formatBaseAmount(minRangeBaseMonetary));
-                model.getRangeAmountCode().set(minRangeBaseMonetary.getCode());
-                model.getFormattedMaxAllowedQuoteSideAmount().set(AmountFormatter.formatBaseAmount(maxRangeBaseMonetary));
+                model.getFormattedMinTradeAmountLimit().set(AmountFormatter.formatBaseAmount(minRangeBaseMonetary));
+                model.getTradeAmountLimitCode().set(minRangeBaseMonetary.getCode());
+                model.getFormattedMaxTradeAmountLimit().set(AmountFormatter.formatBaseAmount(maxRangeBaseMonetary));
             } else {
                 // Input now is quote side
-                model.getFormattedMinRangeAmount().set(AmountFormatter.formatQuoteAmount(minRangeQuoteMonetary));
-                model.getRangeAmountCode().set(minRangeQuoteMonetary.getCode());
-                model.getFormattedMaxAllowedQuoteSideAmount().set(AmountFormatter.formatQuoteAmount(maxRangeQuoteMonetary));
+                model.getFormattedMinTradeAmountLimit().set(AmountFormatter.formatQuoteAmount(minRangeQuoteMonetary));
+                model.getTradeAmountLimitCode().set(minRangeQuoteMonetary.getCode());
+                model.getFormattedMaxTradeAmountLimit().set(AmountFormatter.formatQuoteAmount(maxRangeQuoteMonetary));
             }
         } else {
             Monetary minRangeAmount = quoteSideTradeAmountLimits.getMin();
@@ -570,19 +576,19 @@ public class MuSigAmountSelectionController implements Controller {
 
             if (isDefaultAmountInputBtc()) {
                 // Input now is base side
-                model.getFormattedMinRangeAmount().set(AmountFormatter.formatBaseAmount(minRangeBaseSideAmount));
-                model.getRangeAmountCode().set(minRangeBaseSideAmount.getCode());
-                model.getFormattedMaxAllowedQuoteSideAmount().set(AmountFormatter.formatBaseAmount(maxRangeBaseSideAmount));
+                model.getFormattedMinTradeAmountLimit().set(AmountFormatter.formatBaseAmount(minRangeBaseSideAmount));
+                model.getTradeAmountLimitCode().set(minRangeBaseSideAmount.getCode());
+                model.getFormattedMaxTradeAmountLimit().set(AmountFormatter.formatBaseAmount(maxRangeBaseSideAmount));
             } else {
                 // Input now is quote side
-                model.getFormattedMinRangeAmount().set(AmountFormatter.formatQuoteAmount(minRangeQuoteSideAmount));
-                model.getRangeAmountCode().set(minRangeQuoteSideAmount.getCode());
+                model.getFormattedMinTradeAmountLimit().set(AmountFormatter.formatQuoteAmount(minRangeQuoteSideAmount));
+                model.getTradeAmountLimitCode().set(minRangeQuoteSideAmount.getCode());
                 Monetary maxRangeMonetaryLimitationAsFiat = maxRangeQuoteSideAmount;
                 if (model.getMaxAllowedQuoteSideAmount().get() != null) {
                     Monetary maxQuoteAllowedLimitation = model.getMaxAllowedQuoteSideAmount().get();
                     maxRangeMonetaryLimitationAsFiat = isFiat ? maxQuoteAllowedLimitation : priceQuote.toQuoteSideMonetary(maxQuoteAllowedLimitation).round(0);
                 }
-                model.getFormattedMaxAllowedQuoteSideAmount().set(AmountFormatter.formatQuoteAmount(maxRangeMonetaryLimitationAsFiat));
+                model.getFormattedMaxTradeAmountLimit().set(AmountFormatter.formatQuoteAmount(maxRangeMonetaryLimitationAsFiat));
             }
         }
 
@@ -839,6 +845,12 @@ public class MuSigAmountSelectionController implements Controller {
             amountNumberBox.setAmount(min);
         } else {
             model.getMinQuoteSideAmount().set(amount);
+        }
+    }
+
+    private void updateShowTradeAmountLimitInUsd() {
+        if (model.getMarket() != null) {
+            model.getShowTradeAmountLimitInUsd().set(model.getIsDefaultAmountInputBtc().get() || !model.getMarket().isUsdMarket());
         }
     }
 
