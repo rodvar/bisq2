@@ -55,9 +55,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.fxmisc.easybind.EasyBind;
 import org.fxmisc.easybind.Subscription;
 
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static bisq.mu_sig.MuSigTradeAmountLimits.MAX_USD_TRADE_AMOUNT;
@@ -85,6 +88,8 @@ public class MuSigCreateOfferAmountController implements Controller {
             maxAmountCompQuoteSideAmountPin, minAmountCompQuoteSideAmountPin, priceTooltipPin,
             areBaseAndQuoteCurrenciesInvertedPin;
 
+    private final Set<Subscription> subscriptions = new HashSet<>();
+
     public MuSigCreateOfferAmountController(ServiceProvider serviceProvider,
                                             Region owner,
                                             Consumer<Boolean> navigationButtonsVisibleHandler,
@@ -102,81 +107,10 @@ public class MuSigCreateOfferAmountController implements Controller {
         view = new MuSigCreateOfferAmountView(model, this, amountSelectionController.getView().getRoot());
     }
 
-    public void setDisplayDirection(Direction displayDirection) {
-        if (displayDirection == null) {
-            return;
-        }
-        model.setDisplayDirection(displayDirection);
-        amountSelectionController.setDirection(displayDirection);
-    }
 
-    public void setMarket(Market market) {
-        if (market == null) {
-            return;
-        }
-        amountSelectionController.setMarket(market);
-        model.setMarket(market);
-        applyQuoteSideMinMaxRange();
-    }
-
-    public void setPaymentMethods(List<PaymentMethod<?>> paymentMethods) {
-        if (paymentMethods == null) {
-            return;
-        }
-        model.getPaymentMethods().clear();
-        model.getPaymentMethods().addAll(paymentMethods);
-    }
-
-    public boolean validate() {
-        // No errorMessage set yet... We reset the amount to a valid value in case input is invalid
-        if (model.getErrorMessage().get() == null) {
-            return true;
-        } else {
-            new Popup().invalid(model.getErrorMessage().get())
-                    .owner(owner)
-                    .show();
-            return false;
-        }
-    }
-
-    public void updateBaseSideAmountSpecWithPriceSpec(PriceSpec priceSpec) {
-        if (priceSpec == null) {
-            return;
-        }
-
-        BaseSideAmountSpec amountSpec = model.getBaseSideAmountSpec().get();
-        if (amountSpec == null) {
-            return;
-        }
-        Market market = model.getMarket();
-        if (market == null) {
-            log.warn("market is null at updateBaseSideAmountSpecWithPriceSpec");
-            return;
-        }
-        Optional<PriceQuote> priceQuote = PriceUtil.findQuote(marketPriceService, priceSpec, market);
-        if (priceQuote.isEmpty()) {
-            log.warn("priceQuote is empty at updateBaseSideAmountSpecWithPriceSpec");
-            return;
-        }
-        model.getPriceQuote().set(priceQuote.get());
-        amountSelectionController.setQuote(priceQuote.get());
-
-        OfferAmountUtil.updateBaseSideAmountSpecWithPriceSpec(marketPriceService, amountSpec, priceSpec, market)
-                .ifPresent(baseSideAmountSpec -> model.getBaseSideAmountSpec().set(baseSideAmountSpec));
-    }
-
-    public void reset() {
-        amountSelectionController.reset();
-        model.reset();
-    }
-
-    public ReadOnlyObjectProperty<BaseSideAmountSpec> getBaseSideAmountSpec() {
-        return model.getBaseSideAmountSpec();
-    }
-
-    public ReadOnlyBooleanProperty getIsOverlayVisible() {
-        return model.getIsOverlayVisible();
-    }
+    /* --------------------------------------------------------------------- */
+    // Lifecycle
+    /* --------------------------------------------------------------------- */
 
     @Override
     public void onActivate() {
@@ -268,6 +202,95 @@ public class MuSigCreateOfferAmountController implements Controller {
         model.getIsOverlayVisible().set(false);
     }
 
+
+    /* --------------------------------------------------------------------- */
+    // Public API
+    /* --------------------------------------------------------------------- */
+
+    public void setDisplayDirection(Direction displayDirection) {
+        if (displayDirection == null) {
+            return;
+        }
+        model.setDisplayDirection(displayDirection);
+        amountSelectionController.setDirection(displayDirection);
+    }
+
+    public void setMarket(Market market) {
+        if (market == null) {
+            return;
+        }
+        amountSelectionController.setMarket(market);
+        model.setMarket(market);
+        applyQuoteSideMinMaxRange();
+        applyTradeAmountLimitsInUsd();
+    }
+
+    public void setPaymentMethods(List<PaymentMethod<?>> paymentMethods) {
+        if (paymentMethods == null) {
+            return;
+        }
+        model.getPaymentMethods().clear();
+        model.getPaymentMethods().addAll(paymentMethods);
+
+        applyTradeAmountLimitsInUsd();
+    }
+
+    public boolean validate() {
+        // No errorMessage set yet... We reset the amount to a valid value in case input is invalid
+        if (model.getErrorMessage().get() == null) {
+            return true;
+        } else {
+            new Popup().invalid(model.getErrorMessage().get())
+                    .owner(owner)
+                    .show();
+            return false;
+        }
+    }
+
+    public void updateBaseSideAmountSpecWithPriceSpec(PriceSpec priceSpec) {
+        if (priceSpec == null) {
+            return;
+        }
+
+        BaseSideAmountSpec amountSpec = model.getBaseSideAmountSpec().get();
+        if (amountSpec == null) {
+            return;
+        }
+        Market market = model.getMarket();
+        if (market == null) {
+            log.warn("market is null at updateBaseSideAmountSpecWithPriceSpec");
+            return;
+        }
+        Optional<PriceQuote> priceQuote = PriceUtil.findQuote(marketPriceService, priceSpec, market);
+        if (priceQuote.isEmpty()) {
+            log.warn("priceQuote is empty at updateBaseSideAmountSpecWithPriceSpec");
+            return;
+        }
+        model.getPriceQuote().set(priceQuote.get());
+        amountSelectionController.setQuote(priceQuote.get());
+
+        OfferAmountUtil.updateBaseSideAmountSpecWithPriceSpec(marketPriceService, amountSpec, priceSpec, market)
+                .ifPresent(baseSideAmountSpec -> model.getBaseSideAmountSpec().set(baseSideAmountSpec));
+    }
+
+    public void reset() {
+        amountSelectionController.reset();
+        model.reset();
+    }
+
+    public ReadOnlyObjectProperty<BaseSideAmountSpec> getBaseSideAmountSpec() {
+        return model.getBaseSideAmountSpec();
+    }
+
+    public ReadOnlyBooleanProperty getIsOverlayVisible() {
+        return model.getIsOverlayVisible();
+    }
+
+
+    /* --------------------------------------------------------------------- */
+    // UI handlers
+    /* --------------------------------------------------------------------- */
+
     void onKeyPressedWhileShowingOverlay(KeyEvent keyEvent) {
         KeyHandlerUtil.handleEnterKeyEvent(keyEvent, () -> {
         });
@@ -303,6 +326,23 @@ public class MuSigCreateOfferAmountController implements Controller {
     void onSelectRangeAmount() {
         updateIsRangeAmountEnabled(true);
     }
+
+
+    /* --------------------------------------------------------------------- */
+    // Private
+    /* --------------------------------------------------------------------- */
+
+    private void applyTradeAmountLimitsInUsd() {
+        List<PaymentMethod<?>> paymentMethods = model.getPaymentMethods();
+        Fiat maxTradeLimitInUsd = paymentMethods.stream()
+                .map(PaymentMethod::getPaymentRail)
+                .map(MuSigTradeAmountLimits::getMaxTradeLimitInUsd)
+                .min(Comparator.naturalOrder())
+                .orElse(MAX_USD_TRADE_AMOUNT);
+        MonetaryRange tradeAmountLimitsInUsd = new MonetaryRange(MuSigTradeAmountLimits.MIN_USD_TRADE_AMOUNT, maxTradeLimitInUsd);
+        amountSelectionController.setTradeAmountLimitsInUsd(tradeAmountLimitsInUsd);
+    }
+
 
     private void updateIsRangeAmountEnabled(boolean useRangeAmount) {
         model.getIsRangeAmountEnabled().set(useRangeAmount);

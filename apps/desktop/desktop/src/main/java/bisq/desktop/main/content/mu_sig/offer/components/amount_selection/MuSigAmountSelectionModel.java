@@ -53,6 +53,7 @@ public class MuSigAmountSelectionModel implements Model {
     private final BooleanProperty useRangeAmount = new SimpleBooleanProperty();
 
     private final ObjectProperty<MonetaryRange> quoteSideTradeAmountLimits = new SimpleObjectProperty<>();
+    private final ObjectProperty<MonetaryRange> tradeAmountLimitsInUsd = new SimpleObjectProperty<>();
 
     private final ObjectProperty<MonetaryRange> rangeBaseSideAmount = new SimpleObjectProperty<>();
     private final ObjectProperty<MonetaryRange> rangeQuoteSideAmount = new SimpleObjectProperty<>();
@@ -128,6 +129,7 @@ public class MuSigAmountSelectionModel implements Model {
         rangeSliderHighThumbFocus.set(false);
         useRangeAmount.set(false);
         quoteSideTradeAmountLimits.set(null);
+        tradeAmountLimitsInUsd.set(null);
         rangeBaseSideAmount.set(null);
         rangeQuoteSideAmount.set(null);
         maxAllowedQuoteSideAmount.set(null);
