@@ -190,7 +190,9 @@ public class MuSigCreateOfferPaymentController implements Controller {
                     return;
                 }
 
-                model.getSelectedPaymentMethods().add(paymentMethod);
+                if (!model.getSelectedPaymentMethods().contains(paymentMethod)) {
+                    model.getSelectedPaymentMethods().add(paymentMethod);
+                }
                 if (model.getAccountsByPaymentMethod().containsKey(paymentMethod)) {
                     List<Account<?, ?>> accountsForPaymentMethod = model.getAccountsByPaymentMethod().get(paymentMethod);
                     checkArgument(!accountsForPaymentMethod.isEmpty());
@@ -214,7 +216,9 @@ public class MuSigCreateOfferPaymentController implements Controller {
     public void selectAccount(Account<? extends PaymentMethod<?>, ?> account, PaymentMethod<?> paymentMethod) {
         doSelectAccount(account, paymentMethod);
 
-        model.getSelectedPaymentMethods().add(paymentMethod);
+        if (!model.getSelectedPaymentMethods().contains(paymentMethod)) {
+            model.getSelectedPaymentMethods().add(paymentMethod);
+        }
     }
 
     void onSelectAccount(Account<? extends PaymentMethod<?>, ?> account, PaymentMethod<?> paymentMethod) {
