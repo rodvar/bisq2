@@ -55,7 +55,7 @@ public class MuSigCreateOfferPaymentView extends View<StackPane, MuSigCreateOffe
     private final WizardOverlay noAccountOverlay, multipleAccountsOverlay, noPaymentMethodSelectedOverlay;
     private final Button noAccountOverlayCloseButton, createAccountButton, multipleAccountsOverlayCloseButton, noPaymentMethodSelectedOverlayCloseButton;
     private final AutoCompleteComboBox<Account<?, ?>> accountSelection;
-    private final Label noPaymentMethodSelectedOverlayLabel;
+    private final Label tradeLimitInfo, noPaymentMethodSelectedOverlayLabel;
     private final List<MuSigPaymentMethodChipButton> paymentMethodChipButtons = new ArrayList<>();
     private final ListChangeListener<PaymentMethod<?>> paymentMethodListener;
     private final ListChangeListener<PaymentMethod<?>> selectedPaymentMethodsListener;
@@ -76,11 +76,14 @@ public class MuSigCreateOfferPaymentView extends View<StackPane, MuSigCreateOffe
         VBox vBox = new VBox(20, gridPane);
         vBox.setAlignment(Pos.CENTER);
 
+        tradeLimitInfo = new Label();
+        tradeLimitInfo.getStyleClass().add("trade-wizard-amount-limit-info");
+
         content = new VBox(20);
         content.setAlignment(Pos.CENTER);
         VBox.setVgrow(headlineLabel, Priority.ALWAYS);
         VBox.setVgrow(vBox, Priority.ALWAYS);
-        content.getChildren().addAll(Spacer.fillVBox(), headlineLabel, vBox, Spacer.fillVBox());
+        content.getChildren().addAll(Spacer.fillVBox(), headlineLabel, vBox, tradeLimitInfo, Spacer.fillVBox());
 
         // noAccount overlay
         noAccountOverlayCloseButton = new Button(Res.get("action.close"));
@@ -125,6 +128,7 @@ public class MuSigCreateOfferPaymentView extends View<StackPane, MuSigCreateOffe
 
     @Override
     protected void onViewAttached() {
+        tradeLimitInfo.textProperty().bind(model.getTradeLimitInfo());
         noAccountOverlay.getHeadlineLabel().textProperty().bind(model.getNoAccountOverlayHeadlineText());
         multipleAccountsOverlay.getHeadlineLabel().textProperty().bind(model.getMultipleAccountsOverlayHeadlineText());
         noPaymentMethodSelectedOverlayLabel.textProperty().bind(model.getNoPaymentMethodSelectedOverlayText());
@@ -153,10 +157,10 @@ public class MuSigCreateOfferPaymentView extends View<StackPane, MuSigCreateOffe
 
     @Override
     protected void onViewDetached() {
+        tradeLimitInfo.textProperty().unbind();
         noAccountOverlay.getHeadlineLabel().textProperty().unbind();
         multipleAccountsOverlay.getHeadlineLabel().textProperty().unbind();
         noPaymentMethodSelectedOverlayLabel.textProperty().unbind();
-
         shouldShowNoAccountOverlayPin.unsubscribe();
         shouldShowMultipleAccountsOverlayPin.unsubscribe();
         shouldShowNoPaymentMethodSelectedOverlayPin.unsubscribe();
