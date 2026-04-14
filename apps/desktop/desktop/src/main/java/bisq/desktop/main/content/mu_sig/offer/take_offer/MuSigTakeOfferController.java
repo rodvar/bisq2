@@ -171,6 +171,12 @@ public class MuSigTakeOfferController extends NavigationController implements In
                 muSigTakeOfferReviewController::setTakersAccount);
         paymentMethodSpecPin = EasyBind.subscribe(muSigTakeOfferPaymentController.getPaymentMethodSpec(),
                 muSigTakeOfferReviewController::setTakersPaymentMethodSpec);
+        paymentMethodSpecPin = EasyBind.subscribe(muSigTakeOfferPaymentController.getPaymentMethodSpec(),
+                paymentMethodSpec->{
+                    muSigTakeOfferAmountController.setTakersPaymentMethodSpec(paymentMethodSpec);
+                    muSigTakeOfferReviewController.setTakersPaymentMethodSpec(paymentMethodSpec);
+
+                });
     }
 
     @Override

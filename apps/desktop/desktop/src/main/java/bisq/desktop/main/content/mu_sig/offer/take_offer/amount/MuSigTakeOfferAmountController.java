@@ -17,9 +17,11 @@
 
 package bisq.desktop.main.content.mu_sig.offer.take_offer.amount;
 
+import bisq.account.payment_method.PaymentMethodSpec;
 import bisq.bisq_easy.BisqEasyTradeAmountLimits;
 import bisq.bonded_roles.market_price.MarketPriceService;
 import bisq.common.market.Market;
+import bisq.common.monetary.Fiat;
 import bisq.common.monetary.Monetary;
 import bisq.common.monetary.MonetaryRange;
 import bisq.desktop.ServiceProvider;
@@ -28,6 +30,7 @@ import bisq.desktop.common.utils.KeyHandlerUtil;
 import bisq.desktop.common.view.Controller;
 import bisq.desktop.main.content.mu_sig.offer.components.amount_selection.MuSigAmountSelectionController;
 import bisq.i18n.Res;
+import bisq.mu_sig.MuSigTradeAmountLimits;
 import bisq.offer.Direction;
 import bisq.offer.amount.OfferAmountUtil;
 import bisq.offer.mu_sig.MuSigOffer;
@@ -91,19 +94,13 @@ public class MuSigTakeOfferAmountController implements Controller {
         Optional<String> priceQuoteOptional = PriceUtil.findQuote(marketPriceService, model.getMuSigOffer())
                 .map(priceQuote -> "\n" + Res.get("muSig.offer.wizard.amount.baseSide.tooltip.taker.offerPrice", PriceFormatter.formatWithCode(priceQuote)));
         priceQuoteOptional.ifPresent(priceQuote -> amountSelectionController.setTooltip(String.format("%s%s", btcAmount, priceQuote)));
+
+        applyTradeAmountLimitsInUsd();
     }
 
-    public ReadOnlyObjectProperty<Monetary> getTakersQuoteSideAmount() {
-        return model.getTakersQuoteSideAmount();
-    }
-
-    public ReadOnlyObjectProperty<Monetary> getTakersBaseSideAmount() {
-        return model.getTakersBaseSideAmount();
-    }
-
-    public void reset() {
-        model.reset();
-    }
+    /* --------------------------------------------------------------------- */
+    // Lifecycle
+    /* --------------------------------------------------------------------- */
 
     @Override
     public void onActivate() {
@@ -132,6 +129,35 @@ public class MuSigTakeOfferAmountController implements Controller {
         model.setSellersReputationBasedQuoteSideAmount(null);
     }
 
+
+    /* --------------------------------------------------------------------- */
+    // Public API
+    /* --------------------------------------------------------------------- */
+
+    public ReadOnlyObjectProperty<Monetary> getTakersQuoteSideAmount() {
+        return model.getTakersQuoteSideAmount();
+    }
+
+    public ReadOnlyObjectProperty<Monetary> getTakersBaseSideAmount() {
+        return model.getTakersBaseSideAmount();
+    }
+
+    public void setTakersPaymentMethodSpec(PaymentMethodSpec<?> paymentMethodSpec) {
+        if (paymentMethodSpec != null) {
+            model.setTakersPaymentMethodSpec(paymentMethodSpec);
+            applyTradeAmountLimitsInUsd();
+        }
+    }
+
+    public void reset() {
+        model.reset();
+    }
+
+
+    /* --------------------------------------------------------------------- */
+    // UI handlers
+    /* --------------------------------------------------------------------- */
+
     void onSetReputationBasedAmount() {
         amountSelectionController.setMaxOrFixedQuoteSideAmount(amountSelectionController.getRightMarkerQuoteSideValue().round(0));
     }
@@ -154,6 +180,20 @@ public class MuSigTakeOfferAmountController implements Controller {
 
     void onOpenWiki(String url) {
         Browser.open(url);
+    }
+
+
+    /* --------------------------------------------------------------------- */
+    // Private
+    /* --------------------------------------------------------------------- */
+
+    private void applyTradeAmountLimitsInUsd() {
+        PaymentMethodSpec<?> takersPaymentMethodSpec = model.getTakersPaymentMethodSpec();
+        if (takersPaymentMethodSpec != null) {
+            Fiat maxTradeLimitInUsd = MuSigTradeAmountLimits.getMaxTradeLimitInUsd(takersPaymentMethodSpec.getPaymentMethod().getPaymentRail());
+            MonetaryRange tradeAmountLimitsInUsd = new MonetaryRange(MuSigTradeAmountLimits.MIN_USD_TRADE_AMOUNT, maxTradeLimitInUsd);
+            amountSelectionController.setTradeAmountLimitsInUsd(tradeAmountLimitsInUsd);
+        }
     }
 
     private void applyQuoteSideMinMaxRange() {

@@ -31,7 +31,6 @@ import bisq.desktop.common.threading.UIThread;
 import bisq.desktop.common.view.Controller;
 import bisq.desktop.main.content.mu_sig.offer.components.MuSigPriceInput;
 import bisq.i18n.Res;
-import bisq.mu_sig.MuSigTradeAmountLimits;
 import bisq.offer.Direction;
 import bisq.presentation.formatters.AmountFormatter;
 import bisq.settings.CookieKey;
@@ -124,145 +123,10 @@ public class MuSigAmountSelectionController implements Controller {
                 applySliderValue(newValue.doubleValue(), minQuoteSideAmountInput, invertedMinBaseSideAmountInput);
     }
 
-    public void setMaxOrFixedBaseSideAmount(Monetary value) {
-        model.getMaxOrFixedBaseSideAmount().set(value);
-    }
 
-    public void setMinBaseSideAmount(Monetary value) {
-        model.getMinBaseSideAmount().set(value);
-    }
-
-    public void setMaxOrFixedQuoteSideAmount(Monetary value) {
-        model.getMaxOrFixedQuoteSideAmount().set(value);
-    }
-
-    public void setMinQuoteSideAmount(Monetary value) {
-        model.getMinQuoteSideAmount().set(value);
-    }
-
-    public ReadOnlyObjectProperty<Monetary> getMaxOrFixedBaseSideAmount() {
-        return model.getMaxOrFixedBaseSideAmount();
-    }
-
-    public ReadOnlyObjectProperty<Monetary> getMinBaseSideAmount() {
-        return model.getMinBaseSideAmount();
-    }
-
-    public ReadOnlyObjectProperty<Monetary> getMaxOrFixedQuoteSideAmount() {
-        return model.getMaxOrFixedQuoteSideAmount();
-    }
-
-    public ReadOnlyObjectProperty<Monetary> getMinQuoteSideAmount() {
-        return model.getMinQuoteSideAmount();
-    }
-
-    public ReadOnlyBooleanProperty getIsDefaultAmountInputBtc() {
-        return model.getIsDefaultAmountInputBtc();
-    }
-
-    public void setDirection(Direction direction) {
-        if (direction == null) {
-            return;
-        }
-        model.setDirection(direction);
-        model.getSpendOrReceiveString().set(direction.isBuy() ? Res.get("offer.buying") : Res.get("offer.selling"));
-    }
-
-    public void setTooltip(String tooltip) {
-        maxOrFixedBaseSideAmountDisplay.setTooltip(tooltip);
-        minBaseSideAmountDisplay.setTooltip(tooltip);
-        invertedMaxOrFixedQuoteSideAmountDisplay.setTooltip(tooltip);
-        invertedMinQuoteSideAmountDisplay.setTooltip(tooltip);
-    }
-
-    public void setMarket(Market market) {
-        if (market == null) {
-            return;
-        }
-        model.setMarket(market);
-
-        maxOrFixedBaseSideAmountDisplay.setSelectedMarket(market);
-        invertedMaxOrFixedBaseSideAmountInput.setSelectedMarket(market);
-        maxOrFixedQuoteSideAmountInput.setSelectedMarket(market);
-        invertedMaxOrFixedQuoteSideAmountDisplay.setSelectedMarket(market);
-        minBaseSideAmountDisplay.setSelectedMarket(market);
-        invertedMinBaseSideAmountInput.setSelectedMarket(market);
-        minQuoteSideAmountInput.setSelectedMarket(market);
-        invertedMinQuoteSideAmountDisplay.setSelectedMarket(market);
-        priceInput.setMarket(market);
-
-        // Reset all amounts to avoid currency mismatch when market changes
-        model.getMaxOrFixedQuoteSideAmount().set(null);
-        model.getMinQuoteSideAmount().set(null);
-        model.getMaxOrFixedBaseSideAmount().set(null);
-        model.getMinBaseSideAmount().set(null);
-
-        updateShowTradeAmountLimitInUsd();
-    }
-
-    public void setDescription(String description) {
-        model.getDescription().set(description);
-    }
-
-    public void setMaxAllowedLimitation(Monetary maxAllowedLimitation) {
-        model.getMaxAllowedQuoteSideAmount().set(maxAllowedLimitation);
-        // TODO: this should work for any coin, not just BTC
-        Monetary maxAllowedLimitationInBtc = marketPriceService.findMarketPriceQuote(model.getMarket())
-                .map(btcFiatPriceQuote -> btcFiatPriceQuote.toBaseSideMonetary(maxAllowedLimitation)).orElseThrow();
-        model.getMaxAllowedBaseSideAmount().set(maxAllowedLimitationInBtc);
-    }
-
-    public void setQuoteSideTradeAmountLimits(MonetaryRange quoteSideTradeAmountLimits) {
-        checkArgument(quoteSideTradeAmountLimits.getMin().getValue() <= quoteSideTradeAmountLimits.getMax().getValue(),
-                "Min value must not be larger than max value");
-        model.getQuoteSideTradeAmountLimits().set(quoteSideTradeAmountLimits);
-        applyInitialRangeValues();
-    }
-
-    public void setLeftMarkerQuoteSideValue(Monetary quoteSideAmount) {
-        model.setLeftMarkerQuoteSideValue(quoteSideAmount);
-        applySliderTrackStyle();
-    }
-
-    public void setRightMarkerQuoteSideValue(Monetary quoteSideAmount) {
-        model.setRightMarkerQuoteSideValue(quoteSideAmount);
-        applySliderTrackStyle();
-    }
-
-    public void setQuote(PriceQuote priceQuote) {
-        if (priceQuote != null) {
-            priceInput.setQuote(priceQuote);
-        }
-    }
-
-    public void setUseRangeAmount(boolean value) {
-        model.getUseRangeAmount().set(value);
-    }
-
-    public ReadOnlyObjectProperty<PriceQuote> getQuote() {
-        return priceInput.getQuote();
-    }
-
-    public Monetary getRightMarkerQuoteSideValue() {
-        return model.getRightMarkerQuoteSideValue();
-    }
-
-    public boolean isDefaultAmountInputBtc() {
-        return model.getIsDefaultAmountInputBtc().get();
-    }
-
-    public void reset() {
-        maxOrFixedBaseSideAmountDisplay.reset();
-        invertedMaxOrFixedBaseSideAmountInput.reset();
-        maxOrFixedQuoteSideAmountInput.reset();
-        invertedMaxOrFixedQuoteSideAmountDisplay.reset();
-        minBaseSideAmountDisplay.reset();
-        invertedMinBaseSideAmountInput.reset();
-        minQuoteSideAmountInput.reset();
-        invertedMinQuoteSideAmountDisplay.reset();
-        priceInput.reset();
-        model.reset();
-    }
+    /* --------------------------------------------------------------------- */
+    // Lifecycle
+    /* --------------------------------------------------------------------- */
 
     @Override
     public void onActivate() {
@@ -431,6 +295,163 @@ public class MuSigAmountSelectionController implements Controller {
         model.setRightMarkerQuoteSideValue(null);
     }
 
+
+    /* --------------------------------------------------------------------- */
+    // Public API
+    /* --------------------------------------------------------------------- */
+
+    public void setTradeAmountLimitsInUsd(MonetaryRange tradeAmountLimitsInUsd) {
+        model.getTradeAmountLimitsInUsd().set(tradeAmountLimitsInUsd);
+
+        model.getFormattedMinTradeAmountLimitInUsd().set(AmountFormatter.formatAmount(tradeAmountLimitsInUsd.getMin(), true));
+        model.getFormattedMaxTradeAmountLimitInUsd().set(AmountFormatter.formatAmount(tradeAmountLimitsInUsd.getMax(), true));
+    }
+
+    public void setMaxOrFixedBaseSideAmount(Monetary value) {
+        model.getMaxOrFixedBaseSideAmount().set(value);
+    }
+
+    public void setMinBaseSideAmount(Monetary value) {
+        model.getMinBaseSideAmount().set(value);
+    }
+
+    public void setMaxOrFixedQuoteSideAmount(Monetary value) {
+        model.getMaxOrFixedQuoteSideAmount().set(value);
+    }
+
+    public void setMinQuoteSideAmount(Monetary value) {
+        model.getMinQuoteSideAmount().set(value);
+    }
+
+    public ReadOnlyObjectProperty<Monetary> getMaxOrFixedBaseSideAmount() {
+        return model.getMaxOrFixedBaseSideAmount();
+    }
+
+    public ReadOnlyObjectProperty<Monetary> getMinBaseSideAmount() {
+        return model.getMinBaseSideAmount();
+    }
+
+    public ReadOnlyObjectProperty<Monetary> getMaxOrFixedQuoteSideAmount() {
+        return model.getMaxOrFixedQuoteSideAmount();
+    }
+
+    public ReadOnlyObjectProperty<Monetary> getMinQuoteSideAmount() {
+        return model.getMinQuoteSideAmount();
+    }
+
+    public ReadOnlyBooleanProperty getIsDefaultAmountInputBtc() {
+        return model.getIsDefaultAmountInputBtc();
+    }
+
+    public void setDirection(Direction direction) {
+        if (direction == null) {
+            return;
+        }
+        model.setDirection(direction);
+        model.getSpendOrReceiveString().set(direction.isBuy() ? Res.get("offer.buying") : Res.get("offer.selling"));
+    }
+
+    public void setTooltip(String tooltip) {
+        maxOrFixedBaseSideAmountDisplay.setTooltip(tooltip);
+        minBaseSideAmountDisplay.setTooltip(tooltip);
+        invertedMaxOrFixedQuoteSideAmountDisplay.setTooltip(tooltip);
+        invertedMinQuoteSideAmountDisplay.setTooltip(tooltip);
+    }
+
+    public void setMarket(Market market) {
+        if (market == null) {
+            return;
+        }
+        model.setMarket(market);
+
+        maxOrFixedBaseSideAmountDisplay.setSelectedMarket(market);
+        invertedMaxOrFixedBaseSideAmountInput.setSelectedMarket(market);
+        maxOrFixedQuoteSideAmountInput.setSelectedMarket(market);
+        invertedMaxOrFixedQuoteSideAmountDisplay.setSelectedMarket(market);
+        minBaseSideAmountDisplay.setSelectedMarket(market);
+        invertedMinBaseSideAmountInput.setSelectedMarket(market);
+        minQuoteSideAmountInput.setSelectedMarket(market);
+        invertedMinQuoteSideAmountDisplay.setSelectedMarket(market);
+        priceInput.setMarket(market);
+
+        // Reset all amounts to avoid currency mismatch when market changes
+        model.getMaxOrFixedQuoteSideAmount().set(null);
+        model.getMinQuoteSideAmount().set(null);
+        model.getMaxOrFixedBaseSideAmount().set(null);
+        model.getMinBaseSideAmount().set(null);
+
+        updateShowTradeAmountLimitInUsd();
+    }
+
+    public void setDescription(String description) {
+        model.getDescription().set(description);
+    }
+
+    public void setMaxAllowedLimitation(Monetary maxAllowedLimitation) {
+        model.getMaxAllowedQuoteSideAmount().set(maxAllowedLimitation);
+        // TODO: this should work for any coin, not just BTC
+        Monetary maxAllowedLimitationInBtc = marketPriceService.findMarketPriceQuote(model.getMarket())
+                .map(btcFiatPriceQuote -> btcFiatPriceQuote.toBaseSideMonetary(maxAllowedLimitation)).orElseThrow();
+        model.getMaxAllowedBaseSideAmount().set(maxAllowedLimitationInBtc);
+    }
+
+    public void setQuoteSideTradeAmountLimits(MonetaryRange quoteSideTradeAmountLimits) {
+        checkArgument(quoteSideTradeAmountLimits.getMin().getValue() <= quoteSideTradeAmountLimits.getMax().getValue(),
+                "Min value must not be larger than max value");
+        model.getQuoteSideTradeAmountLimits().set(quoteSideTradeAmountLimits);
+        applyInitialRangeValues();
+    }
+
+    public void setLeftMarkerQuoteSideValue(Monetary quoteSideAmount) {
+        model.setLeftMarkerQuoteSideValue(quoteSideAmount);
+        applySliderTrackStyle();
+    }
+
+    public void setRightMarkerQuoteSideValue(Monetary quoteSideAmount) {
+        model.setRightMarkerQuoteSideValue(quoteSideAmount);
+        applySliderTrackStyle();
+    }
+
+    public void setQuote(PriceQuote priceQuote) {
+        if (priceQuote != null) {
+            priceInput.setQuote(priceQuote);
+        }
+    }
+
+    public void setUseRangeAmount(boolean value) {
+        model.getUseRangeAmount().set(value);
+    }
+
+    public ReadOnlyObjectProperty<PriceQuote> getQuote() {
+        return priceInput.getQuote();
+    }
+
+    public Monetary getRightMarkerQuoteSideValue() {
+        return model.getRightMarkerQuoteSideValue();
+    }
+
+    public boolean isDefaultAmountInputBtc() {
+        return model.getIsDefaultAmountInputBtc().get();
+    }
+
+    public void reset() {
+        maxOrFixedBaseSideAmountDisplay.reset();
+        invertedMaxOrFixedBaseSideAmountInput.reset();
+        maxOrFixedQuoteSideAmountInput.reset();
+        invertedMaxOrFixedQuoteSideAmountDisplay.reset();
+        minBaseSideAmountDisplay.reset();
+        invertedMinBaseSideAmountInput.reset();
+        minQuoteSideAmountInput.reset();
+        invertedMinQuoteSideAmountDisplay.reset();
+        priceInput.reset();
+        model.reset();
+    }
+
+
+    /* --------------------------------------------------------------------- */
+    // UI handlers
+    /* --------------------------------------------------------------------- */
+
     double onGetMaxAllowedSliderValue() {
         MonetaryRange rangeQuoteSideAmount = model.getRangeQuoteSideAmount().get();
         if (rangeQuoteSideAmount == null) {
@@ -451,6 +472,11 @@ public class MuSigAmountSelectionController implements Controller {
                 ? getCount(invertedMinBaseSideAmountInput, invertedMaxOrFixedBaseSideAmountInput)
                 : getCount(minQuoteSideAmountInput, maxOrFixedQuoteSideAmountInput);
     }
+
+
+    /* --------------------------------------------------------------------- */
+    // Private
+    /* --------------------------------------------------------------------- */
 
     private boolean shouldFocusAmountComponent() {
         return maxOrFixedQuoteSideAmountInput.focusedProperty().get()
@@ -537,8 +563,6 @@ public class MuSigAmountSelectionController implements Controller {
         if (priceQuote == null || quoteSideTradeAmountLimits == null) {
             return;
         }
-        model.getFormattedMinTradeAmountLimitInUsd().set(AmountFormatter.formatAmount(MuSigTradeAmountLimits.MIN_USD_TRADE_AMOUNT, true));
-        model.getFormattedMaxTradeAmountLimitInUsd().set(AmountFormatter.formatAmount(MuSigTradeAmountLimits.MAX_USD_TRADE_AMOUNT, true));
 
         if (model.getMarket().isCrypto()) {
             Monetary minRangeQuoteMonetary = quoteSideTradeAmountLimits.getMin();
