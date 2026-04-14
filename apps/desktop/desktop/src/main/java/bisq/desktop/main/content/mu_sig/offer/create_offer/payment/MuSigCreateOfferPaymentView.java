@@ -45,10 +45,8 @@ import org.fxmisc.easybind.EasyBind;
 import org.fxmisc.easybind.Subscription;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 @Slf4j
 public class MuSigCreateOfferPaymentView extends View<StackPane, MuSigCreateOfferPaymentModel, MuSigCreateOfferPaymentController> {
@@ -57,7 +55,6 @@ public class MuSigCreateOfferPaymentView extends View<StackPane, MuSigCreateOffe
     private final WizardOverlay noAccountOverlay, multipleAccountsOverlay, noPaymentMethodSelectedOverlay;
     private final Button noAccountOverlayCloseButton, createAccountButton, multipleAccountsOverlayCloseButton, noPaymentMethodSelectedOverlayCloseButton;
     private final AutoCompleteComboBox<Account<?, ?>> accountSelection;
-    private final Set<ImageView> closeIcons = new HashSet<>();
     private final Label noPaymentMethodSelectedOverlayLabel;
     private final List<MuSigPaymentMethodChipButton> paymentMethodChipButtons = new ArrayList<>();
     private final ListChangeListener<PaymentMethod<?>> paymentMethodListener;
@@ -174,16 +171,11 @@ public class MuSigCreateOfferPaymentView extends View<StackPane, MuSigCreateOffe
         noPaymentMethodSelectedOverlayCloseButton.setOnAction(null);
         accountSelection.setOnChangeConfirmed(null);
 
-        closeIcons.forEach(imageView -> imageView.setOnMousePressed(null));
-        closeIcons.clear();
-
         root.setOnKeyPressed(null);
         root.setOnMousePressed(null);
     }
 
     private void setUpAndFillPaymentMethods() {
-        closeIcons.forEach(imageView -> imageView.setOnMousePressed(null));
-        closeIcons.clear();
         gridPane.getChildren().clear();
         gridPane.getColumnConstraints().clear();
         paymentMethodChipButtons.clear();

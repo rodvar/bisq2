@@ -200,6 +200,8 @@ public class MuSigCreateOfferPaymentController implements Controller {
 
     public void selectAccount(Account<? extends PaymentMethod<?>, ?> account, PaymentMethod<?> paymentMethod) {
         doSelectAccount(account, paymentMethod);
+
+        model.getSelectedPaymentMethods().add(paymentMethod);
     }
 
     void onSelectAccount(Account<? extends PaymentMethod<?>, ?> account, PaymentMethod<?> paymentMethod) {
