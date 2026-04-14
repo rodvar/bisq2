@@ -42,10 +42,12 @@ public class MuSigTradeStateModel implements Model {
     private final BooleanProperty error = new SimpleBooleanProperty();
     private final BooleanProperty phaseAndInfoVisible = new SimpleBooleanProperty();
     private final BooleanProperty isInMediation = new SimpleBooleanProperty();
+    private final BooleanProperty isInArbitration = new SimpleBooleanProperty();
     private final BooleanProperty showReportToMediatorButton = new SimpleBooleanProperty();
     private final StringProperty errorMessage = new SimpleStringProperty();
     private final BooleanProperty isTradeCompleted = new SimpleBooleanProperty();
     private final ObjectProperty<MessageDeliveryStatus> requestMediationDeliveryStatus = new SimpleObjectProperty<>();
+    private final ObjectProperty<MessageDeliveryStatus> requestArbitrationDeliveryStatus = new SimpleObjectProperty<>();
     private final BooleanProperty shouldShowTryRequestMediationAgain = new SimpleBooleanProperty();
     private final ObjectProperty<Optional<Boolean>> myMediationResultAccepted = new SimpleObjectProperty<>(Optional.empty());
 
@@ -60,10 +62,12 @@ public class MuSigTradeStateModel implements Model {
         error.set(false);
         phaseAndInfoVisible.set(false);
         isInMediation.set(false);
+        isInArbitration.set(false);
         showReportToMediatorButton.set(false);
         errorMessage.set(null);
         isTradeCompleted.set(false);
         requestMediationDeliveryStatus.set(null);
+        requestArbitrationDeliveryStatus.set(null);
         shouldShowTryRequestMediationAgain.set(false);
         myMediationResultAccepted.set(Optional.empty());
     }
