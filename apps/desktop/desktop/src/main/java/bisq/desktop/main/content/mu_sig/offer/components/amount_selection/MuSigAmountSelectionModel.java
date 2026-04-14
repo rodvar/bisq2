@@ -60,9 +60,12 @@ public class MuSigAmountSelectionModel implements Model {
     private final ObjectProperty<Monetary> maxAllowedQuoteSideAmount = new SimpleObjectProperty<>();
     private final ObjectProperty<Monetary> maxAllowedBaseSideAmount = new SimpleObjectProperty<>();
 
-    private final StringProperty formattedMinRangeAmount = new SimpleStringProperty();
-    private final StringProperty rangeAmountCode = new SimpleStringProperty();
-    private final StringProperty formattedMaxAllowedQuoteSideAmount = new SimpleStringProperty();
+    private final StringProperty formattedMinTradeAmountLimit = new SimpleStringProperty();
+    private final StringProperty formattedMaxTradeAmountLimit = new SimpleStringProperty();
+    private final StringProperty formattedMinTradeAmountLimitInUsd = new SimpleStringProperty();
+    private final StringProperty formattedMaxTradeAmountLimitInUsd = new SimpleStringProperty();
+    private final StringProperty tradeAmountLimitCode = new SimpleStringProperty();
+    private final BooleanProperty showTradeAmountLimitInUsd = new SimpleBooleanProperty();
 
 
     // Amounts
@@ -135,9 +138,12 @@ public class MuSigAmountSelectionModel implements Model {
         market = MarketRepository.getDefaultBtcFiatMarket();
         direction = Direction.BUY;
         description.set(null);
-        formattedMinRangeAmount.set(null);
-        rangeAmountCode.set(null);
-        formattedMaxAllowedQuoteSideAmount.set(null);
+        formattedMinTradeAmountLimit.set(null);
+        formattedMaxTradeAmountLimit.set(null);
+        tradeAmountLimitCode.set(null);
+        formattedMinTradeAmountLimitInUsd.set(null);
+        formattedMaxTradeAmountLimitInUsd.set(null);
+        showTradeAmountLimitInUsd.set(false);
         showRangeAmountSelection.set(false);
         isDefaultAmountInputBtc.set(false);
         shouldShowMinAmounts.set(false);
