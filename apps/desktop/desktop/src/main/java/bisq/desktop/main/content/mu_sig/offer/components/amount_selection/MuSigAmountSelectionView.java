@@ -75,7 +75,7 @@ public class MuSigAmountSelectionView extends View<VBox, MuSigAmountSelectionMod
     private final ChangeListener<Number> maxOrFixedAmountSliderValueListener, minAmountSliderValueListener;
     private final BisqMenuItem flipCurrenciesButton;
     private final RangeSlider rangeAmountSlider;
-    private Subscription shouldFocusInputTextFieldPin, sliderTrackStylePin, isRangeAmountEnabledPin,
+    private Subscription shouldFocusInputTextFieldPin, sliderTrackStylePin, useRangeAmountPin,
             shouldApplyNewInputTextFontStylePin;
 
     MuSigAmountSelectionView(MuSigAmountSelectionModel model,
@@ -131,6 +131,9 @@ public class MuSigAmountSelectionView extends View<VBox, MuSigAmountSelectionMod
         baseAmountSelectionHBox = new HBox(minBaseAmountRoot, invertedMinQuoteAmountRoot, baseAmountSeparator,
                 maxOrFixedBaseAmountRoot, invertedMaxOrFixedQuoteAmountRoot);
         baseAmountSelectionHBox.getStyleClass().add("base-amount");
+        baseAmountSelectionHBox.setMinWidth(model.getAmountBoxWidth() - 10);
+        baseAmountSelectionHBox.setMaxWidth(model.getAmountBoxWidth() - 10);
+
 
         flipCurrenciesButton = new BisqMenuItem("flip-fields-arrows-green", "flip-fields-arrows-white");
         flipCurrenciesButton.setTooltip(Res.get("muSig.offer.create.amount.selection.flipCurrenciesButton.tooltip"));
@@ -216,11 +219,11 @@ public class MuSigAmountSelectionView extends View<VBox, MuSigAmountSelectionMod
 
     @Override
     protected void onViewAttached() {
-        isRangeAmountEnabledPin = EasyBind.subscribe(model.getIsRangeAmountEnabled(), isRangeAmountEnabled -> {
+        useRangeAmountPin = EasyBind.subscribe(model.getUseRangeAmount(), useRangeAmount -> {
             root.getStyleClass().clear();
             root.getStyleClass().add("amount-selection");
-            root.getStyleClass().add(isRangeAmountEnabled ? "range-amount" : "fixed-amount");
-            VBox.setMargin(sliderIndicators, isRangeAmountEnabled ? SLIDER_INDICATORS_RANGE_MARGIN : SLIDER_INDICATORS_FIXED_MARGIN);
+            root.getStyleClass().add(useRangeAmount ? "range-amount" : "fixed-amount");
+            VBox.setMargin(sliderIndicators, useRangeAmount ? SLIDER_INDICATORS_RANGE_MARGIN : SLIDER_INDICATORS_FIXED_MARGIN);
             applyTextInputFontStyle(true);
         });
         sliderTrackStylePin = EasyBind.subscribe(model.getSliderTrackStyle(), trackStyle -> {
@@ -240,14 +243,14 @@ public class MuSigAmountSelectionView extends View<VBox, MuSigAmountSelectionMod
         fixedAmountSlider.valueProperty().addListener(maxOrFixedAmountSliderValueListener);
         model.getMaxOrFixedAmountSliderFocus().bind(fixedAmountSlider.focusedProperty());
         description.textProperty().bind(model.getDescription());
-        minRangeValue.textProperty().bind(model.getMinRangeValueAsString());
-        minRangeCode.textProperty().bind(model.getMinRangeCodeAsString());
-        maxRangeValue.textProperty().bind(model.getMaxRangeValueLimitationAsString());
-        maxRangeCode.textProperty().bind(model.getMaxRangeCodeAsString());
-        quoteAmountSeparator.visibleProperty().bind(model.getIsRangeAmountEnabled());
-        quoteAmountSeparator.managedProperty().bind(model.getIsRangeAmountEnabled());
-        baseAmountSeparator.visibleProperty().bind(model.getIsRangeAmountEnabled());
-        baseAmountSeparator.managedProperty().bind(model.getIsRangeAmountEnabled());
+        minRangeValue.textProperty().bind(model.getFormattedMinRangeAmount());
+        minRangeCode.textProperty().bind(model.getRangeAmountCode());
+        maxRangeValue.textProperty().bind(model.getFormattedMaxAllowedQuoteSideAmount());
+        maxRangeCode.textProperty().bind(model.getRangeAmountCode());
+        quoteAmountSeparator.visibleProperty().bind(model.getUseRangeAmount());
+        quoteAmountSeparator.managedProperty().bind(model.getUseRangeAmount());
+        baseAmountSeparator.visibleProperty().bind(model.getUseRangeAmount());
+        baseAmountSeparator.managedProperty().bind(model.getUseRangeAmount());
         minQuoteAmountRoot.visibleProperty().bind(model.getShouldShowMinAmounts());
         minQuoteAmountRoot.managedProperty().bind(model.getShouldShowMinAmounts());
         minBaseAmountRoot.visibleProperty().bind(model.getShouldShowMinAmounts());
@@ -256,14 +259,10 @@ public class MuSigAmountSelectionView extends View<VBox, MuSigAmountSelectionMod
         invertedMinQuoteAmountRoot.managedProperty().bind(model.getShouldShowInvertedMinAmounts());
         invertedMinBaseAmountRoot.visibleProperty().bind(model.getShouldShowInvertedMinAmounts());
         invertedMinBaseAmountRoot.managedProperty().bind(model.getShouldShowInvertedMinAmounts());
-        rangeAmountSlider.visibleProperty().bind(model.getIsRangeAmountEnabled());
-        rangeAmountSlider.managedProperty().bind(model.getIsRangeAmountEnabled());
-        fixedAmountSlider.visibleProperty().bind(model.getIsRangeAmountEnabled().not());
-        fixedAmountSlider.managedProperty().bind(model.getIsRangeAmountEnabled().not());
-        flipCurrenciesButton.visibleProperty().bind(model.getAllowInvertingBaseAndQuoteCurrencies());
-        flipCurrenciesButton.managedProperty().bind(model.getAllowInvertingBaseAndQuoteCurrencies());
-        baseAmountSelectionHBox.minWidthProperty().bind(model.getBaseAmountSelectionHBoxWidth());
-        baseAmountSelectionHBox.maxWidthProperty().bind(model.getBaseAmountSelectionHBoxWidth());
+        rangeAmountSlider.visibleProperty().bind(model.getUseRangeAmount());
+        rangeAmountSlider.managedProperty().bind(model.getUseRangeAmount());
+        fixedAmountSlider.visibleProperty().bind(model.getUseRangeAmount().not());
+        fixedAmountSlider.managedProperty().bind(model.getUseRangeAmount().not());
         maxOrFixedBaseAmountRoot.visibleProperty().bind(model.getShouldShowMaxOrFixedAmounts());
         maxOrFixedBaseAmountRoot.managedProperty().bind(model.getShouldShowMaxOrFixedAmounts());
         maxOrFixedQuoteAmountRoot.visibleProperty().bind(model.getShouldShowMaxOrFixedAmounts());
@@ -286,7 +285,7 @@ public class MuSigAmountSelectionView extends View<VBox, MuSigAmountSelectionMod
 
     @Override
     protected void onViewDetached() {
-        isRangeAmountEnabledPin.unsubscribe();
+        useRangeAmountPin.unsubscribe();
         sliderTrackStylePin.unsubscribe();
         shouldFocusInputTextFieldPin.unsubscribe();
         shouldApplyNewInputTextFontStylePin.unsubscribe();
@@ -321,10 +320,6 @@ public class MuSigAmountSelectionView extends View<VBox, MuSigAmountSelectionMod
         rangeAmountSlider.managedProperty().unbind();
         fixedAmountSlider.visibleProperty().unbind();
         fixedAmountSlider.managedProperty().unbind();
-        flipCurrenciesButton.visibleProperty().unbind();
-        flipCurrenciesButton.managedProperty().unbind();
-        baseAmountSelectionHBox.minWidthProperty().unbind();
-        baseAmountSelectionHBox.maxWidthProperty().unbind();
         maxOrFixedBaseAmountRoot.visibleProperty().unbind();
         maxOrFixedBaseAmountRoot.managedProperty().unbind();
         maxOrFixedQuoteAmountRoot.visibleProperty().unbind();

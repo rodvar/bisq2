@@ -21,6 +21,7 @@ import bisq.bisq_easy.BisqEasyTradeAmountLimits;
 import bisq.bonded_roles.market_price.MarketPriceService;
 import bisq.common.market.Market;
 import bisq.common.monetary.Monetary;
+import bisq.common.monetary.MonetaryRange;
 import bisq.desktop.ServiceProvider;
 import bisq.desktop.common.Browser;
 import bisq.desktop.common.utils.KeyHandlerUtil;
@@ -106,7 +107,6 @@ public class MuSigTakeOfferAmountController implements Controller {
 
     @Override
     public void onActivate() {
-        amountSelectionController.setAllowInvertingBaseAndQuoteCurrencies(true);
         applyQuoteSideMinMaxRange();
         baseSideAmountPin = EasyBind.subscribe(amountSelectionController.getMaxOrFixedBaseSideAmount(),
                 amount -> {
@@ -188,7 +188,7 @@ public class MuSigTakeOfferAmountController implements Controller {
 
         amountSelectionController.setMaxAllowedLimitation(offersQuoteSideMaxOrFixedAmount);
         amountSelectionController.setRightMarkerQuoteSideValue(maxAmount);
-        amountSelectionController.setMinMaxRange(minRangeValue, maxAmount);
+        amountSelectionController.setQuoteSideTradeAmountLimits(new MonetaryRange(minRangeValue, maxAmount));
 
         boolean isBuyer = muSigOffer.getTakersDisplayDirection().isBuy();
         if (isBuyer) {

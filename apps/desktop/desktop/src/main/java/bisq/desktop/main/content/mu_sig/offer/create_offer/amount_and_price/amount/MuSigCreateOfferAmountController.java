@@ -23,6 +23,7 @@ import bisq.bonded_roles.market_price.MarketPriceService;
 import bisq.common.market.Market;
 import bisq.common.monetary.Fiat;
 import bisq.common.monetary.Monetary;
+import bisq.common.monetary.MonetaryRange;
 import bisq.common.monetary.PriceQuote;
 import bisq.desktop.ServiceProvider;
 import bisq.desktop.common.Browser;
@@ -59,12 +60,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static bisq.mu_sig.MuSigTradeAmountLimits.DEFAULT_MIN_USD_TRADE_AMOUNT;
 import static bisq.mu_sig.MuSigTradeAmountLimits.MAX_USD_TRADE_AMOUNT;
 import static bisq.mu_sig.MuSigTradeAmountLimits.MAX_USD_TRADE_AMOUNT_WITHOUT_REPUTATION;
+import static bisq.mu_sig.MuSigTradeAmountLimits.MIN_USD_TRADE_AMOUNT;
 import static bisq.mu_sig.MuSigTradeAmountLimits.withTolerance;
 import static bisq.presentation.formatters.AmountFormatter.formatQuoteAmountWithCode;
-import static com.google.common.base.Preconditions.checkNotNull;
 
 @Slf4j
 public class MuSigCreateOfferAmountController implements Controller {
@@ -180,7 +180,6 @@ public class MuSigCreateOfferAmountController implements Controller {
 
     @Override
     public void onActivate() {
-        amountSelectionController.setAllowInvertingBaseAndQuoteCurrencies(true);
         model.getShouldShowWarningIcon().set(false);
         applyQuoteSideMinMaxRange();
 
@@ -238,13 +237,13 @@ public class MuSigCreateOfferAmountController implements Controller {
 
         isRangeAmountEnabledPin = EasyBind.subscribe(model.getIsRangeAmountEnabled(), isRangeAmountEnabled -> {
             applyAmountSpec();
-            amountSelectionController.setIsRangeAmountEnabled(isRangeAmountEnabled);
+            amountSelectionController.setUseRangeAmount(isRangeAmountEnabled);
         });
         applyAmountSpec();
 
         areBaseAndQuoteCurrenciesInvertedPin = EasyBind.subscribe(amountSelectionController.getIsDefaultAmountInputBtc(), isDefaultAmountInputBtc -> {
             String quoteCode = model.getPriceQuote().get().getMarket().getQuoteCurrencyCode();
-            model.getPriceTooltip().set(amountSelectionController.isUsingInvertedBaseAndQuoteCurrencies()
+            model.getPriceTooltip().set(amountSelectionController.isDefaultAmountInputBtc()
                     ? Res.get("muSig.offer.wizard.amount.quoteSide.tooltip.fiatAmount.selectedPrice", quoteCode)
                     : Res.get("muSig.offer.wizard.amount.baseSide.tooltip.btcAmount.selectedPrice"));
         });
@@ -319,7 +318,9 @@ public class MuSigCreateOfferAmountController implements Controller {
 
         if (model.getIsRangeAmountEnabled().get()) {
             Long minAmount = getAmountValue(amountSelectionController.getMinBaseSideAmount());
-            checkNotNull(minAmount);
+            if (minAmount == null) {
+                return;
+            }
             if (maxOrFixAmount.compareTo(minAmount) < 0) {
                 amountSelectionController.setMinBaseSideAmount(amountSelectionController.getMaxOrFixedBaseSideAmount().get());
                 minAmount = getAmountValue(amountSelectionController.getMinBaseSideAmount());
@@ -430,14 +431,16 @@ public class MuSigCreateOfferAmountController implements Controller {
     private void applyQuoteSideMinMaxRange() {
         Market market = model.getMarket();
 
+        Monetary minRangeValue = market.isCrypto()
+                ? MarketBasedAmountConversion.usdToBtc(marketPriceService, MIN_USD_TRADE_AMOUNT).orElseThrow()
+                : MarketBasedAmountConversion.usdToFiat(marketPriceService, market, MIN_USD_TRADE_AMOUNT)
+                .orElseThrow().round(0);
+
         Monetary maxRangeValue = market.isCrypto()
                 ? MarketBasedAmountConversion.usdToBtc(marketPriceService, MAX_USD_TRADE_AMOUNT).orElseThrow()
                 : MarketBasedAmountConversion.usdToFiat(marketPriceService, market, MAX_USD_TRADE_AMOUNT)
                 .orElseThrow().round(0);
-        Monetary minRangeValue = market.isCrypto()
-                ? MarketBasedAmountConversion.usdToBtc(marketPriceService, DEFAULT_MIN_USD_TRADE_AMOUNT).orElseThrow()
-                : MarketBasedAmountConversion.usdToFiat(marketPriceService, market, DEFAULT_MIN_USD_TRADE_AMOUNT)
-                .orElseThrow().round(0);
+
         applyMaxAmountBasedOnReputation();
 
         Fiat defaultUsdAmount = MAX_USD_TRADE_AMOUNT_WITHOUT_REPUTATION.multiply(2);
@@ -456,7 +459,7 @@ public class MuSigCreateOfferAmountController implements Controller {
 
         if (isBuyer) {
             //model.getShouldShowAmountLimitInfo().set(true);
-            amountSelectionController.setMinMaxRange(minRangeValue, maxRangeValue);
+            amountSelectionController.setQuoteSideTradeAmountLimits(new MonetaryRange(minRangeValue, maxRangeValue));
         } else {
             boolean hasNotReachedAmountLimit = reputationBasedMaxAmount.getValue() < maxRangeValue.getValue();
             //model.getShouldShowAmountLimitInfo().set(hasNotReachedAmountLimit);
@@ -466,7 +469,7 @@ public class MuSigCreateOfferAmountController implements Controller {
             if (reputationBasedMaxAmount.getValue() < maxRangeValue.getValue()) {
                 maxRangeValue = reputationBasedMaxAmount;
             }
-            amountSelectionController.setMinMaxRange(minRangeValue, maxRangeValue);
+            amountSelectionController.setQuoteSideTradeAmountLimits(new MonetaryRange(minRangeValue, maxRangeValue));
         }
 
         if (isBuyer) {

@@ -97,7 +97,7 @@ public class MuSigTradeLimitsSimulationController implements Controller {
 
     private void applySelectFiatPaymentRail(FiatPaymentRail fiatPaymentRail) {
         model.getSelectedFiatPaymentRail().set(fiatPaymentRail);
-        String maxTradeLimit = MuSigTradeAmountLimits.getFormattedMaxTradeLimit(fiatPaymentRail);
+        String maxTradeLimit = MuSigTradeAmountLimits.getFormattedMaxTradeLimitInUsd(fiatPaymentRail);
         model.getFiatPaymentRailMaxLimit().set(Res.get("muSig.trade.limits.simulation.fiatRail.maxLimit", maxTradeLimit));
         updateLimits();
     }
@@ -108,7 +108,7 @@ public class MuSigTradeLimitsSimulationController implements Controller {
             return;
         }
 
-        double maxTradeLimit = MuSigTradeAmountLimits.getMaxTradeLimit(fiatPaymentRail).getValue() / 10000d;
+        double maxTradeLimit = MuSigTradeAmountLimits.getMaxTradeLimitInUsd(fiatPaymentRail).getValue() / 10000d;
         // We use 10% of max limit as default limit
         double defaultTradeLimit = maxTradeLimit * 0.1;    // 250-1000
 

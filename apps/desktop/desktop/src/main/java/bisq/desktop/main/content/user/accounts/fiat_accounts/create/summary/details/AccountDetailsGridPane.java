@@ -59,7 +59,7 @@ public abstract class AccountDetailsGridPane<A extends AccountPayload<?>, R exte
     protected abstract void addDetails(A accountPayload);
 
     protected void addRestrictions(R fiatPaymentRail) {
-        String maxTradeLimit = MuSigTradeAmountLimits.getFormattedMaxTradeLimit(fiatPaymentRail);
+        String maxTradeLimit = MuSigTradeAmountLimits.getFormattedMaxTradeLimitInUsd(fiatPaymentRail);
         String restrictions = Res.get("paymentAccounts.summary.tradeLimit", maxTradeLimit) + " / " +
                 Res.get("paymentAccounts.summary.tradeDuration", fiatPaymentRail.getTradeDuration().getDisplayString());
         addDescriptionAndValue(Res.get("paymentAccounts.restrictions"), restrictions);

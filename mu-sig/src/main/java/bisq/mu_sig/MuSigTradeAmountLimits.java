@@ -53,7 +53,7 @@ import static bisq.bonded_roles.market_price.MarketBasedAmountConversion.usdToFi
 
 @Slf4j
 public class MuSigTradeAmountLimits {
-    public static final Fiat DEFAULT_MIN_USD_TRADE_AMOUNT = Fiat.fromFaceValue(10, "USD");
+    public static final Fiat MIN_USD_TRADE_AMOUNT = Fiat.fromFaceValue(10, "USD");
 
 
     /* --------------------------------------------------------------------- */
@@ -62,16 +62,16 @@ public class MuSigTradeAmountLimits {
 
     public static final Fiat MAX_USD_TRADE_AMOUNT = Fiat.fromFaceValue(10000, "USD");
 
-    public static Fiat getMaxTradeLimit(PaymentRail paymentRail) {
-        return getMaxTradeLimit(paymentRail, MAX_USD_TRADE_AMOUNT);
+    public static Fiat getMaxTradeLimitInUsd(PaymentRail paymentRail) {
+        return getMaxTradeLimitInUsd(paymentRail, MAX_USD_TRADE_AMOUNT);
     }
 
-    public static String getFormattedMaxTradeLimit(PaymentRail paymentRail) {
-        Fiat maxTradeLimit = getMaxTradeLimit(paymentRail);
+    public static String getFormattedMaxTradeLimitInUsd(PaymentRail paymentRail) {
+        Fiat maxTradeLimit = getMaxTradeLimitInUsd(paymentRail);
         return AmountFormatter.formatQuoteAmount(maxTradeLimit);
     }
 
-    public static Fiat getMaxTradeLimit(PaymentRail paymentRail, Fiat maxTradeLimitByProtocol) {
+    public static Fiat getMaxTradeLimitInUsd(PaymentRail paymentRail, Fiat maxTradeLimitByProtocol) {
         if (paymentRail instanceof FiatPaymentRail fiatPaymentRail) {
             switch (fiatPaymentRail.getChargebackRisk()) {
                 case VERY_LOW -> {
@@ -111,7 +111,7 @@ public class MuSigTradeAmountLimits {
 
     public static Optional<Monetary> getMinQuoteSideTradeAmount(MarketPriceService marketPriceService, Market market) {
         return marketPriceService.findMarketPriceQuote(MarketRepository.getUSDBitcoinMarket())
-                .map(priceQuote -> priceQuote.toBaseSideMonetary(DEFAULT_MIN_USD_TRADE_AMOUNT))
+                .map(priceQuote -> priceQuote.toBaseSideMonetary(MIN_USD_TRADE_AMOUNT))
                 .flatMap(defaultMinBtcTradeAmount -> marketPriceService.findMarketPriceQuote(market)
                         .map(priceQuote -> priceQuote.toQuoteSideMonetary(defaultMinBtcTradeAmount)));
     }
