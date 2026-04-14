@@ -34,8 +34,16 @@ import javafx.beans.property.StringProperty;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Map;
+
 @Getter
 public class MuSigAmountSelectionModel implements Model {
+    static final String SLIDER_TRACK_DEFAULT_COLOR = "-bisq-dark-grey-50";
+    static final String SLIDER_TRACK_MARKER_COLOR = "-bisq2-green";
+    static final int RANGE_INPUT_TEXT_MAX_LENGTH = 11;
+    static final int FIXED_INPUT_TEXT_MAX_LENGTH = 18;
+
+    private final Map<Integer, Integer> widthByNumCharsMap;
     @Setter
     private Market market = MarketRepository.getDefaultBtcFiatMarket();
     @Setter
@@ -98,6 +106,10 @@ public class MuSigAmountSelectionModel implements Model {
     public final int amountBoxHeight = 120;
     private final BooleanProperty shouldFocusInputTextField = new SimpleBooleanProperty(false);
     private final BooleanProperty shouldApplyNewInputTextFontStyle = new SimpleBooleanProperty(false);
+
+    public MuSigAmountSelectionModel(Map<Integer, Integer> widthByNumCharsMap) {
+        this.widthByNumCharsMap = widthByNumCharsMap;
+    }
 
     void reset() {
         maxOrFixedBaseSideAmount.set(null);

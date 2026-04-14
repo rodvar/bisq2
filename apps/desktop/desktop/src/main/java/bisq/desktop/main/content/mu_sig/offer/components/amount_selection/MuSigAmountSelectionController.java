@@ -53,22 +53,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 public class MuSigAmountSelectionController implements Controller {
-    private static final String SLIDER_TRACK_DEFAULT_COLOR = "-bisq-dark-grey-50";
-    private static final String SLIDER_TRACK_MARKER_COLOR = "-bisq2-green";
-    private static final int RANGE_INPUT_TEXT_MAX_LENGTH = 11;
-    private static final int FIXED_INPUT_TEXT_MAX_LENGTH = 18;
-    private static final Map<Integer, Integer> CHAR_WIDTH_MAP = new HashMap<>();
-
-    static {
-        CHAR_WIDTH_MAP.put(10, 28);
-        CHAR_WIDTH_MAP.put(11, 25);
-        CHAR_WIDTH_MAP.put(12, 23);
-        CHAR_WIDTH_MAP.put(13, 21);
-        CHAR_WIDTH_MAP.put(14, 19);
-        CHAR_WIDTH_MAP.put(15, 18);
-        CHAR_WIDTH_MAP.put(16, 17);
-        CHAR_WIDTH_MAP.put(17, 16);
-    }
 
     final MuSigAmountSelectionModel model;
     @Getter
@@ -107,7 +91,7 @@ public class MuSigAmountSelectionController implements Controller {
 
         priceInput = new MuSigPriceInput(serviceProvider.getBondedRolesService().getMarketPriceService());
 
-        model = new MuSigAmountSelectionModel();
+        model = new MuSigAmountSelectionModel(getWidthByNumCharsMap());
         view = new MuSigAmountSelectionView(model,
                 this,
                 maxOrFixedBaseSideAmountDisplay.getRoot(),
@@ -377,8 +361,10 @@ public class MuSigAmountSelectionController implements Controller {
                                     : "muSig.offer.create.amount.description.fixed"
                             , model.getMarket().getQuoteCurrencyCode()));
             updateShouldShowAmounts();
-            maxOrFixedQuoteSideAmountInput.setTextInputMaxCharCount(useRangeAmount ? RANGE_INPUT_TEXT_MAX_LENGTH : FIXED_INPUT_TEXT_MAX_LENGTH);
-            minQuoteSideAmountInput.setTextInputMaxCharCount(RANGE_INPUT_TEXT_MAX_LENGTH);
+            maxOrFixedQuoteSideAmountInput.setTextInputMaxCharCount(useRangeAmount
+                    ? MuSigAmountSelectionModel.RANGE_INPUT_TEXT_MAX_LENGTH
+                    : MuSigAmountSelectionModel.FIXED_INPUT_TEXT_MAX_LENGTH);
+            minQuoteSideAmountInput.setTextInputMaxCharCount(MuSigAmountSelectionModel.RANGE_INPUT_TEXT_MAX_LENGTH);
             applyTextInputPrefWidth();
             deselectAll();
             schedulers.add(UIScheduler.run(this::requestFocusForAmountInput).after(150));
@@ -609,7 +595,7 @@ public class MuSigAmountSelectionController implements Controller {
             return;
         }
         Monetary min = rangeQuoteSideAmount.getMin();
-        Monetary max = model.getMaxAllowedQuoteSideAmount() != null
+        Monetary max = model.getMaxAllowedQuoteSideAmount().get() != null
                 ? model.getMaxAllowedQuoteSideAmount().get()
                 : rangeQuoteSideAmount.getMax();
         if (min == null || max == null) {
@@ -647,14 +633,14 @@ public class MuSigAmountSelectionController implements Controller {
 
         // E.g.: -bisq-dark-grey-50 0%, -bisq-dark-grey-50 30.0%, -bisq2-green 30.0%, -bisq2-green 60.0%, -bisq-dark-grey-50 60.0%, -bisq-dark-grey-50 100%)
         String segments = String.format(
-                SLIDER_TRACK_DEFAULT_COLOR + " 0%%, " +
-                        SLIDER_TRACK_DEFAULT_COLOR + " %1$.1f%%, " +
+                MuSigAmountSelectionModel.SLIDER_TRACK_DEFAULT_COLOR + " 0%%, " +
+                        MuSigAmountSelectionModel.SLIDER_TRACK_DEFAULT_COLOR + " %1$.1f%%, " +
 
-                        SLIDER_TRACK_MARKER_COLOR + " %1$.1f%%, " +
-                        SLIDER_TRACK_MARKER_COLOR + " %2$.1f%%, " +
+                        MuSigAmountSelectionModel.SLIDER_TRACK_MARKER_COLOR + " %1$.1f%%, " +
+                        MuSigAmountSelectionModel.SLIDER_TRACK_MARKER_COLOR + " %2$.1f%%, " +
 
-                        SLIDER_TRACK_DEFAULT_COLOR + " %2$.1f%%, " +
-                        SLIDER_TRACK_DEFAULT_COLOR + " 100%%)",
+                        MuSigAmountSelectionModel.SLIDER_TRACK_DEFAULT_COLOR + " %2$.1f%%, " +
+                        MuSigAmountSelectionModel.SLIDER_TRACK_DEFAULT_COLOR + " 100%%)",
                 leftPercentage, rightPercentage);
         String style = "-track-color: linear-gradient(to right, " + segments + ";";
         model.getSliderTrackStyle().set(style);
@@ -891,11 +877,24 @@ public class MuSigAmountSelectionController implements Controller {
         applyTextInputPrefWidth();
     }
 
-    private static int getFontCharWidth(int charCount) {
+    private int getFontCharWidth(int charCount) {
         if (charCount < 10) {
             return 31;
         } else {
-            return CHAR_WIDTH_MAP.getOrDefault(charCount, 15); // Default to 15 if not found
+            return model.getWidthByNumCharsMap().getOrDefault(charCount, 15); // Default to 15 if not found
         }
+    }
+
+    private static Map<Integer, Integer> getWidthByNumCharsMap() {
+        Map<Integer, Integer> map = new HashMap<>();
+        map.put(10, 28);
+        map.put(11, 25);
+        map.put(12, 23);
+        map.put(13, 21);
+        map.put(14, 19);
+        map.put(15, 18);
+        map.put(16, 17);
+        map.put(17, 16);
+        return map;
     }
 }
