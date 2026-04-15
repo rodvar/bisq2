@@ -18,6 +18,7 @@
 package bisq.desktop.components.controls;
 
 import bisq.common.locale.LocaleRepository;
+import bisq.common.util.StringUtils;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
@@ -157,7 +158,7 @@ public class BitcoinAmountDisplay extends HBox {
     }
 
     private void formatBtcAmount(String amount) {
-        char decimalSeparator = DecimalFormatSymbols.getInstance(LocaleRepository.getDefaultLocale()).getDecimalSeparator();
+        char decimalSeparator = StringUtils.getDecimalSeparator();
 
         // If the amount does not contain a decimal separator, append it with eight zeros
         if (!amount.contains(String.valueOf(decimalSeparator))) {
