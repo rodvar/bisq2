@@ -20,10 +20,14 @@ package bisq.common.validation;
 import bisq.common.locale.LocaleRepository;
 import bisq.common.util.StringUtils;
 
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public class NumberValidation {
+    private static final Map<String, Pattern> CACHE = new HashMap<>();
+
     /**
      * Validates a numeric input token using the default locale's decimal separator.
      * Only digits and a single optional decimal separator are allowed.
@@ -58,7 +62,13 @@ public class NumberValidation {
     }
 
     private static Pattern getRegex(char decimalSeparator) {
-        String sep = Pattern.quote(String.valueOf(decimalSeparator));
-        return Pattern.compile("\\d*(" + sep + "\\d*)?");
+        String key = String.valueOf(decimalSeparator);
+        if (CACHE.containsKey(key)) {
+            return CACHE.get(key);
+        }
+        String sep = Pattern.quote(key);
+        Pattern pattern = Pattern.compile("\\d*(" + sep + "\\d*)?");
+        CACHE.put(key, pattern);
+        return pattern;
     }
 }
