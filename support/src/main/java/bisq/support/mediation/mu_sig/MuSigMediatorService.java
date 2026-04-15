@@ -34,15 +34,15 @@ import bisq.contract.Role;
 import bisq.contract.mu_sig.MuSigContract;
 import bisq.i18n.Res;
 import bisq.network.NetworkService;
-import bisq.network.identity.NetworkId;
 import bisq.network.identity.NetworkIdWithKeyPair;
 import bisq.network.p2p.message.EnvelopePayloadMessage;
 import bisq.network.p2p.services.confidential.ConfidentialMessageService;
-import bisq.offer.options.OfferOptionUtil;
 import bisq.persistence.DbSubDirectory;
 import bisq.persistence.Persistence;
 import bisq.persistence.PersistenceService;
 import bisq.persistence.RateLimitedPersistenceClient;
+import bisq.support.dispute.mu_sig.MuSigDisputePaymentDetailsVerifier;
+import bisq.support.dispute.mu_sig.MuSigDisputeRoleIdentityResolver;
 import bisq.support.mediation.MediationCaseState;
 import bisq.support.mediation.MediationPayoutDistributionType;
 import bisq.support.mediation.MediationResultReason;
@@ -56,13 +56,16 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
+
+import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.hasMatchingContractParties;
+import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.hasMatchingContractDisputeAgent;
+import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.resolveSenderRole;
 
 /**
  * Service used by mediators
@@ -238,17 +241,10 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
     }
 
     public Optional<UserIdentity> findMyMediatorUserIdentity(Optional<UserProfile> mediator) {
-        return findMyMediatorUserIdentities()
-                .filter(e -> mediator.isPresent())
-                .filter(userIdentity -> userIdentity.getUserProfile().getId().equals(mediator.orElseThrow().getId()))
-                .findAny();
-    }
-
-    public Stream<UserIdentity> findMyMediatorUserIdentities() {
-        // If we got banned we still want to show the admin UI
-        return authorizedBondedRolesService.getAuthorizedBondedRoleStream(true)
-                .filter(data -> data.getBondedRoleType() == BondedRoleType.MEDIATOR)
-                .flatMap(data -> userIdentityService.findUserIdentity(data.getProfileId()).stream());
+        return MuSigDisputeRoleIdentityResolver.findMyUserIdentity(mediator,
+                authorizedBondedRolesService,
+                userIdentityService,
+                BondedRoleType.MEDIATOR);
     }
 
     /* --------------------------------------------------------------------- */
@@ -269,7 +265,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
                     muSigMediationRequest.getTradeId(), requester.getId(), peer.getId());
             return Optional.empty();
         }
-        if (!hasMatchingMediator(contract, muSigMediationRequest.getReceiver())) {
+        if (!hasMatchingContractDisputeAgent(contract.getMediator(), muSigMediationRequest.getReceiver())) {
             log.warn("Ignoring MuSigMediationRequest for trade {} because mediator does not match contract mediator.",
                     muSigMediationRequest.getTradeId());
             return Optional.empty();
@@ -279,49 +275,60 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
 
     private void processMediationRequest(MuSigMediationRequest muSigMediationRequest, UserProfile requester) {
         MuSigContract contract = muSigMediationRequest.getContract();
-        findMyMediatorUserIdentity(contract.getMediator()).ifPresent(myUserIdentity -> {
-            String tradeId = muSigMediationRequest.getTradeId();
-            UserProfile peer = muSigMediationRequest.getPeer();
-            List<MuSigOpenTradeMessage> chatMessages = muSigMediationRequest.getChatMessages();
-            MuSigOpenTradeChannel channel = muSigOpenTradeChannelService.mediatorFindOrCreatesChannel(
-                    tradeId,
-                    myUserIdentity,
-                    requester,
-                    peer
-            );
+        String tradeId = muSigMediationRequest.getTradeId();
+        if (findMediationCase(tradeId).isPresent()) {
+            log.info("Ignoring duplicate MuSigMediationRequest for already existing trade {}.", tradeId);
+            return;
+        }
 
-            muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
+        Optional<UserIdentity> myMediatorUserIdentity = findMyMediatorUserIdentity(contract.getMediator());
+        if (myMediatorUserIdentity.isEmpty()) {
+            log.warn("Ignoring MuSigMediationRequest for trade {} because no matching local mediator identity was found.",
+                    tradeId);
+            return;
+        }
 
-            chatMessages.forEach(chatMessage ->
-                    muSigOpenTradeChannelService.addMessage(chatMessage, channel));
+        UserIdentity myUserIdentity = myMediatorUserIdentity.orElseThrow();
+        UserProfile peer = muSigMediationRequest.getPeer();
+        List<MuSigOpenTradeMessage> chatMessages = muSigMediationRequest.getChatMessages();
+        MuSigOpenTradeChannel channel = muSigOpenTradeChannelService.mediatorFindOrCreatesChannel(
+                tradeId,
+                myUserIdentity,
+                requester,
+                peer
+        );
 
-            // We apply the muSigMediationCase after the channel is set up as clients will expect a channel.
-            MuSigMediationCase muSigMediationCase = new MuSigMediationCase(muSigMediationRequest);
-            addNewMediationCase(muSigMediationCase);
+        muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
 
-            NetworkIdWithKeyPair networkIdWithKeyPair = myUserIdentity.getNetworkIdWithKeyPair();
+        chatMessages.forEach(chatMessage ->
+                muSigOpenTradeChannelService.addMessage(chatMessage, channel));
 
-            MuSigMediationStateChangeMessage openMessage = new MuSigMediationStateChangeMessage(
-                    StringUtils.createUid(),
-                    tradeId,
-                    myUserIdentity.getUserProfile(),
-                    MediationCaseState.OPEN,
-                    Optional.empty(),
-                    Optional.empty());
+        // We apply the muSigMediationCase after the channel is set up as clients will expect a channel
+        MuSigMediationCase muSigMediationCase = new MuSigMediationCase(muSigMediationRequest);
+        addNewMediationCase(muSigMediationCase);
 
-            // Send to requester
-            networkService.confidentialSend(openMessage,
-                    requester.getNetworkId(),
-                    networkIdWithKeyPair);
-            muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toRequester"));
+        NetworkIdWithKeyPair networkIdWithKeyPair = myUserIdentity.getNetworkIdWithKeyPair();
 
-            // Send to peer
-            networkService.confidentialSend(openMessage,
-                    peer.getNetworkId(),
-                    networkIdWithKeyPair);
-            // TODO: check whether we could remove the following line due to the fact that the peer will also send the chat history
-            muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toNonRequester"));
-        });
+        MuSigMediationStateChangeMessage openMessage = new MuSigMediationStateChangeMessage(
+                StringUtils.createUid(),
+                tradeId,
+                myUserIdentity.getUserProfile(),
+                MediationCaseState.OPEN,
+                Optional.empty(),
+                Optional.empty());
+
+        // Send to requester
+        networkService.confidentialSend(openMessage,
+                requester.getNetworkId(),
+                networkIdWithKeyPair);
+        muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toRequester"));
+
+        // Send to peer
+        networkService.confidentialSend(openMessage,
+                peer.getNetworkId(),
+                networkIdWithKeyPair);
+        // TODO: check whether we could remove the following line due to the fact that the peer will also send the chat history
+        muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toNonRequester"));
     }
 
     static Optional<MuSigMediationCase> authorizeDisputeCasePaymentDetailsResponse(MuSigDisputeCasePaymentDetailsResponse response,
@@ -358,7 +365,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
                                                           MuSigMediationCase mediationCase) {
         String tradeId = response.getTradeId();
         MuSigMediationRequest muSigMediationRequest = mediationCase.getMuSigMediationRequest();
-        Role causingRole = resolveCausingRole(muSigMediationRequest.getContract(), response.getSenderUserProfile().getId());
+        Role causingRole = resolveSenderRole(muSigMediationRequest.getContract(), response.getSenderUserProfile().getId());
         PaymentDetailsVerification verification = verifyPaymentDetails(muSigMediationRequest.getContract(),
                 response,
                 causingRole);
@@ -412,7 +419,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
         boolean changed = mediationCase.setPeerReportedContractHash(message.getContractHash());
         byte[] expectedContractHash = ContractService.getContractHash(mediationRequest.getContract());
         if (!Arrays.equals(expectedContractHash, message.getContractHash())) {
-            Role causingRole = resolveCausingRole(mediationRequest.getContract(), message.getSenderUserProfile().getId());
+            Role causingRole = resolveSenderRole(mediationRequest.getContract(), message.getSenderUserProfile().getId());
             changed |= mediationCase.addIssues(List.of(new MuSigMediationIssue(
                     causingRole,
                     MuSigMediationIssueType.PEER_CONTRACT_HASH_MISMATCH,
@@ -438,38 +445,25 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
     private PaymentDetailsVerification verifyPaymentDetails(MuSigContract contract,
                                                             MuSigDisputeCasePaymentDetailsResponse response,
                                                             Role causingRole) {
-        List<MuSigMediationIssue> issues = new ArrayList<>();
-        String offerId = contract.getOffer().getId();
-        boolean takerAccountPayloadMatches = true;
-        boolean makerAccountPayloadMatches = true;
+        MuSigDisputePaymentDetailsVerifier.Result result = MuSigDisputePaymentDetailsVerifier.verify(contract,
+                response.getTakerAccountPayload(),
+                response.getMakerAccountPayload());
+        List<MuSigMediationIssue> issues = Stream.concat(
+                        result.takerMismatchDetails().stream()
+                                .map(details -> new MuSigMediationIssue(
+                                        causingRole,
+                                        MuSigMediationIssueType.TAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH,
+                                        Optional.of(details))),
+                        result.makerMismatchDetails().stream()
+                                .map(details -> new MuSigMediationIssue(
+                                        causingRole,
+                                        MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH,
+                                        Optional.of(details))))
+                .toList();
 
-        byte[] takerSaltedAccountPayloadHash = OfferOptionUtil.createSaltedAccountPayloadHash(response.getTakerAccountPayload(), offerId);
-        if (contract.getTaker().getSaltedAccountPayloadHash()
-                .filter(expectedHash -> Arrays.equals(takerSaltedAccountPayloadHash, expectedHash))
-                .isEmpty()) {
-            takerAccountPayloadMatches = false;
-            issues.add(new MuSigMediationIssue(
-                    causingRole,
-                    MuSigMediationIssueType.TAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH,
-                    Optional.of(response.getTakerAccountPayload().getAccountDataDisplayString())));
-        }
-
-        byte[] makerSaltedAccountPayloadHash = OfferOptionUtil.createSaltedAccountPayloadHash(response.getMakerAccountPayload(), offerId);
-        if (contract.getMaker().getSaltedAccountPayloadHash()
-                .filter(expectedHash -> Arrays.equals(makerSaltedAccountPayloadHash, expectedHash))
-                .isEmpty()) {
-            makerAccountPayloadMatches = false;
-            issues.add(new MuSigMediationIssue(
-                    causingRole,
-                    MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH,
-                    Optional.of(response.getMakerAccountPayload().getAccountDataDisplayString())));
-        }
-
-        return new PaymentDetailsVerification(takerAccountPayloadMatches, makerAccountPayloadMatches, issues);
-    }
-
-    private Role resolveCausingRole(MuSigContract contract, String senderUserProfileId) {
-        return senderUserProfileId.equals(contract.getOffer().getMakersUserProfileId()) ? Role.MAKER : Role.TAKER;
+        return new PaymentDetailsVerification(result.takerAccountPayloadMatches(),
+                result.makerAccountPayloadMatches(),
+                issues);
     }
 
     private record PaymentDetailsVerification(boolean takerAccountPayloadMatches,
@@ -479,7 +473,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
 
     private Optional<MuSigMediationCase> findMediationCase(String tradeId) {
         return getMediationCases().stream()
-                .filter(mediationCase -> mediationCase.getMuSigMediationRequest().getTradeId().equals(tradeId))
+                .filter(item -> item.getMuSigMediationRequest().getTradeId().equals(tradeId))
                 .findAny();
     }
 
@@ -549,17 +543,4 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
                 .orElseThrow(() -> new IllegalStateException("Could not sign MuSigMediationStateChangeMessage because mediator identity was not found."));
     }
 
-    private static boolean hasMatchingContractParties(MuSigContract contract, UserProfile requester, UserProfile peer) {
-        return requester.getNetworkId().equals(contract.getMaker().getNetworkId()) &&
-                peer.getNetworkId().equals(contract.getTaker().getNetworkId()) ||
-                requester.getNetworkId().equals(contract.getTaker().getNetworkId()) &&
-                        peer.getNetworkId().equals(contract.getMaker().getNetworkId());
-    }
-
-    private static boolean hasMatchingMediator(MuSigContract contract, NetworkId mediatorNetworkId) {
-        return contract.getMediator()
-                .map(UserProfile::getNetworkId)
-                .map(contractMediatorNetworkId -> contractMediatorNetworkId.equals(mediatorNetworkId))
-                .orElse(false);
-    }
 }

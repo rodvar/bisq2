@@ -32,7 +32,6 @@ import bisq.common.market.Market;
 import bisq.common.network.AddressByTransportTypeMap;
 import bisq.common.network.TransportType;
 import bisq.common.network.clear_net_address_types.LocalHostAddressTypeFacade;
-import bisq.contract.Role;
 import bisq.contract.mu_sig.MuSigContract;
 import bisq.i18n.Res;
 import bisq.network.NetworkService;
@@ -61,7 +60,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.util.List;
@@ -75,7 +73,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class MuSigMediatorServiceTest {
-    private MuSigMediatorService service;
     private BannedUserService bannedUserService;
 
     @BeforeAll
@@ -110,238 +107,6 @@ class MuSigMediatorServiceTest {
         BondedRolesService bondedRolesService = mock(BondedRolesService.class);
         AuthorizedBondedRolesService authorizedBondedRolesService = mock(AuthorizedBondedRolesService.class);
         when(bondedRolesService.getAuthorizedBondedRolesService()).thenReturn(authorizedBondedRolesService);
-
-        service = new MuSigMediatorService(
-                persistenceService,
-                networkService,
-                chatService,
-                userService,
-                bondedRolesService
-        );
-    }
-
-    @Test
-    void verifyPaymentDetails_returnsMatchesForValidTakerAndMakerPayloadsEvenWhenReportedByTaker() throws Exception {
-        UserProfile maker = createUserProfile(10001);
-        UserProfile taker = createUserProfile(10002);
-        AccountPayload<?> takerPayload = createNationalBankPayload("taker-account", "DE111");
-        AccountPayload<?> makerPayload = createNationalBankPayload("maker-account", "DE222");
-        MuSigContract contract = createContract(maker, taker, "offer-1", takerPayload, makerPayload);
-        MuSigDisputeCasePaymentDetailsResponse response = new MuSigDisputeCasePaymentDetailsResponse(
-                "trade-1",
-                taker,
-                takerPayload,
-                makerPayload
-        );
-
-        Object verification = invokeVerifyPaymentDetails(contract, response, Role.TAKER);
-
-        assertThat(invokeVerificationBoolean(verification, "takerAccountPayloadMatches")).isTrue();
-        assertThat(invokeVerificationBoolean(verification, "makerAccountPayloadMatches")).isTrue();
-        assertThat(invokeVerificationIssues(verification)).isEmpty();
-    }
-
-    @Test
-    void processDisputeCasePaymentDetailsResponse_storesBothPayloads_whenResponseHashesMatch() throws Exception {
-        UserProfile maker = createUserProfile(11001);
-        UserProfile taker = createUserProfile(11002);
-        AccountPayload<?> takerPayload = createNationalBankPayload("taker-account-2", "DE333");
-        AccountPayload<?> makerPayload = createNationalBankPayload("maker-account-2", "DE444");
-        MuSigContract contract = createContract(maker, taker, "offer-2", takerPayload, makerPayload);
-        String tradeId = "trade-2";
-        MuSigMediationCase mediationCase = createMediationCase(tradeId, contract, maker, taker);
-        service.getMediationCases().add(mediationCase);
-
-        MuSigDisputeCasePaymentDetailsResponse response = new MuSigDisputeCasePaymentDetailsResponse(
-                tradeId,
-                taker,
-                takerPayload,
-                makerPayload
-        );
-
-        invokeProcessDisputeCasePaymentDetailsResponse(response);
-
-        assertThat(mediationCase.getTakerAccountPayload()).containsSame(takerPayload);
-        assertThat(mediationCase.getMakerAccountPayload()).containsSame(makerPayload);
-        assertThat(mediationCase.getIssues()).isEmpty();
-    }
-
-    @Test
-    void processDisputeCasePaymentDetailsResponse_storesMatchingMakerPayloadAndAddsIssue_whenTakerHashMismatches() throws Exception {
-        UserProfile maker = createUserProfile(12001);
-        UserProfile taker = createUserProfile(12002);
-        AccountPayload<?> expectedTakerPayload = createNationalBankPayload("expected-taker-account", "DE555");
-        AccountPayload<?> wrongTakerPayload = createNationalBankPayload("wrong-taker-account", "DE666");
-        AccountPayload<?> makerPayload = createNationalBankPayload("maker-account-3", "DE777");
-        MuSigContract contract = createContract(maker, taker, "offer-3", expectedTakerPayload, makerPayload);
-        String tradeId = "trade-3";
-        MuSigMediationCase mediationCase = createMediationCase(tradeId, contract, maker, taker);
-        service.getMediationCases().add(mediationCase);
-
-        MuSigDisputeCasePaymentDetailsResponse response = new MuSigDisputeCasePaymentDetailsResponse(
-                tradeId,
-                maker,
-                wrongTakerPayload,
-                makerPayload
-        );
-
-        invokeProcessDisputeCasePaymentDetailsResponse(response);
-
-        assertThat(mediationCase.getTakerAccountPayload()).isEmpty();
-        assertThat(mediationCase.getMakerAccountPayload()).containsSame(makerPayload);
-        assertThat(mediationCase.getIssues()).hasSize(1);
-        MuSigMediationIssue issue = mediationCase.getIssues().getFirst();
-        assertThat(issue.getType()).isEqualTo(MuSigMediationIssueType.TAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
-        assertThat(issue.getCausingRole()).isEqualTo(Role.MAKER);
-        assertThat(issue.getDetails()).isPresent();
-        assertThat(issue.getDetails().orElseThrow()).isNotBlank();
-    }
-
-    @Test
-    void processDisputeCasePaymentDetailsResponse_storesMatchingTakerPayloadAndAddsIssue_whenMakerHashMismatches() throws Exception {
-        UserProfile maker = createUserProfile(13001);
-        UserProfile taker = createUserProfile(13002);
-        AccountPayload<?> takerPayload = createNationalBankPayload("taker-account-4", "DE888");
-        AccountPayload<?> expectedMakerPayload = createNationalBankPayload("expected-maker-account", "DE999");
-        AccountPayload<?> wrongMakerPayload = createNationalBankPayload("wrong-maker-account", "DE000");
-        MuSigContract contract = createContract(maker, taker, "offer-4", takerPayload, expectedMakerPayload);
-        String tradeId = "trade-4";
-        MuSigMediationCase mediationCase = createMediationCase(tradeId, contract, maker, taker);
-        service.getMediationCases().add(mediationCase);
-
-        MuSigDisputeCasePaymentDetailsResponse response = new MuSigDisputeCasePaymentDetailsResponse(
-                tradeId,
-                taker,
-                takerPayload,
-                wrongMakerPayload
-        );
-
-        invokeProcessDisputeCasePaymentDetailsResponse(response);
-
-        assertThat(mediationCase.getTakerAccountPayload()).containsSame(takerPayload);
-        assertThat(mediationCase.getMakerAccountPayload()).isEmpty();
-        assertThat(mediationCase.getIssues()).hasSize(1);
-        MuSigMediationIssue issue = mediationCase.getIssues().getFirst();
-        assertThat(issue.getType()).isEqualTo(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
-        assertThat(issue.getCausingRole()).isEqualTo(Role.TAKER);
-        assertThat(issue.getDetails()).isPresent();
-        assertThat(issue.getDetails().orElseThrow()).isNotBlank();
-    }
-
-    @Test
-    void processDisputeCasePaymentDetailsResponse_doesNotDuplicateIssue_whenSameMismatchReportedTwice() throws Exception {
-        UserProfile maker = createUserProfile(15001);
-        UserProfile taker = createUserProfile(15002);
-        AccountPayload<?> takerPayload = createNationalBankPayload("taker-account-6", "DE901");
-        AccountPayload<?> expectedMakerPayload = createNationalBankPayload("expected-maker-account-2", "DE902");
-        AccountPayload<?> wrongMakerPayload = createNationalBankPayload("wrong-maker-account-2", "DE903");
-        MuSigContract contract = createContract(maker, taker, "offer-6", takerPayload, expectedMakerPayload);
-        String tradeId = "trade-6";
-        MuSigMediationCase mediationCase = createMediationCase(tradeId, contract, maker, taker);
-        service.getMediationCases().add(mediationCase);
-
-        MuSigDisputeCasePaymentDetailsResponse response = new MuSigDisputeCasePaymentDetailsResponse(
-                tradeId,
-                taker,
-                takerPayload,
-                wrongMakerPayload
-        );
-
-        invokeProcessDisputeCasePaymentDetailsResponse(response);
-        invokeProcessDisputeCasePaymentDetailsResponse(response);
-
-        assertThat(mediationCase.getIssues()).hasSize(1);
-        MuSigMediationIssue issue = mediationCase.getIssues().getFirst();
-        assertThat(issue.getType()).isEqualTo(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
-        assertThat(issue.getCausingRole()).isEqualTo(Role.TAKER);
-        assertThat(issue.getDetails()).isPresent();
-        assertThat(issue.getDetails().orElseThrow()).isNotBlank();
-    }
-
-    @Test
-    void processDisputeCasePaymentDetailsResponse_keepsSeparateIssues_whenSameMismatchReportedByDifferentRoles() throws Exception {
-        UserProfile maker = createUserProfile(16001);
-        UserProfile taker = createUserProfile(16002);
-        AccountPayload<?> takerPayload = createNationalBankPayload("taker-account-7", "DE911");
-        AccountPayload<?> expectedMakerPayload = createNationalBankPayload("expected-maker-account-3", "DE912");
-        AccountPayload<?> wrongMakerPayload = createNationalBankPayload("wrong-maker-account-3", "DE913");
-        MuSigContract contract = createContract(maker, taker, "offer-7", takerPayload, expectedMakerPayload);
-        String tradeId = "trade-7";
-        MuSigMediationCase mediationCase = createMediationCase(tradeId, contract, maker, taker);
-        service.getMediationCases().add(mediationCase);
-
-        MuSigDisputeCasePaymentDetailsResponse takerResponse = new MuSigDisputeCasePaymentDetailsResponse(
-                tradeId,
-                taker,
-                takerPayload,
-                wrongMakerPayload
-        );
-        MuSigDisputeCasePaymentDetailsResponse makerResponse = new MuSigDisputeCasePaymentDetailsResponse(
-                tradeId,
-                maker,
-                takerPayload,
-                wrongMakerPayload
-        );
-
-        invokeProcessDisputeCasePaymentDetailsResponse(takerResponse);
-        invokeProcessDisputeCasePaymentDetailsResponse(makerResponse);
-
-        assertThat(mediationCase.getIssues()).hasSize(2);
-        assertThat(mediationCase.getIssues())
-                .extracting(MuSigMediationIssue::getType, MuSigMediationIssue::getCausingRole)
-                .containsExactlyInAnyOrder(
-                        org.assertj.core.groups.Tuple.tuple(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH, Role.TAKER),
-                        org.assertj.core.groups.Tuple.tuple(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH, Role.MAKER)
-                );
-        assertThat(mediationCase.getIssues())
-                .allMatch(issue -> issue.getDetails().isPresent() && !issue.getDetails().orElseThrow().isBlank());
-    }
-
-    @Test
-    void verifyPaymentDetails_returnsTakerMismatchIssue_whenExpectedTakerHashDoesNotMatch() throws Exception {
-        UserProfile maker = createUserProfile(17001);
-        UserProfile taker = createUserProfile(17002);
-        AccountPayload<?> expectedTakerPayload = createNationalBankPayload("expected-taker-account-8", "DE921");
-        AccountPayload<?> wrongTakerPayload = createNationalBankPayload("wrong-taker-account-8", "DE923");
-        AccountPayload<?> makerPayload = createNationalBankPayload("maker-account-8", "DE922");
-        MuSigContract contract = createContract(maker, taker, "offer-8", expectedTakerPayload, makerPayload);
-        MuSigDisputeCasePaymentDetailsResponse response = new MuSigDisputeCasePaymentDetailsResponse(
-                "trade-8",
-                taker,
-                wrongTakerPayload,
-                makerPayload
-        );
-
-        Object verification = invokeVerifyPaymentDetails(contract, response, Role.TAKER);
-
-        assertThat(invokeVerificationBoolean(verification, "takerAccountPayloadMatches")).isFalse();
-        assertThat(invokeVerificationBoolean(verification, "makerAccountPayloadMatches")).isTrue();
-        assertThat(invokeVerificationIssues(verification))
-                .extracting(MuSigMediationIssue::getType)
-                .containsExactly(MuSigMediationIssueType.TAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
-    }
-
-    @Test
-    void verifyPaymentDetails_returnsMakerMismatchIssue_whenExpectedMakerHashIsMissing() throws Exception {
-        UserProfile maker = createUserProfile(18001);
-        UserProfile taker = createUserProfile(18002);
-        AccountPayload<?> takerPayload = createNationalBankPayload("taker-account-9", "DE931");
-        AccountPayload<?> makerPayload = createNationalBankPayload("maker-account-9", "DE932");
-        MuSigContract contract = createContractWithoutMakerHash(maker, taker, "offer-9", takerPayload);
-        MuSigDisputeCasePaymentDetailsResponse response = new MuSigDisputeCasePaymentDetailsResponse(
-                "trade-9",
-                maker,
-                takerPayload,
-                makerPayload
-        );
-
-        Object verification = invokeVerifyPaymentDetails(contract, response, Role.MAKER);
-
-        assertThat(invokeVerificationBoolean(verification, "takerAccountPayloadMatches")).isTrue();
-        assertThat(invokeVerificationBoolean(verification, "makerAccountPayloadMatches")).isFalse();
-        assertThat(invokeVerificationIssues(verification))
-                .extracting(MuSigMediationIssue::getType)
-                .containsExactly(MuSigMediationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH);
     }
 
     @Test
@@ -459,27 +224,6 @@ class MuSigMediatorServiceTest {
         assertThat(authenticatedCase).isEmpty();
     }
 
-    private MuSigMediationCase createMediationCase(String tradeId,
-                                                   MuSigContract contract,
-                                                   UserProfile requester,
-                                                   UserProfile peer) {
-        MuSigMediationRequest request = new MuSigMediationRequest(
-                tradeId,
-                contract,
-                requester,
-                peer,
-                List.of(),
-                createUserProfile(19000).getNetworkId()
-        );
-        return new MuSigMediationCase(request);
-    }
-
-    private Optional<MuSigMediationCase> findMediationCase(String tradeId) {
-        return service.getMediationCases().stream()
-                .filter(mediationCase -> mediationCase.getMuSigMediationRequest().getTradeId().equals(tradeId))
-                .findFirst();
-    }
-
     private MuSigMediationRequest createMediationRequest(String tradeId,
                                                          UserProfile requester,
                                                          UserProfile peer) {
@@ -500,7 +244,7 @@ class MuSigMediatorServiceTest {
                                          String offerId,
                                          AccountPayload<?> takerPayloadForHash,
                                          AccountPayload<?> makerPayloadForHash) {
-        return createContract(maker, taker, offerId, takerPayloadForHash, List.of(makerPayloadForHash));
+        return createContractWithMediator(maker, taker, Optional.empty(), offerId, takerPayloadForHash, List.of(makerPayloadForHash));
     }
 
     private MuSigContract createContract(UserProfile maker,
@@ -512,38 +256,12 @@ class MuSigMediatorServiceTest {
         return createContractWithMediator(maker, taker, Optional.of(mediator), offerId, takerPayloadForHash, List.of(makerPayloadForHash));
     }
 
-    private MuSigContract createContract(UserProfile maker,
-                                         UserProfile taker,
-                                         String offerId,
-                                         AccountPayload<?> takerPayloadForHash,
-                                         List<AccountPayload<?>> makerPayloadsForHash) {
-        return createContractWithMediator(maker, taker, Optional.empty(), offerId, takerPayloadForHash, makerPayloadsForHash);
-    }
-
     private MuSigContract createContractWithMediator(UserProfile maker,
                                                      UserProfile taker,
                                                      Optional<UserProfile> mediator,
                                                      String offerId,
                                                      AccountPayload<?> takerPayloadForHash,
-                                                     List<AccountPayload<?>> makerPayloadsForHash) {
-        return createContractWithExplicitMakerHash(
-                maker,
-                taker,
-                mediator,
-                offerId,
-                takerPayloadForHash,
-                makerPayloadsForHash.getFirst(),
-                makerPayloadsForHash
-        );
-    }
-
-    private MuSigContract createContractWithExplicitMakerHash(UserProfile maker,
-                                                              UserProfile taker,
-                                                              Optional<UserProfile> mediator,
-                                                              String offerId,
-                                                              AccountPayload<?> takerPayloadForHash,
-                                                              AccountPayload<?> makerPayloadForHash,
-                                                              List<AccountPayload<?>> makerPayloadsForOfferOptions) {
+                                                     List<AccountPayload<?>> makerPayloadsForOfferOptions) {
         Market market = new Market("BTC", "EUR", "Bitcoin", "Euro");
         PaymentMethod<?> paymentMethod = FiatPaymentMethod.fromPaymentRail(FiatPaymentRail.NATIONAL_BANK);
         List<AccountOption> accountOptions = makerPayloadsForOfferOptions.stream()
@@ -585,40 +303,6 @@ class MuSigMediatorServiceTest {
         );
     }
 
-    private MuSigContract createContractWithoutMakerHash(UserProfile maker,
-                                                         UserProfile taker,
-                                                         String offerId,
-                                                         AccountPayload<?> takerPayloadForHash) {
-        Market market = new Market("BTC", "EUR", "Bitcoin", "Euro");
-        PaymentMethod<?> paymentMethod = FiatPaymentMethod.fromPaymentRail(FiatPaymentRail.NATIONAL_BANK);
-        MuSigOffer offer = new MuSigOffer(
-                offerId,
-                maker.getNetworkId(),
-                Direction.BUY,
-                market,
-                new BaseSideFixedAmountSpec(100_000L),
-                new MarketPriceSpec(),
-                List.of(paymentMethod),
-                List.of(),
-                "1.0.0"
-        );
-        PaymentMethodSpec<?> quoteSidePaymentMethodSpec = PaymentMethodSpecUtil.createPaymentMethodSpec(paymentMethod, "EUR");
-        byte[] takerSaltedAccountPayloadHash = OfferOptionUtil.createSaltedAccountPayloadHash(takerPayloadForHash, offerId);
-        return new MuSigContract(
-                System.currentTimeMillis(),
-                offer,
-                taker.getNetworkId(),
-                100_000L,
-                3_500_000L,
-                quoteSidePaymentMethodSpec,
-                takerSaltedAccountPayloadHash,
-                Optional.empty(),
-                Optional.empty(),
-                createPriceSpec(),
-                0
-        );
-    }
-
     private PriceSpec createPriceSpec() {
         return new MarketPriceSpec();
     }
@@ -651,46 +335,4 @@ class MuSigMediatorServiceTest {
         );
     }
 
-    private void invokeProcessDisputeCasePaymentDetailsResponse(MuSigDisputeCasePaymentDetailsResponse response) throws Exception {
-        Method verifyMethod = MuSigMediatorService.class.getDeclaredMethod("authorizeDisputeCasePaymentDetailsResponse",
-                MuSigDisputeCasePaymentDetailsResponse.class,
-                java.util.function.Function.class,
-                BannedUserService.class);
-        verifyMethod.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        Optional<Object> authenticatedMessage = (Optional<Object>) verifyMethod.invoke(service,
-                response,
-                (java.util.function.Function<String, Optional<MuSigMediationCase>>) this::findMediationCase,
-                bannedUserService);
-
-        Method processMethod = MuSigMediatorService.class.getDeclaredMethod("processDisputeCasePaymentDetailsResponse",
-                MuSigDisputeCasePaymentDetailsResponse.class,
-                MuSigMediationCase.class);
-        processMethod.setAccessible(true);
-        processMethod.invoke(service, response, authenticatedMessage.orElseThrow());
-    }
-
-    private Object invokeVerifyPaymentDetails(MuSigContract contract,
-                                              MuSigDisputeCasePaymentDetailsResponse response,
-                                              Role causingRole) throws Exception {
-        Method method = MuSigMediatorService.class.getDeclaredMethod("verifyPaymentDetails",
-                MuSigContract.class,
-                MuSigDisputeCasePaymentDetailsResponse.class,
-                Role.class);
-        method.setAccessible(true);
-        return method.invoke(service, contract, response, causingRole);
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<MuSigMediationIssue> invokeVerificationIssues(Object verification) throws Exception {
-        Method issues = verification.getClass().getDeclaredMethod("issues");
-        issues.setAccessible(true);
-        return (List<MuSigMediationIssue>) issues.invoke(verification);
-    }
-
-    private boolean invokeVerificationBoolean(Object verification, String accessorName) throws Exception {
-        Method accessor = verification.getClass().getDeclaredMethod(accessorName);
-        accessor.setAccessible(true);
-        return (boolean) accessor.invoke(verification);
-    }
 }
