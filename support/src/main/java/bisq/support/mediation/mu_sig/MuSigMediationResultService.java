@@ -17,44 +17,46 @@
 
 package bisq.support.mediation.mu_sig;
 
-import bisq.contract.mu_sig.MuSigContract;
+import bisq.common.validation.NetworkDataValidation;
 import bisq.contract.ContractService;
+import bisq.contract.mu_sig.MuSigContract;
 import bisq.security.DigestUtil;
 import bisq.security.SignatureUtil;
-import bisq.common.validation.NetworkDataValidation;
+import lombok.extern.slf4j.Slf4j;
 
 import java.security.GeneralSecurityException;
 import java.security.KeyPair;
 import java.security.PublicKey;
 import java.util.Arrays;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
+@Slf4j
 public final class MuSigMediationResultService {
     private MuSigMediationResultService() {
     }
 
-    public static byte[] signMediationResult(MuSigMediationResult muSigMediationResult,
+    public static byte[] signMediationResult(MuSigMediationResult mediationResult,
                                              KeyPair keyPair)
             throws GeneralSecurityException {
-        byte[] mediationResultHash = getMediationResultHash(muSigMediationResult);
+        byte[] mediationResultHash = getMediationResultHash(mediationResult);
         return SignatureUtil.sign(mediationResultHash, keyPair.getPrivate());
-    }
-
-    public static boolean verifyMediationResult(MuSigMediationResult mediationResult,
-                                                byte[] mediationResultSignature,
-                                                PublicKey publicKey) throws GeneralSecurityException {
-        NetworkDataValidation.validateECSignature(mediationResultSignature);
-        return SignatureUtil.verify(getMediationResultHash(mediationResult), mediationResultSignature, publicKey);
     }
 
     public static boolean verifyMediationResult(MuSigMediationResult mediationResult,
                                                 byte[] mediationResultSignature,
                                                 MuSigContract contract,
                                                 PublicKey publicKey) throws GeneralSecurityException {
-        checkArgument(Arrays.equals(mediationResult.getContractHash(), ContractService.getContractHash(contract)),
-                "Contract hash from MuSigMediationResult does not match the given contract");
+        if (!Arrays.equals(mediationResult.getContractHash(), ContractService.getContractHash(contract))) {
+            log.warn("Contract hash from MuSigMediationResult does not match the given contract");
+            return false;
+        }
         return verifyMediationResult(mediationResult, mediationResultSignature, publicKey);
+    }
+
+    private static boolean verifyMediationResult(MuSigMediationResult mediationResult,
+                                                byte[] mediationResultSignature,
+                                                PublicKey publicKey) throws GeneralSecurityException {
+        NetworkDataValidation.validateECSignature(mediationResultSignature);
+        return SignatureUtil.verify(getMediationResultHash(mediationResult), mediationResultSignature, publicKey);
     }
 
     private static byte[] getMediationResultHash(MuSigMediationResult mediationResult) {

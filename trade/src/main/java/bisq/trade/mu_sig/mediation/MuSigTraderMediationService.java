@@ -17,6 +17,7 @@
 
 package bisq.trade.mu_sig.mediation;
 
+import bisq.account.accounts.AccountPayload;
 import bisq.bonded_roles.BondedRoleType;
 import bisq.bonded_roles.BondedRolesService;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRole;
@@ -26,7 +27,9 @@ import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
 import bisq.contract.ContractService;
+import bisq.contract.mu_sig.MuSigContract;
 import bisq.i18n.Res;
+import bisq.identity.Identity;
 import bisq.network.NetworkService;
 import bisq.network.identity.NetworkId;
 import bisq.support.mediation.MuSigDisputeCaseDataMessage;
@@ -34,7 +37,7 @@ import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsResponse;
 import bisq.support.mediation.mu_sig.MuSigMediationRequest;
 import bisq.support.mediation.mu_sig.MuSigMediationResultAcceptanceMessage;
 import bisq.trade.MuSigDisputeState;
-import bisq.trade.mu_sig.MuSigTrade;
+import bisq.trade.mu_sig.MuSigTradeParty;
 import bisq.user.UserService;
 import bisq.user.profile.UserProfile;
 import bisq.user.profile.UserProfileService;
@@ -92,106 +95,96 @@ public class MuSigTraderMediationService {
                 .flatMap(userProfileService::findUserProfile);
     }
 
-    public void requestMediation(MuSigTrade trade) {
-        MuSigOpenTradeChannel channel = findMuSigOpenTradeChannel(trade.getId()).orElseThrow();
+    public void requestMediation(String tradeId,
+                                 Identity myIdentity,
+                                 MuSigTradeParty peer,
+                                 UserProfile mediator,
+                                 MuSigContract contract,
+                                 MuSigOpenTradeChannel channel) {
         String encoded = Res.encode("muSig.mediation.requester.tradeLogMessage", channel.getMyUserIdentity().getUserName());
         muSigOpenTradeChannelService.sendTradeLogMessage(encoded, channel);
         muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
 
-        UserProfile peer = userProfileService
-                .findUserProfile(trade.getPeer().getNetworkId().getId())
-                .orElseThrow();
-        UserProfile mediator = trade.getContract().getMediator().orElseThrow();
         NetworkId mediatorNetworkId = mediator.getNetworkId();
 
-        MuSigMediationRequest muSigMediationRequest = new MuSigMediationRequest(trade.getId(),
-                trade.getContract(),
-                userProfileService.findUserProfile(trade.getMyIdentity().getId()).orElseThrow(),
-                peer,
+        MuSigMediationRequest muSigMediationRequest = new MuSigMediationRequest(tradeId,
+                contract,
+                userProfileService.findUserProfile(myIdentity.getId()).orElseThrow(),
+                userProfileService.findUserProfile(peer.getNetworkId().getId()).orElseThrow(),
                 new ArrayList<>(channel.getChatMessages()),
                 mediatorNetworkId);
         networkService.confidentialSend(muSigMediationRequest,
                 mediatorNetworkId,
-                trade.getMyIdentity().getNetworkIdWithKeyPair());
+                myIdentity.getNetworkIdWithKeyPair());
     }
 
-    public void applyMediationStateToChannel(MuSigTrade trade, MuSigDisputeState previousDisputeState) {
-        muSigOpenTradeChannelService
-                .findChannelByTradeId(trade.getId())
-                .ifPresent(channel ->
-                {
-                    if (trade.getDisputeState() == MuSigDisputeState.MEDIATION_OPEN) {
-                        if (previousDisputeState == MuSigDisputeState.MEDIATION_REQUESTED) {
-                            muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toRequester"));
-                        } else if (previousDisputeState == MuSigDisputeState.NO_DISPUTE) {
-                            muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
-                            muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toNonRequester"));
-                        }
-                    } else if (trade.getDisputeState() == MuSigDisputeState.MEDIATION_RE_OPENED) {
-                        muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
-                    } else if (trade.getDisputeState() == MuSigDisputeState.MEDIATION_CLOSED) {
-                        // Closed mediation case still keeps mediator chat participation active.
-                        muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
-                    }
-
-                });
-    }
-
-    public void sendDisputeCaseDataMessage(MuSigTrade trade) {
-        Optional<UserProfile> mediator = trade.getContract().getMediator();
-        if (mediator.isEmpty()) {
-            log.warn("Cannot send MuSigDisputeCaseDataMessage for trade {} because mediator is missing in contract.",
-                    trade.getId());
-            return;
+    public void applyMediationStateToChannel(String tradeId,
+                                             MuSigDisputeState newTradeDispute,
+                                             MuSigDisputeState previousDisputeState,
+                                             MuSigOpenTradeChannel channel) {
+        if (newTradeDispute == MuSigDisputeState.MEDIATION_OPEN) {
+            if (previousDisputeState == MuSigDisputeState.MEDIATION_REQUESTED) {
+                muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toRequester"));
+            } else if (previousDisputeState == MuSigDisputeState.NO_DISPUTE) {
+                muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
+                muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toNonRequester"));
+            }
+        } else if (newTradeDispute == MuSigDisputeState.MEDIATION_RE_OPENED) {
+            muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
+        } else if (newTradeDispute == MuSigDisputeState.MEDIATION_CLOSED) {
+            // Closed mediation case still keeps mediator chat participation active.
+            muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.MEDIATOR);
         }
+    }
 
+    public void sendDisputeCaseDataMessage(String tradeId,
+                                           Identity myIdentity,
+                                           UserProfile mediator,
+                                           MuSigContract contract) {
         MuSigDisputeCaseDataMessage message = new MuSigDisputeCaseDataMessage(
-                trade.getId(),
-                userProfileService.findUserProfile(trade.getMyIdentity().getId()).orElseThrow(),
-                ContractService.getContractHash(trade.getContract()),
-                muSigOpenTradeChannelService.findChannelByTradeId(trade.getId())
+                tradeId,
+                userProfileService.findUserProfile(myIdentity.getId()).orElseThrow(),
+                ContractService.getContractHash(contract),
+                muSigOpenTradeChannelService.findChannelByTradeId(tradeId)
                         .map(channel -> new ArrayList<>(channel.getChatMessages()))
                         .orElseGet(ArrayList::new)
         );
         networkService.confidentialSend(message,
-                mediator.orElseThrow().getNetworkId(),
-                trade.getMyIdentity().getNetworkIdWithKeyPair());
+                mediator.getNetworkId(),
+                myIdentity.getNetworkIdWithKeyPair());
     }
 
-    public void sendMediationResultAcceptanceMessage(MuSigTrade trade) {
-        boolean mediationResultAccepted = trade.getMyself().getMediationResultAccepted().orElseThrow();
-        networkService.confidentialSend(new MuSigMediationResultAcceptanceMessage(trade.getId(),
-                        userProfileService.findUserProfile(trade.getMyIdentity().getId()).orElseThrow(),
+    public void sendMediationResultAcceptanceMessage(String tradeId,
+                                                     Identity myIdentity,
+                                                     MuSigTradeParty peer,
+                                                     boolean mediationResultAccepted,
+                                                     MuSigOpenTradeChannel channel) {
+        networkService.confidentialSend(new MuSigMediationResultAcceptanceMessage(tradeId,
+                        userProfileService.findUserProfile(myIdentity.getId()).orElseThrow(),
                         mediationResultAccepted),
-                trade.getPeer().getNetworkId(),
-                trade.getMyIdentity().getNetworkIdWithKeyPair());
+                peer.getNetworkId(),
+                myIdentity.getNetworkIdWithKeyPair());
 
-        muSigOpenTradeChannelService.findChannelByTradeId(trade.getId()).ifPresent(channel -> {
-            String key = mediationResultAccepted
-                    ? "muSig.mediation.result.accepted.tradeLogMessage"
-                    : "muSig.mediation.result.rejected.tradeLogMessage";
-            String encoded = Res.encode(key, channel.getMyUserIdentity().getUserName());
-            muSigOpenTradeChannelService.sendTradeLogMessage(encoded, channel);
-        });
+        String key = mediationResultAccepted
+                ? "muSig.mediation.result.accepted.tradeLogMessage"
+                : "muSig.mediation.result.rejected.tradeLogMessage";
+        String encoded = Res.encode(key, channel.getMyUserIdentity().getUserName());
+        muSigOpenTradeChannelService.sendTradeLogMessage(encoded, channel);
     }
 
-    public void sendDisputeCasePaymentDetailsResponse(MuSigTrade trade, UserProfile senderUserProfile) {
+    public void sendDisputeCasePaymentDetailsResponse(String tradeId,
+                                                      Identity myIdentity,
+                                                      UserProfile senderUserProfile,
+                                                      AccountPayload<?> takerAccountPayload,
+                                                      AccountPayload<?> makerAccountPayload) {
         MuSigDisputeCasePaymentDetailsResponse paymentDetailsResponse = new MuSigDisputeCasePaymentDetailsResponse(
-                trade.getId(),
-                userProfileService.findUserProfile(trade.getMyIdentity().getId()).orElseThrow(),
-                trade.getTaker().getAccountPayload().orElseThrow(),
-                trade.getMaker().getAccountPayload().orElseThrow()
+                tradeId,
+                userProfileService.findUserProfile(myIdentity.getId()).orElseThrow(),
+                takerAccountPayload,
+                makerAccountPayload
         );
         networkService.confidentialSend(paymentDetailsResponse,
                 senderUserProfile.getNetworkId(),
-                trade.getMyIdentity().getNetworkIdWithKeyPair());
-    }
-
-    /* --------------------------------------------------------------------- */
-    // Private
-    /* --------------------------------------------------------------------- */
-
-    private Optional<MuSigOpenTradeChannel> findMuSigOpenTradeChannel(String tradeId) {
-        return muSigOpenTradeChannelService.findChannelByTradeId(tradeId);
+                myIdentity.getNetworkIdWithKeyPair());
     }
 }

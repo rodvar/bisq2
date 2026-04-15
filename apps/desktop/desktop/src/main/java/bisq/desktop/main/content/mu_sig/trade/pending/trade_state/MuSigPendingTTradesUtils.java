@@ -83,4 +83,25 @@ public class MuSigPendingTTradesUtils {
             new Popup().warning(Res.get("muSig.mediation.request.feedback.noMediatorAvailable")).show();
         }
     }
+
+    public static void rejectMediationResultAndRequestArbitration(MuSigTrade trade, MuSigTradeService tradeService) {
+        Optional<UserProfile> arbitrator = trade.getContract().getArbitrator();
+        if (arbitrator.isPresent()) {
+            new Popup().headline(Res.get("muSig.arbitration.request.confirm.headline"))
+                    .information(Res.get("muSig.arbitration.request.confirm.msg"))
+                    .actionButtonText(Res.get("muSig.arbitration.request.confirm.openArbitration"))
+                    .onAction(() -> {
+                        tradeService.rejectMediationResult(trade);
+                        tradeService.requestArbitration(trade);
+                        new Popup().headline(Res.get("muSig.arbitration.request.feedback.headline"))
+                                .feedback(Res.get("muSig.arbitration.request.feedback.msg"))
+                                .show();
+                    })
+                    .closeButtonText(Res.get("action.cancel"))
+                    .show();
+        } else {
+            tradeService.rejectMediationResult(trade);
+            new Popup().warning(Res.get("muSig.arbitration.request.feedback.noArbitratorAvailable")).show();
+        }
+    }
 }

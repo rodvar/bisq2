@@ -30,7 +30,6 @@ import java.security.KeyPair;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -50,9 +49,10 @@ class MuSigMediationResultServiceTest {
     @Test
     void verifyReturnsFalseForTamperedResult() throws GeneralSecurityException {
         KeyPair mediatorKeyPair = KeyGeneration.generateDefaultEcKeyPair();
-        byte[] mediationResultSignature = MuSigMediationResultService.signMediationResult(createMediationResult(), mediatorKeyPair);
+        MuSigContract contract = createContract("contract-a");
+        byte[] mediationResultSignature = MuSigMediationResultService.signMediationResult(createMediationResult(contract), mediatorKeyPair);
         MuSigMediationResult tamperedResult = new MuSigMediationResult(
-                ContractService.getContractHash(createContract("contract-a")),
+                ContractService.getContractHash(contract),
                 MediationResultReason.BUG,
                 MediationPayoutDistributionType.CUSTOM_PAYOUT,
                 Optional.of(11L),
@@ -62,26 +62,29 @@ class MuSigMediationResultServiceTest {
 
         assertThat(MuSigMediationResultService.verifyMediationResult(tamperedResult,
                 mediationResultSignature,
+                contract,
                 mediatorKeyPair.getPublic())).isFalse();
     }
 
     @Test
-    void verifyThrowsForMismatchedContractHash() throws GeneralSecurityException {
+    void verifyReturnsFalseForMismatchedContractHash() throws GeneralSecurityException {
         KeyPair mediatorKeyPair = KeyGeneration.generateDefaultEcKeyPair();
         MuSigMediationResult mediationResult = createMediationResult();
         byte[] mediationResultSignature = MuSigMediationResultService.signMediationResult(mediationResult, mediatorKeyPair);
 
-        assertThatThrownBy(() -> MuSigMediationResultService.verifyMediationResult(mediationResult,
+        assertThat(MuSigMediationResultService.verifyMediationResult(mediationResult,
                 mediationResultSignature,
                 createContract("contract-b"),
-                mediatorKeyPair.getPublic()))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Contract hash");
+                mediatorKeyPair.getPublic())).isFalse();
     }
 
     private MuSigMediationResult createMediationResult() {
+        return createMediationResult(createContract("contract-a"));
+    }
+
+    private MuSigMediationResult createMediationResult(MuSigContract contract) {
         return new MuSigMediationResult(
-                ContractService.getContractHash(createContract("contract-a")),
+                ContractService.getContractHash(contract),
                 MediationResultReason.BUG,
                 MediationPayoutDistributionType.CUSTOM_PAYOUT,
                 Optional.of(10L),

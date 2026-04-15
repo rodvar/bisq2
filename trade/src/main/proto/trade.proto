@@ -237,11 +237,18 @@ enum MuSigDisputeState {
   MUSIGDISPUTESTATE_ARBITRATION_CLOSED = 8;
 }
 
+message MuSigTradeDispute {
+  MuSigDisputeState disputeState = 1;
+  optional support.MuSigMediationResult muSigMediationResult = 2;
+  optional bytes mediationResultSignature = 3;
+  optional support.MuSigArbitrationResult muSigArbitrationResult = 4;
+  optional bytes arbitrationResultSignature = 5;
+}
+
 message MuSigTrade {
   optional string depositTxId = 1;
   optional sint64 tradeCompletedDate = 2;
-  MuSigDisputeState disputeState = 3;
-  optional support.MuSigMediationResult muSigMediationResult = 4;
+  MuSigTradeDispute tradeDispute = 3;
 }
 
 message MuSigTradeStore {

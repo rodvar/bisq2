@@ -307,7 +307,7 @@ public class MuSigService extends LifecycleService {
                                                AccountPayload<?> takersAccountPayload,
                                                Optional<UserProfile> mediator,
                                                Optional<UserProfile> arbitrator
-                                         ) throws NoMarketPriceAvailableException {
+    ) throws NoMarketPriceAvailableException {
 
         log.info("Selected mediator for trade {}: {}", muSigOffer.getShortId(), mediator.map(UserProfile::getUserName).orElse("N/A"));
         Optional<Long> marketPrice = marketPriceService.findMarketPrice(muSigOffer.getMarket())

@@ -44,6 +44,7 @@ import bisq.network.NetworkService;
 import bisq.network.p2p.services.confidential.ack.MessageDeliveryStatus;
 import bisq.network.p2p.services.confidential.resend.ResendMessageService;
 import bisq.settings.DontShowAgainService;
+import bisq.support.arbitration.mu_sig.MuSigArbitrationRequest;
 import bisq.support.mediation.mu_sig.MuSigMediationRequest;
 import bisq.trade.MuSigDisputeState;
 import bisq.trade.mu_sig.MuSigTrade;
@@ -73,7 +74,8 @@ public class MuSigTradeStateController implements Controller {
     private final DontShowAgainService dontShowAgainService;
     private final Optional<ResendMessageService> resendMessageService;
     private Pin tradeStatePin, errorMessagePin, peersErrorMessagePin, isInMediationPin,
-            requestMediationDeliveryStatusPin, messageDeliveryStatusByMessageIdPin, mediationResultAcceptedPin;
+            isInArbitrationPin, requestMediationDeliveryStatusPin, requestArbitrationDeliveryStatusPin,
+            messageDeliveryStatusByMessageIdPin, mediationResultAcceptedPin;
     private Subscription channelPin;
 
     public MuSigTradeStateController(ServiceProvider serviceProvider) {
@@ -122,8 +124,10 @@ public class MuSigTradeStateController implements Controller {
             model.getTrade().set(trade);
             model.getMyMediationResultAccepted().set(trade.getMyself().getMediationResultAccepted());
 
-            isInMediationPin = trade.disputeStateObservable().addObserver(disputeState ->
+            isInMediationPin = trade.getTradeDispute().disputeStateObservable().addObserver(disputeState ->
                     UIThread.run(() -> model.getIsInMediation().set(shouldShowMediationBanner(disputeState))));
+            isInArbitrationPin = trade.getTradeDispute().disputeStateObservable().addObserver(disputeState ->
+                    UIThread.run(() -> model.getIsInArbitration().set(shouldShowArbitrationBanner(disputeState))));
             mediationResultAcceptedPin = trade.getMyself().mediationResultAcceptedObservable().addObserver(accepted ->
                     UIThread.run(() -> model.getMyMediationResultAccepted().set(accepted)));
 
@@ -259,7 +263,12 @@ public class MuSigTradeStateController implements Controller {
     public void onRejectMediationResult() {
         MuSigTrade trade = model.getTrade().get();
         if (trade != null) {
-            tradeService.rejectMediationResult(trade);
+            MuSigDisputeState disputeState = trade.getTradeDispute().getDisputeState();
+            if (disputeState == MuSigDisputeState.MEDIATION_CLOSED) {
+                MuSigPendingTTradesUtils.rejectMediationResultAndRequestArbitration(trade, tradeService);
+            } else {
+                tradeService.rejectMediationResult(trade);
+            }
         }
     }
 
@@ -273,23 +282,32 @@ public class MuSigTradeStateController implements Controller {
             return;
         }
         String mediationRequestId = MuSigMediationRequest.createMessageId(trade.getId());
-        if (!mediationRequestId.equals(messageId)) {
+        String arbitrationRequestId = MuSigArbitrationRequest.createMessageId(trade.getId());
+        if (!mediationRequestId.equals(messageId) && !arbitrationRequestId.equals(messageId)) {
             return;
         }
-        if (requestMediationDeliveryStatusPin != null) {
-            requestMediationDeliveryStatusPin.unbind();
-        }
-        requestMediationDeliveryStatusPin = observableStatus.addObserver(status -> UIThread.run(() -> {
-            model.getRequestMediationDeliveryStatus().set(status);
-
-            if (status == MessageDeliveryStatus.FAILED) {
-                model.getShouldShowTryRequestMediationAgain().set(resendMessageService
-                        .map(service -> service.canManuallyResendMessage(messageId))
-                        .orElse(false));
-            } else {
-                model.getShouldShowTryRequestMediationAgain().set(false);
+        if (mediationRequestId.equals(messageId)) {
+            if (requestMediationDeliveryStatusPin != null) {
+                requestMediationDeliveryStatusPin.unbind();
             }
-        }));
+            requestMediationDeliveryStatusPin = observableStatus.addObserver(status -> UIThread.run(() -> {
+                model.getRequestMediationDeliveryStatus().set(status);
+
+                if (status == MessageDeliveryStatus.FAILED) {
+                    model.getShouldShowTryRequestMediationAgain().set(resendMessageService
+                            .map(service -> service.canManuallyResendMessage(messageId))
+                            .orElse(false));
+                } else {
+                    model.getShouldShowTryRequestMediationAgain().set(false);
+                }
+            }));
+        } else {
+            if (requestArbitrationDeliveryStatusPin != null) {
+                requestArbitrationDeliveryStatusPin.unbind();
+            }
+            requestArbitrationDeliveryStatusPin = observableStatus.addObserver(status ->
+                    UIThread.run(() -> model.getRequestArbitrationDeliveryStatus().set(status)));
+        }
     }
 
     private void handleStateChange(@Nullable MuSigTradeState state) {
@@ -385,6 +403,10 @@ public class MuSigTradeStateController implements Controller {
             isInMediationPin.unbind();
             isInMediationPin = null;
         }
+        if (isInArbitrationPin != null) {
+            isInArbitrationPin.unbind();
+            isInArbitrationPin = null;
+        }
         if (mediationResultAcceptedPin != null) {
             mediationResultAcceptedPin.unbind();
             mediationResultAcceptedPin = null;
@@ -397,12 +419,17 @@ public class MuSigTradeStateController implements Controller {
             requestMediationDeliveryStatusPin.unbind();
             requestMediationDeliveryStatusPin = null;
         }
+        if (requestArbitrationDeliveryStatusPin != null) {
+            requestArbitrationDeliveryStatusPin.unbind();
+            requestArbitrationDeliveryStatusPin = null;
+        }
     }
 
     private static boolean shouldShowMediationBanner(MuSigDisputeState disputeState) {
-        return disputeState == MuSigDisputeState.MEDIATION_REQUESTED ||
-                disputeState == MuSigDisputeState.MEDIATION_OPEN ||
-                disputeState == MuSigDisputeState.MEDIATION_CLOSED ||
-                disputeState == MuSigDisputeState.MEDIATION_RE_OPENED;
+        return MuSigDisputeState.isMediationState(disputeState);
+    }
+
+    private static boolean shouldShowArbitrationBanner(MuSigDisputeState disputeState) {
+        return MuSigDisputeState.isArbitrationState(disputeState);
     }
 }

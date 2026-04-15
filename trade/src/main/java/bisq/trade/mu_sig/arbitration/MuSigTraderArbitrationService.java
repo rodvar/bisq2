@@ -21,40 +21,44 @@ import bisq.bonded_roles.BondedRoleType;
 import bisq.bonded_roles.BondedRolesService;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRole;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRolesService;
-import bisq.common.application.Service;
+import bisq.chat.ChatService;
+import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
+import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
+import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
+import bisq.contract.mu_sig.MuSigContract;
+import bisq.i18n.Res;
+import bisq.identity.Identity;
+import bisq.network.NetworkService;
+import bisq.network.identity.NetworkId;
+import bisq.support.arbitration.mu_sig.MuSigArbitrationRequest;
+import bisq.support.mediation.mu_sig.MuSigMediationResult;
+import bisq.trade.MuSigDisputeState;
+import bisq.trade.mu_sig.MuSigTradeParty;
 import bisq.user.UserService;
 import bisq.user.profile.UserProfile;
 import bisq.user.profile.UserProfileService;
 
+import java.util.ArrayList;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static bisq.support.dispute.DisputeAgentSelection.selectDeterministicProfileId;
 
-public class MuSigTraderArbitrationService implements Service {
+public class MuSigTraderArbitrationService {
+    private final NetworkService networkService;
     private final UserProfileService userProfileService;
     private final AuthorizedBondedRolesService authorizedBondedRolesService;
+    private final MuSigOpenTradeChannelService muSigOpenTradeChannelService;
 
-    public MuSigTraderArbitrationService(UserService userService,
+    public MuSigTraderArbitrationService(NetworkService networkService,
+                                         ChatService chatService,
+                                         UserService userService,
                                          BondedRolesService bondedRolesService) {
+        this.networkService = networkService;
         userProfileService = userService.getUserProfileService();
         authorizedBondedRolesService = bondedRolesService.getAuthorizedBondedRolesService();
-    }
-
-    /* --------------------------------------------------------------------- */
-    // Service
-    /* --------------------------------------------------------------------- */
-
-    @Override
-    public CompletableFuture<Boolean> initialize() {
-        return CompletableFuture.completedFuture(true);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> shutdown() {
-        return CompletableFuture.completedFuture(true);
+        muSigOpenTradeChannelService = chatService.getMuSigOpenTradeChannelService();
     }
 
     /* --------------------------------------------------------------------- */
@@ -84,5 +88,51 @@ public class MuSigTraderArbitrationService implements Service {
                                                   String offerId) {
         return selectDeterministicProfileId(arbitrators, makersProfileId, takersProfileId, offerId)
                 .flatMap(userProfileService::findUserProfile);
+    }
+
+    public void requestArbitration(String tradeId,
+                                   Identity myIdentity,
+                                   MuSigTradeParty peer,
+                                   UserProfile arbitrator,
+                                   MuSigContract contract,
+                                   MuSigMediationResult mediationResult,
+                                   byte[] mediationResultSignature,
+                                   MuSigOpenTradeChannel channel) {
+        String encoded = Res.encode("muSig.arbitration.requester.tradeLogMessage", channel.getMyUserIdentity().getUserName());
+        muSigOpenTradeChannelService.sendTradeLogMessage(encoded, channel);
+        muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.ARBITRATOR);
+
+        NetworkId arbitratorNetworkId = arbitrator.getNetworkId();
+
+        MuSigArbitrationRequest muSigArbitrationRequest = new MuSigArbitrationRequest(tradeId,
+                contract,
+                mediationResult,
+                mediationResultSignature,
+                userProfileService.findUserProfile(myIdentity.getId()).orElseThrow(),
+                userProfileService
+                        .findUserProfile(peer.getNetworkId().getId())
+                        .orElseThrow(),
+                new ArrayList<>(channel.getChatMessages()),
+                arbitratorNetworkId);
+        networkService.confidentialSend(muSigArbitrationRequest,
+                arbitratorNetworkId,
+                myIdentity.getNetworkIdWithKeyPair());
+    }
+
+    public void applyArbitrationStateToChannel(String tradeId,
+                                               MuSigDisputeState newDisputeState,
+                                               MuSigDisputeState previousDisputeState,
+                                               MuSigOpenTradeChannel channel) {
+        if (newDisputeState == MuSigDisputeState.ARBITRATION_OPEN) {
+            if (previousDisputeState == MuSigDisputeState.ARBITRATION_REQUESTED) {
+                muSigOpenTradeChannelService.addArbitrationOpenedMessage(channel, Res.encode("authorizedRole.arbitrator.message.toRequester"));
+            } else {
+                muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.ARBITRATOR);
+                muSigOpenTradeChannelService.addArbitrationOpenedMessage(channel, Res.encode("authorizedRole.arbitrator.message.toNonRequester"));
+            }
+        } else if (newDisputeState == MuSigDisputeState.ARBITRATION_CLOSED) {
+            // Closed arbitration case still keeps arbitrator chat participation active.
+            muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.ARBITRATOR);
+        }
     }
 }
