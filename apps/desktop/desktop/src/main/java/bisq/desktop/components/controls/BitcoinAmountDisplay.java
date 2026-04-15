@@ -17,7 +17,6 @@
 
 package bisq.desktop.components.controls;
 
-import bisq.common.locale.LocaleRepository;
 import bisq.common.util.StringUtils;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -32,7 +31,6 @@ import javafx.scene.text.TextAlignment;
 import javafx.scene.text.TextFlow;
 import lombok.Getter;
 
-import java.text.DecimalFormatSymbols;
 import java.util.regex.Pattern;
 
 public class BitcoinAmountDisplay extends HBox {
