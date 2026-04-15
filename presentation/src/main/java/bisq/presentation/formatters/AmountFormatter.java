@@ -21,9 +21,9 @@ import bisq.common.formatter.DecimalFormatter;
 import bisq.common.locale.LocaleRepository;
 import bisq.common.monetary.Fiat;
 import bisq.common.monetary.Monetary;
+import bisq.common.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
-import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -94,8 +94,7 @@ public class AmountFormatter {
 
     public static String formatWithDecimalGroups(Monetary amount, Locale locale, boolean useLowPrecision) {
         String formatted = formatAmount(amount, locale, useLowPrecision);
-        DecimalFormatSymbols symbols = DecimalFormatSymbols.getInstance(locale);
-        char decimalSeparator = symbols.getDecimalSeparator();
+        char decimalSeparator = StringUtils.getDecimalSeparator(locale);
         String regex = decimalSeparator == '.' ? "\\." : String.valueOf(decimalSeparator);
         String[] parts = formatted.split(regex);
         if (parts.length == 2 && parts[1].length() == 8) {

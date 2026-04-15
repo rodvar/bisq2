@@ -18,6 +18,7 @@
 package bisq.common.util;
 
 import bisq.common.data.Pair;
+import bisq.common.locale.LocaleRepository;
 import bisq.common.platform.OS;
 import bisq.common.platform.PlatformUtils;
 import com.google.common.base.CaseFormat;
@@ -25,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -348,5 +350,13 @@ public class StringUtils {
 
     public static String flattenLineBreaks(String value) {
         return value.replaceAll("\\R", ", ");
+    }
+
+    public static char getDecimalSeparator() {
+        return getDecimalSeparator(LocaleRepository.getDefaultLocale());
+    }
+
+    public static char getDecimalSeparator(Locale locale) {
+        return DecimalFormatSymbols.getInstance(locale).getDecimalSeparator();
     }
 }
