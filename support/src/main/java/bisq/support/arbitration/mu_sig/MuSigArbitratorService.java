@@ -20,38 +20,79 @@ package bisq.support.arbitration.mu_sig;
 import bisq.bonded_roles.BondedRoleType;
 import bisq.bonded_roles.BondedRolesService;
 import bisq.bonded_roles.bonded_role.AuthorizedBondedRolesService;
+import bisq.chat.ChatService;
+import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
+import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
+import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
+import bisq.chat.mu_sig.open_trades.MuSigOpenTradeMessage;
 import bisq.common.application.Service;
+import bisq.common.observable.collection.ObservableSet;
+import bisq.common.util.StringUtils;
+import bisq.contract.ContractService;
+import bisq.contract.Role;
 import bisq.contract.mu_sig.MuSigContract;
+import bisq.i18n.Res;
 import bisq.network.NetworkService;
-import bisq.network.identity.NetworkId;
+import bisq.network.identity.NetworkIdWithKeyPair;
 import bisq.network.p2p.message.EnvelopePayloadMessage;
 import bisq.network.p2p.services.confidential.ConfidentialMessageService;
+import bisq.persistence.DbSubDirectory;
+import bisq.persistence.Persistence;
+import bisq.persistence.PersistenceService;
+import bisq.persistence.RateLimitedPersistenceClient;
+import bisq.support.arbitration.ArbitrationCaseState;
+import bisq.support.arbitration.ArbitrationPayoutDistributionType;
+import bisq.support.dispute.mu_sig.MuSigDisputePaymentDetailsVerifier;
+import bisq.support.dispute.mu_sig.MuSigDisputeRoleIdentityResolver;
+import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
+import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsResponse;
+import bisq.support.mediation.mu_sig.MuSigMediationResult;
+import bisq.support.mediation.mu_sig.MuSigMediationResultService;
 import bisq.user.UserService;
 import bisq.user.banned.BannedUserService;
 import bisq.user.identity.UserIdentity;
 import bisq.user.identity.UserIdentityService;
 import bisq.user.profile.UserProfile;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.security.GeneralSecurityException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.stream.Stream;
+
+import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.hasMatchingContractDisputeAgent;
+import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.hasMatchingContractParties;
+import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.resolveSenderRole;
 
 /**
  * Service used by arbitrators.
  */
 @Slf4j
-public class MuSigArbitratorService implements Service, ConfidentialMessageService.Listener {
+public class MuSigArbitratorService extends RateLimitedPersistenceClient<MuSigArbitratorStore> implements Service, ConfidentialMessageService.Listener {
+    @Getter
+    private final MuSigArbitratorStore persistableStore = new MuSigArbitratorStore();
+    @Getter
+    private final Persistence<MuSigArbitratorStore> persistence;
     private final NetworkService networkService;
     private final UserIdentityService userIdentityService;
+    private final MuSigOpenTradeChannelService muSigOpenTradeChannelService;
     private final AuthorizedBondedRolesService authorizedBondedRolesService;
     private final BannedUserService bannedUserService;
+    private final Object arbitrationCaseLock = new Object();
 
-    public MuSigArbitratorService(NetworkService networkService,
+    public MuSigArbitratorService(PersistenceService persistenceService,
+                                  NetworkService networkService,
+                                  ChatService chatService,
                                   UserService userService,
                                   BondedRolesService bondedRolesService) {
+        persistence = persistenceService.getOrCreatePersistence(this, DbSubDirectory.PRIVATE, persistableStore);
         this.networkService = networkService;
         userIdentityService = userService.getUserIdentityService();
+        muSigOpenTradeChannelService = chatService.getMuSigOpenTradeChannelService();
         bannedUserService = userService.getBannedUserService();
         authorizedBondedRolesService = bondedRolesService.getAuthorizedBondedRolesService();
     }
@@ -82,24 +123,96 @@ public class MuSigArbitratorService implements Service, ConfidentialMessageServi
     @Override
     public void onMessage(EnvelopePayloadMessage envelopePayloadMessage) {
         if (envelopePayloadMessage instanceof MuSigArbitrationRequest message) {
-            authorizeArbitrationRequest(message, bannedUserService)
-                    .ifPresent(requester -> processArbitrationRequest(message, requester));
+            synchronized (arbitrationCaseLock) {
+                authorizeArbitrationRequest(message, bannedUserService)
+                        .ifPresent(requester -> processArbitrationRequest(message, requester));
+            }
+        } else if (envelopePayloadMessage instanceof MuSigDisputeCasePaymentDetailsResponse message) {
+            synchronized (arbitrationCaseLock) {
+                authorizeDisputeCasePaymentDetailsResponse(message, this::findArbitrationCase, bannedUserService)
+                        .ifPresent(arbitrationCase -> processDisputeCasePaymentDetailsResponse(message, arbitrationCase));
+            }
         }
     }
 
-    public Optional<UserIdentity> findMyArbitratorUserIdentity(Optional<UserProfile> arbitrator) {
-        return findMyArbitratorUserIdentities()
-                .filter(userIdentity -> arbitrator.isPresent())
-                .filter(userIdentity -> userIdentity.getUserProfile().getId().equals(arbitrator.orElseThrow().getId()))
-                .findAny();
+    /* --------------------------------------------------------------------- */
+    // API
+    /* --------------------------------------------------------------------- */
+
+    public static MuSigArbitrationResult createMuSigArbitrationResult(MuSigContract contract,
+                                                                      ArbitrationPayoutDistributionType arbitrationPayoutDistributionType,
+                                                                      long buyerPayoutAmount,
+                                                                      long sellerPayoutAmount,
+                                                                      Optional<String> summaryNotes) {
+        return new MuSigArbitrationResult(ContractService.getContractHash(contract),
+                arbitrationPayoutDistributionType,
+                buyerPayoutAmount,
+                sellerPayoutAmount,
+                summaryNotes);
     }
 
-    public Stream<UserIdentity> findMyArbitratorUserIdentities() {
-        // If we got banned we still want to show the admin UI.
-        return authorizedBondedRolesService.getAuthorizedBondedRoleStream(true)
-                .filter(data -> data.getBondedRoleType() == BondedRoleType.ARBITRATOR)
-                .flatMap(data -> userIdentityService.findUserIdentity(data.getProfileId()).stream());
+    public void closeArbitrationCase(MuSigArbitrationCase muSigArbitrationCase,
+                                     MuSigArbitrationResult muSigArbitrationResult) {
+        synchronized (arbitrationCaseLock) {
+            Optional<MuSigArbitrationResult> existingResult = muSigArbitrationCase.getMuSigArbitrationResult();
+            if (existingResult.filter(result -> !result.equals(muSigArbitrationResult)).isPresent()) {
+                log.warn("Ignoring changed MuSigArbitrationResult for trade {} because result cannot be changed once set.",
+                        muSigArbitrationCase.getMuSigArbitrationRequest().getTradeId());
+            }
+
+            MuSigArbitrationResult resultToUse = existingResult.orElse(muSigArbitrationResult);
+            boolean resultChanged = false;
+            if (existingResult.isEmpty() || muSigArbitrationCase.getArbitrationResultSignature().isEmpty()) {
+                byte[] arbitrationResultSignature = createArbitrationResultSignature(muSigArbitrationCase, resultToUse);
+                resultChanged = muSigArbitrationCase.setSignedMuSigArbitrationResult(resultToUse, arbitrationResultSignature);
+            }
+            boolean stateChanged = muSigArbitrationCase.setArbitrationCaseState(ArbitrationCaseState.CLOSED);
+            if (resultChanged || stateChanged) {
+                persist();
+                sendArbitrationCaseStateChangeMessage(muSigArbitrationCase);
+                sendArbitrationCaseStateChangeTradeLogMessage(muSigArbitrationCase);
+            }
+        }
     }
+
+    public boolean requestPaymentDetails(MuSigArbitrationCase muSigArbitrationCase) {
+        MuSigArbitrationRequest muSigArbitrationRequest = muSigArbitrationCase.getMuSigArbitrationRequest();
+        Optional<UserIdentity> myArbitratorUserIdentity = findMyArbitratorUserIdentity(muSigArbitrationRequest.getContract().getArbitrator());
+        if (myArbitratorUserIdentity.isEmpty()) {
+            log.warn("Cannot request payment details for trade {} because arbitrator identity was not found.",
+                    muSigArbitrationRequest.getTradeId());
+            return false;
+        }
+
+        UserIdentity myUserIdentity = myArbitratorUserIdentity.orElseThrow();
+        MuSigDisputeCasePaymentDetailsRequest message = new MuSigDisputeCasePaymentDetailsRequest(
+                muSigArbitrationRequest.getTradeId(),
+                myUserIdentity.getUserProfile()
+        );
+        NetworkIdWithKeyPair networkIdWithKeyPair = myUserIdentity.getNetworkIdWithKeyPair();
+        networkService.confidentialSend(message,
+                muSigArbitrationRequest.getRequester().getNetworkId(),
+                networkIdWithKeyPair);
+        networkService.confidentialSend(message,
+                muSigArbitrationRequest.getPeer().getNetworkId(),
+                networkIdWithKeyPair);
+        return true;
+    }
+
+    public ObservableSet<MuSigArbitrationCase> getArbitrationCases() {
+        return persistableStore.getMuSigArbitrationCases();
+    }
+
+    public Optional<UserIdentity> findMyArbitratorUserIdentity(Optional<UserProfile> arbitrator) {
+        return MuSigDisputeRoleIdentityResolver.findMyUserIdentity(arbitrator,
+                authorizedBondedRolesService,
+                userIdentityService,
+                BondedRoleType.ARBITRATOR);
+    }
+
+    /* --------------------------------------------------------------------- */
+    // Private
+    /* --------------------------------------------------------------------- */
 
     static Optional<UserProfile> authorizeArbitrationRequest(MuSigArbitrationRequest message,
                                                              BannedUserService bannedUserService) {
@@ -115,7 +228,7 @@ public class MuSigArbitratorService implements Service, ConfidentialMessageServi
                     message.getTradeId(), requester.getId(), peer.getId());
             return Optional.empty();
         }
-        if (!hasMatchingArbitrator(contract, message.getReceiver())) {
+        if (!hasMatchingContractDisputeAgent(contract.getArbitrator(), message.getReceiver())) {
             log.warn("Ignoring MuSigArbitrationRequest for trade {} because arbitrator does not match contract arbitrator.",
                     message.getTradeId());
             return Optional.empty();
@@ -124,25 +237,242 @@ public class MuSigArbitratorService implements Service, ConfidentialMessageServi
     }
 
     private void processArbitrationRequest(MuSigArbitrationRequest message, UserProfile requester) {
-        findMyArbitratorUserIdentity(message.getContract().getArbitrator())
-                .ifPresent(myArbitratorUserIdentity -> log.info(
-                        "Received MuSigArbitrationRequest for trade {} from requester {} to arbitrator {}.",
-                        message.getTradeId(),
-                        requester.getId(),
-                        myArbitratorUserIdentity.getId()));
+        String tradeId = message.getTradeId();
+        if (findArbitrationCase(tradeId).isPresent()) {
+            log.info("Ignoring duplicate MuSigArbitrationRequest for already existing trade {}.", tradeId);
+            return;
+        }
+
+        if (!verifyArbitrationRequest(message)) {
+            return;
+        }
+
+        MuSigContract contract = message.getContract();
+        Optional<UserIdentity> myArbitratorUserIdentity = findMyArbitratorUserIdentity(contract.getArbitrator());
+        if (myArbitratorUserIdentity.isEmpty()) {
+            log.warn("Ignoring MuSigArbitrationRequest for trade {} because no matching local arbitrator identity was found.",
+                    tradeId);
+            return;
+        }
+
+        UserIdentity myUserIdentity = myArbitratorUserIdentity.orElseThrow();
+        UserProfile peer = message.getPeer();
+        List<MuSigOpenTradeMessage> chatMessages = message.getChatMessages();
+        MuSigOpenTradeChannel channel = muSigOpenTradeChannelService.arbitratorFindOrCreatesChannel(
+                tradeId,
+                myUserIdentity,
+                requester,
+                peer
+        );
+
+        muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.ARBITRATOR);
+        chatMessages.forEach(chatMessage -> muSigOpenTradeChannelService.addMessage(chatMessage, channel));
+
+        // We apply the muSigArbitrationCase after the channel is set up as clients will expect a channel
+        MuSigArbitrationCase muSigArbitrationCase = new MuSigArbitrationCase(message);
+        addNewArbitrationCase(muSigArbitrationCase);
+
+        NetworkIdWithKeyPair networkIdWithKeyPair = myUserIdentity.getNetworkIdWithKeyPair();
+        MuSigArbitrationStateChangeMessage openMessage = new MuSigArbitrationStateChangeMessage(
+                StringUtils.createUid(),
+                tradeId,
+                myUserIdentity.getUserProfile(),
+                ArbitrationCaseState.OPEN,
+                Optional.empty(),
+                Optional.empty());
+
+        // Send to requester
+        networkService.confidentialSend(openMessage, requester.getNetworkId(), networkIdWithKeyPair);
+        muSigOpenTradeChannelService.addArbitrationOpenedMessage(channel, Res.encode("authorizedRole.arbitrator.message.toRequester"));
+
+        // Send to peer
+        networkService.confidentialSend(openMessage, peer.getNetworkId(), networkIdWithKeyPair);
+        muSigOpenTradeChannelService.addArbitrationOpenedMessage(channel, Res.encode("authorizedRole.arbitrator.message.toNonRequester"));
+
+        log.info("Processed MuSigArbitrationRequest for trade {} from requester {} to arbitrator {}.",
+                tradeId,
+                requester.getId(),
+                myUserIdentity.getId());
     }
 
-    private static boolean hasMatchingContractParties(MuSigContract contract, UserProfile requester, UserProfile peer) {
-        return requester.getNetworkId().equals(contract.getMaker().getNetworkId()) &&
-                peer.getNetworkId().equals(contract.getTaker().getNetworkId()) ||
-                requester.getNetworkId().equals(contract.getTaker().getNetworkId()) &&
-                        peer.getNetworkId().equals(contract.getMaker().getNetworkId());
+    static Optional<MuSigArbitrationCase> authorizeDisputeCasePaymentDetailsResponse(
+            MuSigDisputeCasePaymentDetailsResponse response,
+            Function<String, Optional<MuSigArbitrationCase>> findArbitrationCase,
+            BannedUserService bannedUserService) {
+        String tradeId = response.getTradeId();
+        return findArbitrationCase.apply(tradeId)
+                .<Optional<MuSigArbitrationCase>>map(arbitrationCase -> {
+                    MuSigArbitrationRequest muSigArbitrationRequest = arbitrationCase.getMuSigArbitrationRequest();
+                    UserProfile senderUserProfile = response.getSenderUserProfile();
+                    UserProfile requester = muSigArbitrationRequest.getRequester();
+                    UserProfile peer = muSigArbitrationRequest.getPeer();
+                    boolean isRequester = requester.getId().equals(senderUserProfile.getId());
+                    boolean isPeer = peer.getId().equals(senderUserProfile.getId());
+                    if (!isRequester && !isPeer) {
+                        log.warn("Ignoring MuSigDisputeCasePaymentDetailsResponse for trade {} with unknown senderUserProfile {}.",
+                                tradeId, senderUserProfile);
+                        return Optional.empty();
+                    }
+                    if (bannedUserService.isUserProfileBanned(senderUserProfile)) {
+                        log.warn("Ignoring MuSigDisputeCasePaymentDetailsResponse for trade {} from banned senderUserProfile {}.",
+                                tradeId, senderUserProfile);
+                        return Optional.empty();
+                    }
+                    return Optional.of(arbitrationCase);
+                })
+                .orElseGet(() -> {
+                    log.warn("Ignoring MuSigDisputeCasePaymentDetailsResponse for unknown trade {}.", tradeId);
+                    return Optional.empty();
+                });
     }
 
-    private static boolean hasMatchingArbitrator(MuSigContract contract, NetworkId arbitratorNetworkId) {
-        return contract.getArbitrator()
-                .map(UserProfile::getNetworkId)
-                .map(contractArbitratorNetworkId -> contractArbitratorNetworkId.equals(arbitratorNetworkId))
-                .orElse(false);
+    private void processDisputeCasePaymentDetailsResponse(MuSigDisputeCasePaymentDetailsResponse response,
+                                                          MuSigArbitrationCase arbitrationCase) {
+        String tradeId = response.getTradeId();
+        MuSigArbitrationRequest muSigArbitrationRequest = arbitrationCase.getMuSigArbitrationRequest();
+        Role causingRole = resolveSenderRole(muSigArbitrationRequest.getContract(), response.getSenderUserProfile().getId());
+        PaymentDetailsVerification verification = verifyPaymentDetails(muSigArbitrationRequest.getContract(),
+                response,
+                causingRole);
+        boolean changed = false;
+        if (verification.takerAccountPayloadMatches()) {
+            changed |= arbitrationCase.setTakerPaymentAccountPayload(response.getTakerAccountPayload());
+        }
+        if (verification.makerAccountPayloadMatches()) {
+            changed |= arbitrationCase.setMakerPaymentAccountPayload(response.getMakerAccountPayload());
+        }
+        if (!verification.issues().isEmpty()) {
+            changed |= arbitrationCase.addIssues(verification.issues());
+            log.warn("MuSigDisputeCasePaymentDetailsResponse for trade {} has verification issues: {}",
+                    tradeId, verification.issues());
+        }
+        if (changed) {
+            persist();
+        }
+    }
+
+    private void addNewArbitrationCase(MuSigArbitrationCase muSigArbitrationCase) {
+        getArbitrationCases().add(muSigArbitrationCase);
+        persist();
+    }
+
+    private Optional<MuSigArbitrationCase> findArbitrationCase(String tradeId) {
+        return getArbitrationCases().stream()
+                .filter(item -> item.getMuSigArbitrationRequest().getTradeId().equals(tradeId))
+                .findAny();
+    }
+
+    private boolean verifyArbitrationRequest(MuSigArbitrationRequest message) {
+        String tradeId = message.getTradeId();
+        MuSigContract contract = message.getContract();
+        MuSigMediationResult mediationResult = message.getMuSigMediationResult();
+        if (!Arrays.equals(mediationResult.getContractHash(), ContractService.getContractHash(contract))) {
+            log.warn("Ignoring MuSigArbitrationRequest for trade {} because MuSigMediationResult contract hash does not match request contract.",
+                    tradeId);
+            return false;
+        }
+        Optional<UserProfile> mediator = contract.getMediator();
+        if (mediator.isEmpty()) {
+            log.warn("Ignoring MuSigArbitrationRequest for trade {} because request contract has no mediator.",
+                    tradeId);
+            return false;
+        }
+        try {
+            if (!MuSigMediationResultService.verifyMediationResult(
+                    mediationResult,
+                    message.getMediationResultSignature(),
+                    contract,
+                    mediator.orElseThrow().getPublicKey())) {
+                log.warn("Ignoring MuSigArbitrationRequest for trade {} because MuSigMediationResult signature verification failed.",
+                        tradeId);
+                return false;
+            }
+        } catch (GeneralSecurityException e) {
+            log.warn("Ignoring MuSigArbitrationRequest for trade {} because MuSigMediationResult signature verification failed.",
+                    tradeId, e);
+            return false;
+        }
+        return true;
+    }
+
+    private PaymentDetailsVerification verifyPaymentDetails(MuSigContract contract,
+                                                            MuSigDisputeCasePaymentDetailsResponse response,
+                                                            Role causingRole) {
+        MuSigDisputePaymentDetailsVerifier.Result result = MuSigDisputePaymentDetailsVerifier.verify(contract,
+                response.getTakerAccountPayload(),
+                response.getMakerAccountPayload());
+        List<MuSigArbitrationIssue> issues = Stream.concat(
+                        result.takerMismatchDetails().stream()
+                                .map(details -> new MuSigArbitrationIssue(
+                                        causingRole,
+                                        MuSigArbitrationIssueType.TAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH,
+                                        Optional.of(details))),
+                        result.makerMismatchDetails().stream()
+                                .map(details -> new MuSigArbitrationIssue(
+                                        causingRole,
+                                        MuSigArbitrationIssueType.MAKER_ACCOUNT_PAYLOAD_HASH_MISMATCH,
+                                        Optional.of(details))))
+                .toList();
+
+        return new PaymentDetailsVerification(result.takerAccountPayloadMatches(),
+                result.makerAccountPayloadMatches(),
+                issues);
+    }
+
+    private void sendArbitrationCaseStateChangeMessage(MuSigArbitrationCase muSigArbitrationCase) {
+        MuSigArbitrationRequest muSigArbitrationRequest = muSigArbitrationCase.getMuSigArbitrationRequest();
+        ArbitrationCaseState arbitrationCaseState = muSigArbitrationCase.getArbitrationCaseState();
+        Optional<MuSigArbitrationResult> muSigArbitrationResult = muSigArbitrationCase.getMuSigArbitrationResult();
+        findMyArbitratorUserIdentity(muSigArbitrationRequest.getContract().getArbitrator())
+                .ifPresent(myUserIdentity -> {
+                    String id = StringUtils.createUid();
+                    MuSigArbitrationStateChangeMessage message = new MuSigArbitrationStateChangeMessage(id,
+                            muSigArbitrationRequest.getTradeId(),
+                            myUserIdentity.getUserProfile(),
+                            arbitrationCaseState,
+                            muSigArbitrationResult,
+                            muSigArbitrationCase.getArbitrationResultSignature());
+                    NetworkIdWithKeyPair networkIdWithKeyPair = myUserIdentity.getNetworkIdWithKeyPair();
+
+                    networkService.confidentialSend(message,
+                            muSigArbitrationRequest.getRequester().getNetworkId(),
+                            networkIdWithKeyPair);
+
+                    networkService.confidentialSend(message,
+                            muSigArbitrationRequest.getPeer().getNetworkId(),
+                            networkIdWithKeyPair);
+                });
+    }
+
+    private void sendArbitrationCaseStateChangeTradeLogMessage(MuSigArbitrationCase muSigArbitrationCase) {
+        if (muSigArbitrationCase.getArbitrationCaseState() != ArbitrationCaseState.CLOSED) {
+            return;
+        }
+        muSigOpenTradeChannelService.findChannelByTradeId(muSigArbitrationCase.getMuSigArbitrationRequest().getTradeId())
+                .ifPresent(channel -> {
+                    muSigOpenTradeChannelService.setDisputeAgentType(channel, MuSigDisputeAgentType.ARBITRATOR);
+                    muSigOpenTradeChannelService.sendTradeLogMessage(Res.encode("authorizedRole.arbitrator.message.arbitrationCaseClosed"), channel);
+                });
+    }
+
+    private byte[] createArbitrationResultSignature(MuSigArbitrationCase muSigArbitrationCase,
+                                                    MuSigArbitrationResult muSigArbitrationResult) {
+        MuSigArbitrationRequest arbitrationRequest = muSigArbitrationCase.getMuSigArbitrationRequest();
+        return findMyArbitratorUserIdentity(arbitrationRequest.getContract().getArbitrator())
+                .map(myUserIdentity -> {
+                    try {
+                        return MuSigArbitrationResultService.signArbitrationResult(
+                                muSigArbitrationResult,
+                                myUserIdentity.getNetworkIdWithKeyPair().getKeyPair());
+                    } catch (GeneralSecurityException e) {
+                        throw new IllegalStateException("Could not sign MuSigArbitrationStateChangeMessage for trade " + arbitrationRequest.getTradeId(), e);
+                    }
+                })
+                .orElseThrow(() -> new IllegalStateException("Could not sign MuSigArbitrationStateChangeMessage because arbitrator identity was not found."));
+    }
+
+    private record PaymentDetailsVerification(boolean takerAccountPayloadMatches,
+                                              boolean makerAccountPayloadMatches,
+                                              List<MuSigArbitrationIssue> issues) {
     }
 }

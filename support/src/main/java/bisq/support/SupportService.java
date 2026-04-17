@@ -91,7 +91,9 @@ public class SupportService implements Service {
                 chatService,
                 userService,
                 bondedRolesService);
-        muSigArbitratorService = new MuSigArbitratorService(networkService,
+        muSigArbitratorService = new MuSigArbitratorService(persistenceService,
+                networkService,
+                chatService,
                 userService,
                 bondedRolesService);
         securityManagerService = new SecurityManagerService(SecurityManagerService.Config.from(config.getSecurityManagerConfig()),
