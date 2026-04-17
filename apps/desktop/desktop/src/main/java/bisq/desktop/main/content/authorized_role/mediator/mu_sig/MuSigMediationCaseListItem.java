@@ -39,6 +39,9 @@ import bisq.trade.mu_sig.MuSigTradeUtils;
 import bisq.user.profile.UserProfile;
 import bisq.user.reputation.ReputationScore;
 import bisq.user.reputation.ReputationService;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import lombok.EqualsAndHashCode;
@@ -46,7 +49,6 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,8 +59,7 @@ import java.util.Optional;
 public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTableItem {
     @EqualsAndHashCode.Include
     private final MuSigMediationCase muSigMediationCase;
-    @EqualsAndHashCode.Include
-    private final MuSigOpenTradeChannel channel;
+    private final ObjectProperty<Optional<MuSigOpenTradeChannel>> channel = new SimpleObjectProperty<>(Optional.empty());
     private final ChatNotificationService chatNotificationService;
     private final ReputationService reputationService;
 
@@ -69,23 +70,27 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
     private final boolean isMakerRequester;
     private final Badge makersBadge = new Badge();
     private final Badge takersBadge = new Badge();
-    private Pin changedChatNotificationPin;
-    private Pin muSigMediationResultPin;
     private Long closeCaseDate = 0L;
     private final StringProperty closeCaseDateString = new SimpleStringProperty("");
     private final StringProperty closeCaseTimeString = new SimpleStringProperty("");
 
+    private Pin mediatorHasLeftChatPin;
+    private Pin changedChatNotificationPin;
+    private Pin muSigMediationResultPin;
+
+
     MuSigMediationCaseListItem(ServiceProvider serviceProvider,
                                MuSigMediationCase muSigMediationCase,
-                               MuSigOpenTradeChannel channel) {
+                               Optional<MuSigOpenTradeChannel> channel) {
         this.muSigMediationCase = muSigMediationCase;
-        this.channel = channel;
+        this.channel.set(channel);
 
         reputationService = serviceProvider.getUserService().getReputationService();
         chatNotificationService = serviceProvider.getChatService().getChatNotificationService();
         MuSigContract contract = muSigMediationCase.getMuSigMediationRequest().getContract();
         MuSigOffer offer = contract.getOffer();
-        List<UserProfile> traders = new ArrayList<>(channel.getTraders());
+        List<UserProfile> traders = List.of(muSigMediationCase.getMuSigMediationRequest().getRequester(),
+                muSigMediationCase.getMuSigMediationRequest().getPeer());
 
         Trader trader1 = new Trader(traders.get(0), reputationService);
         Trader trader2 = new Trader(traders.get(1), reputationService);
@@ -98,7 +103,7 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
         }
         isMakerRequester = muSigMediationCase.getMuSigMediationRequest().getRequester().equals(maker.userProfile);
 
-        tradeId = channel.getTradeId();
+        tradeId = muSigMediationCase.getMuSigMediationRequest().getTradeId();
         shortTradeId = tradeId.substring(0, 8);
         directionalTitle = offer.getDirectionalTitle();
         date = contract.getTakeOfferDate();
@@ -118,6 +123,8 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
 
     @Override
     public void onActivate() {
+        mediatorHasLeftChatPin = muSigMediationCase.mediatorHasLeftChatObservable().addObserver(hasLeftChat ->
+                UIThread.run(() -> applyChannel(hasLeftChat)));
         muSigMediationResultPin = muSigMediationCase.muSigMediationResultObservable().addObserver(optionalResult ->
                 UIThread.run(() -> applyCloseCaseDate(optionalResult.map(MuSigMediationResult::getDate))));
 
@@ -127,11 +134,33 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
 
     @Override
     public void onDeactivate() {
+        if (mediatorHasLeftChatPin != null) {
+            mediatorHasLeftChatPin.unbind();
+            mediatorHasLeftChatPin = null;
+        }
         if (muSigMediationResultPin != null) {
             muSigMediationResultPin.unbind();
             muSigMediationResultPin = null;
         }
         changedChatNotificationPin.unbind();
+    }
+
+    public Optional<MuSigOpenTradeChannel> getChannel() {
+        return channel.get();
+    }
+
+    public ReadOnlyObjectProperty<Optional<MuSigOpenTradeChannel>> channelProperty() {
+        return channel;
+    }
+
+    private void applyChannel(boolean hasLeftChat) {
+        // Leaving chat is one-way for the mediator UI. Once the case is marked as left,
+        // we detach the channel and do not restore it from later state changes here.
+        if (hasLeftChat) {
+            this.channel.set(Optional.empty());
+            makersBadge.setText("");
+            takersBadge.setText("");
+        }
     }
 
     public String getCloseCaseDateString() {
@@ -157,7 +186,7 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
     }
 
     private void handleNotification(ChatNotification notification) {
-        if (notification == null || !notification.getChatChannelId().equals(channel.getId())) {
+        if (notification == null || channel.get().isEmpty() || !notification.getChatChannelId().equals(channel.get().orElseThrow().getId())) {
             return;
         }
         UIThread.run(() -> {
@@ -173,7 +202,8 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
     }
 
     private long getNumNotifications(UserProfile userProfile) {
-        return chatNotificationService.getNotConsumedNotifications(channel)
+        return channel.get().map(chatNotificationService::getNotConsumedNotifications)
+                .orElseGet(java.util.stream.Stream::empty)
                 .filter(notification -> notification.getSenderUserProfile().isPresent())
                 .filter(notification -> notification.getSenderUserProfile().get().equals(userProfile))
                 .count();

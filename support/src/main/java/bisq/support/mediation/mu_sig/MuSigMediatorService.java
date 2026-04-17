@@ -25,6 +25,7 @@ import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeMessage;
+import bisq.chat.priv.LeavePrivateChatManager;
 import bisq.common.application.Service;
 import bisq.common.encoding.Hex;
 import bisq.common.observable.collection.ObservableSet;
@@ -63,8 +64,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.hasMatchingContractParties;
 import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.hasMatchingContractDisputeAgent;
+import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.hasMatchingContractParties;
 import static bisq.support.dispute.mu_sig.MuSigDisputeContractIdentityChecks.resolveSenderRole;
 
 /**
@@ -79,6 +80,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
     private final NetworkService networkService;
     private final UserIdentityService userIdentityService;
     private final MuSigOpenTradeChannelService muSigOpenTradeChannelService;
+    private final LeavePrivateChatManager leavePrivateChatManager;
     private final AuthorizedBondedRolesService authorizedBondedRolesService;
     private final BannedUserService bannedUserService;
     private final Object mediationCaseLock = new Object();
@@ -94,6 +96,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
         bannedUserService = userService.getBannedUserService();
         authorizedBondedRolesService = bondedRolesService.getAuthorizedBondedRolesService();
         muSigOpenTradeChannelService = chatService.getMuSigOpenTradeChannelService();
+        leavePrivateChatManager = chatService.getLeavePrivateChatManager();
     }
 
     /* --------------------------------------------------------------------- */
@@ -144,12 +147,12 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
     /* --------------------------------------------------------------------- */
 
     public static MuSigMediationResult createMuSigMediationResult(MuSigContract contract,
-                                                           MediationResultReason mediationResultReason,
-                                                           MediationPayoutDistributionType mediationPayoutDistributionType,
-                                                           Optional<Long> proposedBuyerPayoutAmount,
-                                                           Optional<Long> proposedSellerPayoutAmount,
-                                                           Optional<Double> payoutAdjustmentPercentage,
-                                                           Optional<String> summaryNotes) {
+                                                                  MediationResultReason mediationResultReason,
+                                                                  MediationPayoutDistributionType mediationPayoutDistributionType,
+                                                                  Optional<Long> proposedBuyerPayoutAmount,
+                                                                  Optional<Long> proposedSellerPayoutAmount,
+                                                                  Optional<Double> payoutAdjustmentPercentage,
+                                                                  Optional<String> summaryNotes) {
         return new MuSigMediationResult(ContractService.getContractHash(contract),
                 mediationResultReason, mediationPayoutDistributionType,
                 proposedBuyerPayoutAmount, proposedSellerPayoutAmount,
@@ -181,6 +184,7 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
 
     public void removeMediationCase(MuSigMediationCase muSigMediationCase) {
         synchronized (mediationCaseLock) {
+            leaveChannel(muSigMediationCase.getMuSigMediationRequest().getTradeId());
             getMediationCases().remove(muSigMediationCase);
             persist();
         }
@@ -209,6 +213,17 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
                 sendMediationCaseStateChangeMessage(muSigMediationCase);
                 sendMediationCaseStateChangeTradeLogMessage(muSigMediationCase);
             }
+        }
+    }
+
+    public void leaveChat(MuSigMediationCase muSigMediationCase) {
+        MuSigMediationRequest muSigMediationRequest = muSigMediationCase.getMuSigMediationRequest();
+        synchronized (mediationCaseLock) {
+            boolean changed = muSigMediationCase.setMediatorHasLeftChat(true);
+            if (changed) {
+                persist();
+            }
+            leaveChannel(muSigMediationRequest.getTradeId());
         }
     }
 
@@ -331,9 +346,10 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
         muSigOpenTradeChannelService.addMediationOpenedMessage(channel, Res.encode("authorizedRole.mediator.message.toNonRequester"));
     }
 
-    static Optional<MuSigMediationCase> authorizeDisputeCasePaymentDetailsResponse(MuSigDisputeCasePaymentDetailsResponse response,
-                                                                                   Function<String, Optional<MuSigMediationCase>> findMediationCase,
-                                                                                   BannedUserService bannedUserService) {
+    static Optional<MuSigMediationCase> authorizeDisputeCasePaymentDetailsResponse(
+            MuSigDisputeCasePaymentDetailsResponse response,
+            Function<String, Optional<MuSigMediationCase>> findMediationCase,
+            BannedUserService bannedUserService) {
         String tradeId = response.getTradeId();
         return findMediationCase.apply(tradeId)
                 .<Optional<MuSigMediationCase>>map(mediationCase -> {
@@ -543,4 +559,10 @@ public class MuSigMediatorService extends RateLimitedPersistenceClient<MuSigMedi
                 .orElseThrow(() -> new IllegalStateException("Could not sign MuSigMediationStateChangeMessage because mediator identity was not found."));
     }
 
+    private void leaveChannel(String tradeId) {
+        muSigOpenTradeChannelService.findChannelByTradeId(tradeId)
+                .ifPresentOrElse(leavePrivateChatManager::leaveChannel,
+                        () -> log.warn("Ignoring leaveChat for unknown channel on trade {}.",
+                                tradeId));
+    }
 }

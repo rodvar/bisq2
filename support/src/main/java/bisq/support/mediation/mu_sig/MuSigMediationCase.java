@@ -49,6 +49,7 @@ public class MuSigMediationCase implements PersistableProto {
     private final Observable<Optional<AccountPayload<?>>> takerAccountPayload = new Observable<>(Optional.empty());
     private final Observable<Optional<AccountPayload<?>>> makerAccountPayload = new Observable<>(Optional.empty());
     private final Observable<List<MuSigMediationIssue>> issues = new Observable<>(List.of());
+    private final Observable<Boolean> mediatorHasLeftChat = new Observable<>(false);
 
     public MuSigMediationCase(MuSigMediationRequest muSigMediationRequest) {
         this(muSigMediationRequest,
@@ -59,6 +60,7 @@ public class MuSigMediationCase implements PersistableProto {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 List.of());
     }
 
@@ -70,6 +72,7 @@ public class MuSigMediationCase implements PersistableProto {
                                Optional<byte[]> peerReportedContractHash,
                                Optional<AccountPayload<?>> takerAccountPayload,
                                Optional<AccountPayload<?>> makerAccountPayload,
+                               boolean mediatorHasLeftChat,
                                List<MuSigMediationIssue> issues) {
         this.muSigMediationRequest = muSigMediationRequest;
         this.requestDate = requestDate;
@@ -80,6 +83,7 @@ public class MuSigMediationCase implements PersistableProto {
         this.hasPeerReportedContractHash.set(peerReportedContractHash.isPresent());
         this.takerAccountPayload.set(takerAccountPayload);
         this.makerAccountPayload.set(makerAccountPayload);
+        this.mediatorHasLeftChat.set(mediatorHasLeftChat);
         this.issues.set(issues);
     }
 
@@ -99,6 +103,7 @@ public class MuSigMediationCase implements PersistableProto {
         peerReportedContractHash.ifPresent(item -> builder.setPeerReportedContractHash(ByteString.copyFrom(item)));
         takerAccountPayload.get().ifPresent(item -> builder.setTakerAccountPayload(item.toProto(serializeForHash)));
         makerAccountPayload.get().ifPresent(item -> builder.setMakerAccountPayload(item.toProto(serializeForHash)));
+        builder.setMediatorHasLeftChat(mediatorHasLeftChat.get());
         builder.addAllIssues(issues.get().stream()
                 .map(item -> item.toProto(serializeForHash))
                 .toList());
@@ -129,6 +134,7 @@ public class MuSigMediationCase implements PersistableProto {
                 proto.hasMakerAccountPayload() ?
                         Optional.of(AccountPayload.fromProto(proto.getMakerAccountPayload())) :
                         Optional.empty(),
+                proto.getMediatorHasLeftChat(),
                 proto.getIssuesList().stream()
                         .map(MuSigMediationIssue::fromProto)
                         .toList());
@@ -192,6 +198,18 @@ public class MuSigMediationCase implements PersistableProto {
 
     public ReadOnlyObservable<List<MuSigMediationIssue>> issuesObservable() {
         return issues;
+    }
+
+    public boolean hasMediatorLeftChat() {
+        return mediatorHasLeftChat.get();
+    }
+
+    public ReadOnlyObservable<Boolean> mediatorHasLeftChatObservable() {
+        return mediatorHasLeftChat;
+    }
+
+    public boolean setMediatorHasLeftChat(boolean mediatorHasLeftChat) {
+        return this.mediatorHasLeftChat.set(mediatorHasLeftChat);
     }
 
     public boolean setSignedMuSigMediationResult(MuSigMediationResult result, byte[] signature) {
