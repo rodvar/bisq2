@@ -144,6 +144,7 @@ message MuSigMediationCase {
   optional account.AccountPayload takerAccountPayload = 7;
   optional account.AccountPayload makerAccountPayload = 8;
   repeated MuSigMediationIssue issues = 9;
+  bool mediatorHasLeftChat = 10;
 }
 
 message MuSigMediatorStore {
