@@ -40,6 +40,9 @@ import java.util.stream.Collectors;
 
 import static bisq.network.p2p.services.data.storage.MetaData.HIGH_PRIORITY;
 import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
+import static bisq.support.dispute.ChatMessagePruning.MAX_SERIALIZED_SIZE;
+import static bisq.support.dispute.ChatMessagePruning.MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES;
+import static bisq.support.dispute.ChatMessagePruning.prune;
 import static com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
@@ -70,11 +73,17 @@ public final class MuSigDisputeCaseDataMessage implements MailboxMessage, Extern
     public void verify() {
         NetworkDataValidation.validateTradeId(tradeId);
         NetworkDataValidation.validateHash(contractHash);
-        checkArgument(chatMessages.size() < 1000);
+        checkArgument(getValueBuilder(chatMessages, false).build().getSerializedSize() <= MAX_SERIALIZED_SIZE,
+                "Serialized dispute case data size must not exceed " + MAX_SERIALIZED_SIZE + " bytes");
     }
 
     @Override
     public bisq.support.protobuf.MuSigDisputeCaseDataMessage.Builder getValueBuilder(boolean serializeForHash) {
+        return getValueBuilder(chatMessages, serializeForHash);
+    }
+
+    private bisq.support.protobuf.MuSigDisputeCaseDataMessage.Builder getValueBuilder(List<MuSigOpenTradeMessage> chatMessages,
+                                                                                       boolean serializeForHash) {
         return bisq.support.protobuf.MuSigDisputeCaseDataMessage.newBuilder()
                 .setTradeId(tradeId)
                 .setSenderUserProfile(senderUserProfile.toProto(serializeForHash))
@@ -121,19 +130,11 @@ public final class MuSigDisputeCaseDataMessage implements MailboxMessage, Extern
     }
 
     private List<MuSigOpenTradeMessage> maybePrune(List<MuSigOpenTradeMessage> chatMessages) {
-        StringBuilder sb = new StringBuilder();
-        List<MuSigOpenTradeMessage> result = chatMessages.stream()
-                .filter(message -> {
-                    sb.append(message.getTextOrNA());
-                    return sb.length() < 10_000;
-                })
-                .collect(Collectors.toList());
-        if (result.size() != chatMessages.size()) {
-            log.warn("chatMessages pruned for trade {}: kept={}, dropped={}, maxTotalChars=10000",
-                    tradeId,
-                    result.size(),
-                    chatMessages.size() - result.size());
-        }
-        return result;
+        return prune(chatMessages,
+                MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES,
+                MAX_SERIALIZED_SIZE,
+                messages -> getValueBuilder(messages, false).build().getSerializedSize(),
+                log,
+                tradeId);
     }
 }
