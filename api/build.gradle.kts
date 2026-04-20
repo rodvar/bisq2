@@ -42,4 +42,5 @@ dependencies {
     implementation(libs.bundles.websocket.libs)
     implementation(libs.bouncycastle)
     implementation(libs.bouncycastle.pkix)
+    implementation(libs.zxing.core)
 }
