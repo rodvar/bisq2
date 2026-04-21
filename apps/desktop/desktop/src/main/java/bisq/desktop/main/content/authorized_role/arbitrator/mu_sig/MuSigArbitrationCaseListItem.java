@@ -15,7 +15,7 @@
  * along with Bisq. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package bisq.desktop.main.content.authorized_role.mediator.mu_sig;
+package bisq.desktop.main.content.authorized_role.arbitrator.mu_sig;
 
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
 import bisq.chat.notifications.ChatNotification;
@@ -32,9 +32,9 @@ import bisq.offer.mu_sig.MuSigOffer;
 import bisq.presentation.formatters.AmountFormatter;
 import bisq.presentation.formatters.DateFormatter;
 import bisq.presentation.formatters.TimeFormatter;
-import bisq.support.mediation.mu_sig.MuSigMediationCase;
-import bisq.support.mediation.mu_sig.MuSigMediationRequest;
-import bisq.support.mediation.mu_sig.MuSigMediationResult;
+import bisq.support.arbitration.mu_sig.MuSigArbitrationCase;
+import bisq.support.arbitration.mu_sig.MuSigArbitrationRequest;
+import bisq.support.arbitration.mu_sig.MuSigArbitrationResult;
 import bisq.trade.mu_sig.MuSigTradeFormatter;
 import bisq.trade.mu_sig.MuSigTradeUtils;
 import bisq.user.profile.UserProfile;
@@ -57,9 +57,9 @@ import java.util.Optional;
 @Getter
 @ToString
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTableItem {
+public class MuSigArbitrationCaseListItem implements ActivatableTableItem, DateTableItem {
     @EqualsAndHashCode.Include
-    private final MuSigMediationCase muSigMediationCase;
+    private final MuSigArbitrationCase muSigArbitrationCase;
     private final ObjectProperty<Optional<MuSigOpenTradeChannel>> channel = new SimpleObjectProperty<>(Optional.empty());
     private final ChatNotificationService chatNotificationService;
     private final ReputationService reputationService;
@@ -75,22 +75,22 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
     private final StringProperty closeCaseDateString = new SimpleStringProperty("");
     private final StringProperty closeCaseTimeString = new SimpleStringProperty("");
 
-    private Pin mediatorHasLeftChatPin;
+    private Pin arbitratorHasLeftChatPin;
     private Pin changedChatNotificationPin;
-    private Pin muSigMediationResultPin;
+    private Pin muSigArbitrationResultPin;
 
-    MuSigMediationCaseListItem(ServiceProvider serviceProvider,
-                               MuSigMediationCase muSigMediationCase,
-                               Optional<MuSigOpenTradeChannel> channel) {
-        this.muSigMediationCase = muSigMediationCase;
+    MuSigArbitrationCaseListItem(ServiceProvider serviceProvider,
+                                 MuSigArbitrationCase muSigArbitrationCase,
+                                 Optional<MuSigOpenTradeChannel> channel) {
+        this.muSigArbitrationCase = muSigArbitrationCase;
         this.channel.set(channel);
 
         reputationService = serviceProvider.getUserService().getReputationService();
         chatNotificationService = serviceProvider.getChatService().getChatNotificationService();
-        MuSigMediationRequest mediationRequest = muSigMediationCase.getMuSigMediationRequest();
-        MuSigContract contract = mediationRequest.getContract();
+        MuSigArbitrationRequest arbitrationRequest = muSigArbitrationCase.getMuSigArbitrationRequest();
+        MuSigContract contract = arbitrationRequest.getContract();
         MuSigOffer offer = contract.getOffer();
-        List<UserProfile> traders = List.of(mediationRequest.getRequester(), mediationRequest.getPeer());
+        List<UserProfile> traders = List.of(arbitrationRequest.getRequester(), arbitrationRequest.getPeer());
 
         Trader trader1 = new Trader(traders.get(0), reputationService);
         Trader trader2 = new Trader(traders.get(1), reputationService);
@@ -101,9 +101,9 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
             maker = trader2;
             taker = trader1;
         }
-        isMakerRequester = mediationRequest.getRequester().equals(maker.userProfile);
+        isMakerRequester = arbitrationRequest.getRequester().equals(maker.userProfile);
 
-        tradeId = mediationRequest.getTradeId();
+        tradeId = arbitrationRequest.getTradeId();
         shortTradeId = tradeId.substring(0, 8);
         directionalTitle = offer.getDirectionalTitle();
         date = contract.getTakeOfferDate();
@@ -123,10 +123,10 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
 
     @Override
     public void onActivate() {
-        mediatorHasLeftChatPin = muSigMediationCase.mediatorHasLeftChatObservable().addObserver(hasLeftChat ->
+        arbitratorHasLeftChatPin = muSigArbitrationCase.arbitratorHasLeftChatObservable().addObserver(hasLeftChat ->
                 UIThread.run(() -> applyChannel(hasLeftChat)));
-        muSigMediationResultPin = muSigMediationCase.muSigMediationResultObservable().addObserver(optionalResult ->
-                UIThread.run(() -> applyCloseCaseDate(optionalResult.map(MuSigMediationResult::getDate))));
+        muSigArbitrationResultPin = muSigArbitrationCase.muSigArbitrationResultObservable().addObserver(optionalResult ->
+                UIThread.run(() -> applyCloseCaseDate(optionalResult.map(MuSigArbitrationResult::getDate))));
 
         chatNotificationService.getNotConsumedNotifications().forEach(this::handleNotification);
         changedChatNotificationPin = chatNotificationService.getChangedNotification().addObserver(this::handleNotification);
@@ -134,13 +134,13 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
 
     @Override
     public void onDeactivate() {
-        if (mediatorHasLeftChatPin != null) {
-            mediatorHasLeftChatPin.unbind();
-            mediatorHasLeftChatPin = null;
+        if (arbitratorHasLeftChatPin != null) {
+            arbitratorHasLeftChatPin.unbind();
+            arbitratorHasLeftChatPin = null;
         }
-        if (muSigMediationResultPin != null) {
-            muSigMediationResultPin.unbind();
-            muSigMediationResultPin = null;
+        if (muSigArbitrationResultPin != null) {
+            muSigArbitrationResultPin.unbind();
+            muSigArbitrationResultPin = null;
         }
         changedChatNotificationPin.unbind();
     }
@@ -154,7 +154,7 @@ public class MuSigMediationCaseListItem implements ActivatableTableItem, DateTab
     }
 
     private void applyChannel(boolean hasLeftChat) {
-        // Leaving chat is one-way for the mediator UI. Once the case is marked as left,
+        // Leaving chat is one-way for the arbitrator UI. Once the case is marked as left,
         // we detach the channel and do not restore it from later state changes here.
         if (hasLeftChat) {
             this.channel.set(Optional.empty());

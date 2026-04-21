@@ -119,7 +119,7 @@ public class MuSigMediationCaseDetailSection {
                 model.setSecurityDepositInfo(Optional.empty());
             } else if (collateralOption.get().getBuyerSecurityDeposit() != collateralOption.get().getSellerSecurityDeposit()) {
                 log.warn("Buyer and seller security deposits do not match. tradeId={}", tradeId);
-                String mismatch = Res.get("authorizedRole.mediator.mediationCaseDetails.securityDepositMismatch");
+                String mismatch = Res.get("authorizedRole.disputeActor.disputeCaseDetails.securityDepositMismatch");
                 model.setSecurityDepositInfo(Optional.of(new Model.SecurityDepositInfo(
                         0,
                         mismatch,
@@ -190,7 +190,7 @@ public class MuSigMediationCaseDetailSection {
             Optional<byte[]> peerReportedContractHash = muSigMediationCase.getPeerReportedContractHash();
             if (peerReportedContractHash.isEmpty()) {
                 model.getContractHashIssueVisible().set(true);
-                model.getContractHashIssueTooltip().set(Res.get("authorizedRole.mediator.mediationCaseDetails.contractHash.waitingForPeer"));
+                model.getContractHashIssueTooltip().set(Res.get("authorizedRole.disputeActor.disputeCaseDetails.contractHash.waitingForPeer"));
                 return;
             }
 
@@ -212,7 +212,7 @@ public class MuSigMediationCaseDetailSection {
             Role requesterRole = getRole(request.getContract(), request.getRequester().getId());
             String makerHash = requesterRole == Role.MAKER ? Hex.encode(requesterContractHash) : Hex.encode(peerReportedContractHash);
             String takerHash = requesterRole == Role.TAKER ? Hex.encode(requesterContractHash) : Hex.encode(peerReportedContractHash);
-            return Res.get("authorizedRole.mediator.mediationCaseDetails.contractHash.issue.hashMismatch",
+            return Res.get("authorizedRole.disputeActor.disputeCaseDetails.contractHash.issue.hashMismatch",
                     makerHash,
                     takerHash);
         }
@@ -283,7 +283,7 @@ public class MuSigMediationCaseDetailSection {
             HBox securityDepositValueBox = new HBox(5, securityDepositLabel, securityDepositPercentBox);
             securityDepositValueBox.setAlignment(Pos.BASELINE_LEFT);
             HBox securityDepositBox = createAndGetDescriptionAndValueBox(
-                    getDescriptionLabel(Res.get("authorizedRole.mediator.mediationCaseDetails.securityDeposit")),
+                    getDescriptionLabel(Res.get("authorizedRole.disputeActor.disputeCaseDetails.securityDeposit")),
                     securityDepositValueBox,
                     Optional.empty()
             );
@@ -316,19 +316,19 @@ public class MuSigMediationCaseDetailSection {
                 HBox contractHashDetailsBox = new HBox(6, contractHashLabel, contractHashIssueButton);
                 contractHashDetailsBox.setAlignment(Pos.BASELINE_LEFT);
                 HBox contractHashBox = createAndGetDescriptionAndValueBox(
-                        "authorizedRole.mediator.mediationCaseDetails.contractHash",
+                        "authorizedRole.disputeActor.disputeCaseDetails.contractHash",
                         contractHashDetailsBox
                 );
 
                 // Network addresses
                 buyerNetworkAddressLabel = getValueLabel();
-                buyerNetworkAddressCopyButton = getCopyButton(Res.get("authorizedRole.mediator.mediationCaseDetails.buyerNetworkAddress.copy"));
-                HBox peerNetworkAddressBox = createAndGetDescriptionAndValueBox("authorizedRole.mediator.mediationCaseDetails.buyerNetworkAddress",
+                buyerNetworkAddressCopyButton = getCopyButton(Res.get("authorizedRole.disputeActor.disputeCaseDetails.buyerNetworkAddress.copy"));
+                HBox peerNetworkAddressBox = createAndGetDescriptionAndValueBox("authorizedRole.disputeActor.disputeCaseDetails.buyerNetworkAddress",
                         buyerNetworkAddressLabel, buyerNetworkAddressCopyButton);
 
                 sellerNetworkAddressLabel = getValueLabel();
-                sellerNetworkAddressCopyButton = getCopyButton(Res.get("authorizedRole.mediator.mediationCaseDetails.sellerNetworkAddress.copy"));
-                HBox sellerNetworkAddressBox = createAndGetDescriptionAndValueBox("authorizedRole.mediator.mediationCaseDetails.sellerNetworkAddress",
+                sellerNetworkAddressCopyButton = getCopyButton(Res.get("authorizedRole.disputeActor.disputeCaseDetails.sellerNetworkAddress.copy"));
+                HBox sellerNetworkAddressBox = createAndGetDescriptionAndValueBox("authorizedRole.disputeActor.disputeCaseDetails.sellerNetworkAddress",
                         sellerNetworkAddressLabel, sellerNetworkAddressCopyButton);
                 content = new VBox(10,
                         tradeIdBox,

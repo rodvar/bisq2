@@ -15,22 +15,18 @@
  * along with Bisq. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package bisq.desktop.main.content.authorized_role.mediator.mu_sig;
+package bisq.desktop.main.content.authorized_role.arbitrator.mu_sig;
 
 import bisq.common.data.Triple;
 import bisq.common.observable.Pin;
 import bisq.desktop.ServiceProvider;
-import bisq.desktop.common.view.Navigation;
 import bisq.desktop.components.containers.Spacer;
 import bisq.desktop.components.overlay.Popup;
-import bisq.desktop.main.content.authorized_role.mediator.mu_sig.close.MuSigMediationCaseCloseController;
-import bisq.desktop.main.content.authorized_role.mediator.mu_sig.details.MuSigMediationCaseDetailsController;
 import bisq.desktop.main.content.components.UserProfileDisplay;
-import bisq.desktop.navigation.NavigationTarget;
 import bisq.i18n.Res;
 import bisq.settings.DontShowAgainService;
-import bisq.support.mediation.MediationCaseState;
-import bisq.support.mediation.mu_sig.MuSigMediatorService;
+import bisq.support.arbitration.ArbitrationCaseState;
+import bisq.support.arbitration.mu_sig.MuSigArbitratorService;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ObjectProperty;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -50,24 +46,23 @@ import org.fxmisc.easybind.Subscription;
 
 import javax.annotation.Nullable;
 
-import static bisq.settings.DontShowAgainKey.MEDIATOR_LEAVE_CHANNEL_WARNING;
-import static bisq.settings.DontShowAgainKey.MEDIATOR_REMOVE_CASE_WARNING;
+import static bisq.settings.DontShowAgainKey.ARBITRATOR_LEAVE_CHANNEL_WARNING;
+import static bisq.settings.DontShowAgainKey.ARBITRATOR_REMOVE_CASE_WARNING;
 
-public class MuSigMediationCaseHeader {
+public class MuSigArbitrationCaseHeader {
     private final Controller controller;
 
-    public MuSigMediationCaseHeader(ServiceProvider serviceProvider,
-                                    Runnable onCloseHandler,
-                                    Runnable onReOpenHandler) {
-        controller = new Controller(serviceProvider, onCloseHandler, onReOpenHandler);
+    public MuSigArbitrationCaseHeader(ServiceProvider serviceProvider,
+                                      Runnable onCloseHandler) {
+        controller = new Controller(serviceProvider, onCloseHandler);
     }
 
     public HBox getRoot() {
         return controller.view.getRoot();
     }
 
-    public void setMediationCaseListItem(MuSigMediationCaseListItem item) {
-        controller.setMediationCaseListItem(item);
+    public void setArbitrationCaseListItem(MuSigArbitrationCaseListItem item) {
+        controller.setArbitrationCaseListItem(item);
     }
 
     @Slf4j
@@ -75,38 +70,36 @@ public class MuSigMediationCaseHeader {
         @Getter
         private final View view;
         private final Model model;
-        private final MuSigMediatorService muSigMediatorService;
+        private final MuSigArbitratorService muSigArbitratorService;
         private final Runnable onCloseHandler;
-        private final Runnable onReOpenHandler;
         private final DontShowAgainService dontShowAgainService;
-        private Subscription mediationCaseListItemPin;
-        private Pin mediationCaseStatePin;
-        private Pin mediatorHasLeftChatPin;
+        private Subscription arbitrationCaseListItemPin;
+        private Pin arbitrationCaseStatePin;
+        private Pin arbitratorHasLeftChatPin;
 
-        private Controller(ServiceProvider serviceProvider, Runnable onCloseHandler, Runnable onReOpenHandler) {
+        private Controller(ServiceProvider serviceProvider, Runnable onCloseHandler) {
             this.onCloseHandler = onCloseHandler;
-            this.onReOpenHandler = onReOpenHandler;
-            muSigMediatorService = serviceProvider.getSupportService().getMuSigMediatorService();
+            muSigArbitratorService = serviceProvider.getSupportService().getMuSigArbitratorService();
             dontShowAgainService = serviceProvider.getDontShowAgainService();
 
             model = new Model();
             view = new View(model, this);
         }
 
-        private void setMediationCaseListItem(MuSigMediationCaseListItem item) {
-            model.getMediationCaseListItem().set(item);
+        private void setArbitrationCaseListItem(MuSigArbitrationCaseListItem item) {
+            model.getArbitrationCaseListItem().set(item);
         }
 
         @Override
         public void onActivate() {
-            mediationCaseListItemPin = EasyBind.subscribe(model.getMediationCaseListItem(), item -> {
-                if (mediationCaseStatePin != null) {
-                    mediationCaseStatePin.unbind();
-                    mediationCaseStatePin = null;
+            arbitrationCaseListItemPin = EasyBind.subscribe(model.getArbitrationCaseListItem(), item -> {
+                if (arbitrationCaseStatePin != null) {
+                    arbitrationCaseStatePin.unbind();
+                    arbitrationCaseStatePin = null;
                 }
-                if (mediatorHasLeftChatPin != null) {
-                    mediatorHasLeftChatPin.unbind();
-                    mediatorHasLeftChatPin = null;
+                if (arbitratorHasLeftChatPin != null) {
+                    arbitratorHasLeftChatPin.unbind();
+                    arbitratorHasLeftChatPin = null;
                 }
 
                 if (item == null) {
@@ -115,53 +108,52 @@ public class MuSigMediationCaseHeader {
                     return;
                 }
 
-                mediationCaseStatePin = item.getMuSigMediationCase().mediationCaseStateObservable().addObserver(state -> {
-                    model.getIsClosedCase().set(state == MediationCaseState.CLOSED);
-                    model.getShowLeaveButton().set(state == MediationCaseState.CLOSED && !item.getMuSigMediationCase().hasMediatorLeftChat());
+                arbitrationCaseStatePin = item.getMuSigArbitrationCase().arbitrationCaseStateObservable().addObserver(state -> {
+                    model.getIsClosedCase().set(state == ArbitrationCaseState.CLOSED);
+                    model.getShowLeaveButton().set(state == ArbitrationCaseState.CLOSED && !item.getMuSigArbitrationCase().hasArbitratorLeftChat());
                 });
-                mediatorHasLeftChatPin = item.getMuSigMediationCase().mediatorHasLeftChatObservable().addObserver(
-                        mediatorHasLeftChat -> {
-                            model.getShowLeaveButton().set(model.getIsClosedCase().get() && !mediatorHasLeftChat);
+                arbitratorHasLeftChatPin = item.getMuSigArbitrationCase().arbitratorHasLeftChatObservable().addObserver(
+                        arbitratorHasLeftChat -> {
+                            model.getShowLeaveButton().set(model.getIsClosedCase().get() && !arbitratorHasLeftChat);
                         });
             });
         }
 
         @Override
         public void onDeactivate() {
-            mediationCaseListItemPin.unsubscribe();
-            if (mediationCaseStatePin != null) {
-                mediationCaseStatePin.unbind();
-                mediationCaseStatePin = null;
+            arbitrationCaseListItemPin.unsubscribe();
+            if (arbitrationCaseStatePin != null) {
+                arbitrationCaseStatePin.unbind();
+                arbitrationCaseStatePin = null;
             }
-            if (mediatorHasLeftChatPin != null) {
-                mediatorHasLeftChatPin.unbind();
-                mediatorHasLeftChatPin = null;
+            if (arbitratorHasLeftChatPin != null) {
+                arbitratorHasLeftChatPin.unbind();
+                arbitratorHasLeftChatPin = null;
             }
         }
 
-        void onToggleOpenClose() {
-            if (model.getIsClosedCase().get()) {
-                doReOpen();
-            } else {
-                doClose();
-                // TODO: move this eventually to Close Controller
-//                if (dontShowAgainService.showAgain(MEDIATOR_CLOSE_WARNING)) {
-//                    new Popup().warning(Res.get("authorizedRole.disputeActor.close.warning"))
-//                            .dontShowAgainId(MEDIATOR_CLOSE_WARNING)
-//                            .actionButtonText(Res.get("confirmation.yes"))
-//                            .onAction(this::doClose)
-//                            .closeButtonText(Res.get("confirmation.no"))
-//                            .show();
-//                } else {
-//                    doClose();
-//                }
+        void onCloseCase() {
+            MuSigArbitrationCaseListItem listItem = model.getArbitrationCaseListItem().get();
+            if (listItem != null) {
+//                Navigation.navigateTo(NavigationTarget.MU_SIG_ARBITRATION_CASE_CLOSE, new MuSigArbitrationCaseCloseController.InitData(listItem, onCloseHandler));
             }
+            // TODO: move this eventually to Close Controller
+            //                if (dontShowAgainService.showAgain(ARBITRATOR_CLOSE_WARNING)) {
+            //                    new Popup().warning(Res.get("authorizedRole.disputeActor.close.warning"))
+            //                            .dontShowAgainId(ARBITRATOR_CLOSE_WARNING)
+            //                            .actionButtonText(Res.get("confirmation.yes"))
+            //                            .onAction(this::doClose)
+            //                            .closeButtonText(Res.get("confirmation.no"))
+            //                            .show();
+            //                } else {
+            //                    doClose();
+            //                }
         }
 
         void onLeaveChannel() {
-            if (dontShowAgainService.showAgain(MEDIATOR_LEAVE_CHANNEL_WARNING)) {
+            if (dontShowAgainService.showAgain(ARBITRATOR_LEAVE_CHANNEL_WARNING)) {
                 new Popup().warning(Res.get("authorizedRole.disputeActor.leaveChannel.warning"))
-                        .dontShowAgainId(MEDIATOR_LEAVE_CHANNEL_WARNING)
+                        .dontShowAgainId(ARBITRATOR_LEAVE_CHANNEL_WARNING)
                         .actionButtonText(Res.get("confirmation.yes"))
                         .onAction(this::doLeave)
                         .closeButtonText(Res.get("confirmation.no"))
@@ -172,9 +164,9 @@ public class MuSigMediationCaseHeader {
         }
 
         void onRemoveCase() {
-            if (dontShowAgainService.showAgain(MEDIATOR_REMOVE_CASE_WARNING)) {
-                new Popup().warning(Res.get("authorizedRole.mediator.removeCase.warning"))
-                        .dontShowAgainId(MEDIATOR_REMOVE_CASE_WARNING)
+            if (dontShowAgainService.showAgain(ARBITRATOR_REMOVE_CASE_WARNING)) {
+                new Popup().warning(Res.get("authorizedRole.arbitrator.removeCase.warning"))
+                        .dontShowAgainId(ARBITRATOR_REMOVE_CASE_WARNING)
                         .actionButtonText(Res.get("confirmation.yes"))
                         .onAction(this::doRemoveCase)
                         .closeButtonText(Res.get("confirmation.no"))
@@ -185,39 +177,24 @@ public class MuSigMediationCaseHeader {
         }
 
         void onShowDetails() {
-            MuSigMediationCaseListItem item = model.getMediationCaseListItem().get();
-            Navigation.navigateTo(NavigationTarget.MU_SIG_MEDIATION_CASE_DETAILS, new MuSigMediationCaseDetailsController.InitData(item));
+            MuSigArbitrationCaseListItem item = model.getArbitrationCaseListItem().get();
+//            Navigation.navigateTo(NavigationTarget.MU_SIG_ARBITRATION_CASE_DETAILS, new MuSigArbitrationCaseDetailsController.InitData(item));
         }
 
         private void doRemoveCase() {
-            MuSigMediationCaseListItem listItem = model.getMediationCaseListItem().get();
+            MuSigArbitrationCaseListItem listItem = model.getArbitrationCaseListItem().get();
             if (listItem != null) {
-                if (listItem.getMuSigMediationCase().getMediationCaseState() != MediationCaseState.CLOSED) {
-                    throw new RuntimeException("Only closed MuSig mediation cases can be removed.");
+                if (listItem.getMuSigArbitrationCase().getArbitrationCaseState() != ArbitrationCaseState.CLOSED) {
+                    throw new RuntimeException("Only closed MuSig arbitration cases can be removed.");
                 }
-                muSigMediatorService.removeMediationCase(listItem.getMuSigMediationCase());
+                muSigArbitratorService.removeArbitrationCase(listItem.getMuSigArbitrationCase());
             }
         }
 
         private void doLeave() {
-            MuSigMediationCaseListItem listItem = model.getMediationCaseListItem().get();
+            MuSigArbitrationCaseListItem listItem = model.getArbitrationCaseListItem().get();
             if (listItem != null) {
-                muSigMediatorService.leaveChat(listItem.getMuSigMediationCase());
-            }
-        }
-
-        private void doClose() {
-            MuSigMediationCaseListItem listItem = model.getMediationCaseListItem().get();
-            if (listItem != null) {
-                Navigation.navigateTo(NavigationTarget.MU_SIG_MEDIATION_CASE_CLOSE, new MuSigMediationCaseCloseController.InitData(listItem, onCloseHandler));
-            }
-        }
-
-        private void doReOpen() {
-            MuSigMediationCaseListItem listItem = model.getMediationCaseListItem().get();
-            if (listItem != null) {
-                muSigMediatorService.reOpenMediationCase(listItem.getMuSigMediationCase());
-                onReOpenHandler.run();
+                muSigArbitratorService.leaveChat(listItem.getMuSigArbitrationCase());
             }
         }
     }
@@ -225,7 +202,7 @@ public class MuSigMediationCaseHeader {
     @Slf4j
     @Getter
     private static class Model implements bisq.desktop.common.view.Model {
-        private final ObjectProperty<MuSigMediationCaseListItem> mediationCaseListItem = new SimpleObjectProperty<>();
+        private final ObjectProperty<MuSigArbitrationCaseListItem> arbitrationCaseListItem = new SimpleObjectProperty<>();
         private final BooleanProperty isClosedCase = new SimpleBooleanProperty();
         private final BooleanProperty showLeaveButton = new SimpleBooleanProperty();
     }
@@ -237,8 +214,8 @@ public class MuSigMediationCaseHeader {
         private final Triple<Text, Text, VBox> tradeId;
         private final UserProfileDisplay makerProfileDisplay, takerProfileDisplay;
         private final Label directionalTitle;
-        private final Button openCloseButton, leaveButton, removeButton, detailsButton;
-        private Subscription mediationCaseListItemPin, isClosedCasePin, showLeaveButtonPin;
+        private final Button closeButton, leaveButton, removeButton, detailsButton;
+        private Subscription arbitrationCaseListItemPin, isClosedCasePin, showLeaveButtonPin;
 
         private View(Model model, Controller controller) {
             super(new HBox(40), model, controller);
@@ -262,10 +239,10 @@ public class MuSigMediationCaseHeader {
             directionalTitle.setMinWidth(80);
             tradeId.getThird().setMinWidth(80);
 
-            openCloseButton = new Button();
-            openCloseButton.setDefaultButton(true);
-            openCloseButton.setMinWidth(120);
-            openCloseButton.setStyle("-fx-padding: 5 16 5 16");
+            closeButton = new Button(Res.get("authorizedRole.disputeActor.close"));
+            closeButton.setDefaultButton(true);
+            closeButton.setMinWidth(120);
+            closeButton.setStyle("-fx-padding: 5 16 5 16");
 
             leaveButton = new Button(Res.get("authorizedRole.disputeActor.leave"));
             leaveButton.getStyleClass().add("outlined-button");
@@ -286,14 +263,14 @@ public class MuSigMediationCaseHeader {
             HBox.setMargin(leaveButton, new Insets(0, -20, 0, 0));
             HBox.setMargin(removeButton, new Insets(0, -20, 0, 0));
             HBox.setMargin(detailsButton, new Insets(0, -20, 0, 0));
-            HBox.setMargin(openCloseButton, new Insets(0, -20, 0, 0));
+            HBox.setMargin(closeButton, new Insets(0, -20, 0, 0));
             root.getChildren().addAll(maker.getThird(), directionalTitle, taker.getThird(), tradeId.getThird(), spacer,
-                    detailsButton, removeButton, leaveButton, openCloseButton);
+                    detailsButton, removeButton, leaveButton, closeButton);
         }
 
         @Override
         protected void onViewAttached() {
-            mediationCaseListItemPin = EasyBind.subscribe(model.getMediationCaseListItem(), item -> {
+            arbitrationCaseListItemPin = EasyBind.subscribe(model.getArbitrationCaseListItem(), item -> {
                 if (item != null) {
                     makerProfileDisplay.setVisible(true);
                     makerProfileDisplay.setManaged(true);
@@ -307,7 +284,7 @@ public class MuSigMediationCaseHeader {
                     if (isMakerRequester) {
                         makerProfileDisplay.getStyleClass().add("mediator-header-requester");
                     }
-                    makerProfileDisplay.getTooltip().setText(Res.get("authorizedRole.mediator.hasRequested",
+                    makerProfileDisplay.getTooltip().setText(Res.get("authorizedRole.arbitrator.hasRequested",
                             makerProfileDisplay.getTooltipText(),
                             isMakerRequester ? Res.get("confirmation.yes") : Res.get("confirmation.no")
                     ));
@@ -319,7 +296,7 @@ public class MuSigMediationCaseHeader {
                     if (!isMakerRequester) {
                         takerProfileDisplay.getStyleClass().add("mediator-header-requester");
                     }
-                    takerProfileDisplay.getTooltip().setText(Res.get("authorizedRole.mediator.hasRequested",
+                    takerProfileDisplay.getTooltip().setText(Res.get("authorizedRole.arbitrator.hasRequested",
                             takerProfileDisplay.getTooltipText(),
                             !isMakerRequester ? Res.get("confirmation.yes") : Res.get("confirmation.no")
                     ));
@@ -339,18 +316,15 @@ public class MuSigMediationCaseHeader {
                     isClosedCase -> {
                         removeButton.setVisible(isClosedCase);
                         removeButton.setManaged(isClosedCase);
-
-                        openCloseButton.setText(isClosedCase ?
-                                Res.get("authorizedRole.mediator.reOpen") :
-                                Res.get("authorizedRole.disputeActor.close"))
-                        ;
+                        closeButton.setVisible(!isClosedCase);
+                        closeButton.setManaged(!isClosedCase);
                     });
             showLeaveButtonPin = EasyBind.subscribe(model.getShowLeaveButton(),
                     showLeaveButton -> {
                         leaveButton.setVisible(showLeaveButton);
                         leaveButton.setManaged(showLeaveButton);
                     });
-            openCloseButton.setOnAction(e -> controller.onToggleOpenClose());
+            closeButton.setOnAction(e -> controller.onCloseCase());
             leaveButton.setOnAction(e -> controller.onLeaveChannel());
             removeButton.setOnAction(e -> controller.onRemoveCase());
             detailsButton.setOnAction(e -> controller.onShowDetails());
@@ -358,10 +332,10 @@ public class MuSigMediationCaseHeader {
 
         @Override
         protected void onViewDetached() {
-            mediationCaseListItemPin.unsubscribe();
+            arbitrationCaseListItemPin.unsubscribe();
             isClosedCasePin.unsubscribe();
             showLeaveButtonPin.unsubscribe();
-            openCloseButton.setOnAction(null);
+            closeButton.setOnAction(null);
             leaveButton.setOnAction(null);
             removeButton.setOnAction(null);
             detailsButton.setOnAction(null);

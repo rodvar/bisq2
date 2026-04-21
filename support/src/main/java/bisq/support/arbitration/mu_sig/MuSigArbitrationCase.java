@@ -47,6 +47,7 @@ public class MuSigArbitrationCase implements PersistableProto {
     private final Observable<Optional<AccountPayload<?>>> takerAccountPayload = new Observable<>(Optional.empty());
     private final Observable<Optional<AccountPayload<?>>> makerAccountPayload = new Observable<>(Optional.empty());
     private final Observable<List<MuSigArbitrationIssue>> issues = new Observable<>(List.of());
+    private final Observable<Boolean> arbitratorHasLeftChat = new Observable<>(false);
 
     public MuSigArbitrationCase(MuSigArbitrationRequest muSigArbitrationRequest) {
         this(muSigArbitrationRequest,
@@ -56,6 +57,7 @@ public class MuSigArbitrationCase implements PersistableProto {
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                false,
                 List.of());
     }
 
@@ -66,6 +68,7 @@ public class MuSigArbitrationCase implements PersistableProto {
                                  Optional<byte[]> arbitrationResultSignature,
                                  Optional<AccountPayload<?>> takerAccountPayload,
                                  Optional<AccountPayload<?>> makerAccountPayload,
+                                 boolean arbitratorHasLeftChat,
                                  List<MuSigArbitrationIssue> issues) {
         this.muSigArbitrationRequest = muSigArbitrationRequest;
         this.requestDate = requestDate;
@@ -74,6 +77,7 @@ public class MuSigArbitrationCase implements PersistableProto {
         this.arbitrationResultSignature = arbitrationResultSignature.map(byte[]::clone);
         this.takerAccountPayload.set(takerAccountPayload);
         this.makerAccountPayload.set(makerAccountPayload);
+        this.arbitratorHasLeftChat.set(arbitratorHasLeftChat);
         this.issues.set(issues);
     }
 
@@ -88,6 +92,7 @@ public class MuSigArbitrationCase implements PersistableProto {
         arbitrationResultSignature.ifPresent(item -> builder.setArbitrationResultSignature(ByteString.copyFrom(item)));
         takerAccountPayload.get().ifPresent(item -> builder.setTakerAccountPayload(item.toProto(serializeForHash)));
         makerAccountPayload.get().ifPresent(item -> builder.setMakerAccountPayload(item.toProto(serializeForHash)));
+        builder.setArbitratorHasLeftChat(arbitratorHasLeftChat.get());
         builder.addAllIssues(issues.get().stream()
                 .map(item -> item.toProto(serializeForHash))
                 .toList());
@@ -115,6 +120,7 @@ public class MuSigArbitrationCase implements PersistableProto {
                 proto.hasMakerAccountPayload() ?
                         Optional.of(AccountPayload.fromProto(proto.getMakerAccountPayload())) :
                         Optional.empty(),
+                proto.getArbitratorHasLeftChat(),
                 proto.getIssuesList().stream()
                         .map(MuSigArbitrationIssue::fromProto)
                         .toList());
@@ -170,6 +176,18 @@ public class MuSigArbitrationCase implements PersistableProto {
 
     public ReadOnlyObservable<List<MuSigArbitrationIssue>> issuesObservable() {
         return issues;
+    }
+
+    public boolean hasArbitratorLeftChat() {
+        return arbitratorHasLeftChat.get();
+    }
+
+    public ReadOnlyObservable<Boolean> arbitratorHasLeftChatObservable() {
+        return arbitratorHasLeftChat;
+    }
+
+    public boolean setArbitratorHasLeftChat(boolean arbitratorHasLeftChat) {
+        return this.arbitratorHasLeftChat.set(arbitratorHasLeftChat);
     }
 
     public boolean setSignedMuSigArbitrationResult(MuSigArbitrationResult result, byte[] signature) {

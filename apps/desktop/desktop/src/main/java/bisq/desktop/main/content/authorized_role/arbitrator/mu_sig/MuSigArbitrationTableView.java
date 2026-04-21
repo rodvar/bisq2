@@ -15,7 +15,7 @@
  * along with Bisq. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package bisq.desktop.main.content.authorized_role.mediator.mu_sig;
+package bisq.desktop.main.content.authorized_role.arbitrator.mu_sig;
 
 import bisq.common.encoding.Csv;
 import bisq.common.file.FileMutatorUtils;
@@ -61,25 +61,25 @@ import java.util.stream.Stream;
  */
 @Slf4j
 @Getter
-class MuSigMediationTableView extends VBox {
-    private final MuSigMediatorModel model;
-    private final MuSigMediatorController controller;
+class MuSigArbitrationTableView extends VBox {
+    private final MuSigArbitratorModel model;
+    private final MuSigArbitratorController controller;
 
     private final Switch showClosedCasesSwitch;
     private final SearchBox searchBox;
-    private final BisqTableView<MuSigMediationCaseListItem> tableView;
-    private BisqTableColumn<MuSigMediationCaseListItem> closeCaseDateColumn;
+    private final BisqTableView<MuSigArbitrationCaseListItem> tableView;
+    private BisqTableColumn<MuSigArbitrationCaseListItem> closeCaseDateColumn;
     private final Hyperlink exportHyperlink;
     private final Label numEntriesLabel;
-    private final ListChangeListener<MuSigMediationCaseListItem> listChangeListener;
+    private final ListChangeListener<MuSigArbitrationCaseListItem> listChangeListener;
     private Subscription searchTextPin;
     private Subscription showClosedCasesPin, selectedModelItemPin, tableViewSelectionPin, noOpenCasesPin, chatWindowPin;
 
-    MuSigMediationTableView(MuSigMediatorModel model, MuSigMediatorController controller) {
+    MuSigArbitrationTableView(MuSigArbitratorModel model, MuSigArbitratorController controller) {
         this.model = model;
         this.controller = controller;
 
-        Label headlineLabel = new Label(Res.get("authorizedRole.mediator.table.headline"));
+        Label headlineLabel = new Label(Res.get("authorizedRole.arbitrator.table.headline"));
         headlineLabel.getStyleClass().add("bisq-easy-container-headline");
 
         showClosedCasesSwitch = new Switch(Res.get("authorizedRole.disputeActor.showClosedCases"));
@@ -129,7 +129,7 @@ class MuSigMediationTableView extends VBox {
             List<String> headers = buildCsvHeaders();
             List<List<String>> data = buildCsvData();
             String csv = Csv.toCsv(headers, data);
-            String initialFileName = Res.get("authorizedRole.mediator.table.headline") + ".csv";
+            String initialFileName = Res.get("authorizedRole.arbitrator.table.headline") + ".csv";
             FileChooserUtil.saveFile(tableView.getScene(), initialFileName)
                     .ifPresent(file -> {
                         try {
@@ -143,8 +143,8 @@ class MuSigMediationTableView extends VBox {
         showClosedCasesPin = EasyBind.subscribe(model.getShowClosedCases(), showClosedCases -> {
             showClosedCasesSwitch.setSelected(showClosedCases);
             tableView.setPlaceholderText(showClosedCases ?
-                    Res.get("authorizedRole.mediator.noClosedCases") :
-                    Res.get("authorizedRole.mediator.noOpenCases"));
+                    Res.get("authorizedRole.arbitrator.noClosedCases") :
+                    Res.get("authorizedRole.arbitrator.noOpenCases"));
             closeCaseDateColumn.setVisible(showClosedCases);
         });
         showClosedCasesSwitch.setOnAction(e -> controller.onToggleClosedCases());
@@ -162,8 +162,8 @@ class MuSigMediationTableView extends VBox {
             if (noOpenCases) {
                 tableView.getStyleClass().add("empty-table");
                 tableView.setPlaceholderText(model.getShowClosedCases().get() ?
-                        Res.get("authorizedRole.mediator.noClosedCases") :
-                        Res.get("authorizedRole.mediator.noOpenCases"));
+                        Res.get("authorizedRole.arbitrator.noClosedCases") :
+                        Res.get("authorizedRole.arbitrator.noOpenCases"));
 
                 tableView.setMinHeight(150);
                 tableView.setMaxHeight(150);
@@ -195,12 +195,12 @@ class MuSigMediationTableView extends VBox {
         searchBox.clear();
     }
 
-    private Stream<BisqTableColumn<MuSigMediationCaseListItem>> getBisqTableColumnsForCsv() {
+    private Stream<BisqTableColumn<MuSigArbitrationCaseListItem>> getBisqTableColumnsForCsv() {
         return tableView.getColumns().stream()
                 .filter(column -> column instanceof BisqTableColumn)
                 .map(column -> {
                     @SuppressWarnings("unchecked")
-                    BisqTableColumn<MuSigMediationCaseListItem> bisqTableColumn = (BisqTableColumn) column;
+                    BisqTableColumn<MuSigArbitrationCaseListItem> bisqTableColumn = (BisqTableColumn) column;
                     return bisqTableColumn;
                 })
                 .filter(TableColumnBase::isVisible)
@@ -269,7 +269,7 @@ class MuSigMediationTableView extends VBox {
     private void configTableView() {
         tableView.getColumns().add(tableView.getSelectionMarkerColumn());
 
-        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigMediationCaseListItem>()
+        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigArbitrationCaseListItem>()
                 .title(Res.get("authorizedRole.disputeActor.table.maker"))
                 .minWidth(120)
                 .left()
@@ -277,13 +277,13 @@ class MuSigMediationTableView extends VBox {
                 .setCellFactory(getMakerCellFactory())
                 .valueSupplier(item -> item.getMaker().getUserName())// For csv export
                 .build());
-        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigMediationCaseListItem>()
+        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigArbitrationCaseListItem>()
                 .minWidth(95)
-                .comparator(Comparator.comparing(MuSigMediationCaseListItem::getDirectionalTitle))
+                .comparator(Comparator.comparing(MuSigArbitrationCaseListItem::getDirectionalTitle))
                 .setCellFactory(getDirectionCellFactory())
                 .includeForCsv(false)
                 .build());
-        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigMediationCaseListItem>()
+        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigArbitrationCaseListItem>()
                 .title(Res.get("authorizedRole.disputeActor.table.taker"))
                 .minWidth(120)
                 .left()
@@ -294,44 +294,44 @@ class MuSigMediationTableView extends VBox {
 
         tableView.getColumns().add(DateColumnUtil.getDateColumn(tableView.getSortOrder()));
 
-        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigMediationCaseListItem>()
+        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigArbitrationCaseListItem>()
                 .title(Res.get("bisqEasy.openTrades.table.tradeId"))
                 .minWidth(85)
-                .comparator(Comparator.comparing(MuSigMediationCaseListItem::getTradeId))
-                .valueSupplier(MuSigMediationCaseListItem::getShortTradeId)
-                .tooltipSupplier(MuSigMediationCaseListItem::getTradeId)
+                .comparator(Comparator.comparing(MuSigArbitrationCaseListItem::getTradeId))
+                .valueSupplier(MuSigArbitrationCaseListItem::getShortTradeId)
+                .tooltipSupplier(MuSigArbitrationCaseListItem::getTradeId)
                 .build());
-        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigMediationCaseListItem>()
+        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigArbitrationCaseListItem>()
                 .title(Res.get("bisqEasy.openTrades.table.quoteAmount"))
                 .fixWidth(120)
-                .comparator(Comparator.comparing(MuSigMediationCaseListItem::getNonBtcAmount))
-                .valueSupplier(MuSigMediationCaseListItem::getNonBtcAmountString)
+                .comparator(Comparator.comparing(MuSigArbitrationCaseListItem::getNonBtcAmount))
+                .valueSupplier(MuSigArbitrationCaseListItem::getNonBtcAmountString)
                 .build());
-        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigMediationCaseListItem>()
+        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigArbitrationCaseListItem>()
                 .title(Res.get("bisqEasy.openTrades.table.baseAmount"))
                 .fixWidth(120)
-                .comparator(Comparator.comparing(MuSigMediationCaseListItem::getBtcAmount))
-                .valueSupplier(MuSigMediationCaseListItem::getBtcAmountString)
+                .comparator(Comparator.comparing(MuSigArbitrationCaseListItem::getBtcAmount))
+                .valueSupplier(MuSigArbitrationCaseListItem::getBtcAmountString)
                 .build());
-        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigMediationCaseListItem>()
+        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigArbitrationCaseListItem>()
                 .title(Res.get("bisqEasy.openTrades.table.price"))
                 .fixWidth(170)
-                .comparator(Comparator.comparing(MuSigMediationCaseListItem::getPrice))
-                .valueSupplier(MuSigMediationCaseListItem::getPriceString)
+                .comparator(Comparator.comparing(MuSigArbitrationCaseListItem::getPrice))
+                .valueSupplier(MuSigArbitrationCaseListItem::getPriceString)
                 .build());
-        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigMediationCaseListItem>()
+        tableView.getColumns().add(new BisqTableColumn.Builder<MuSigArbitrationCaseListItem>()
                 .title(Res.get("bisqEasy.openTrades.table.paymentMethod"))
                 .minWidth(130)
                 .right()
-                .comparator(Comparator.comparing(MuSigMediationCaseListItem::getPaymentMethod))
-                .valueSupplier(MuSigMediationCaseListItem::getPaymentMethod)
-                .tooltipSupplier(MuSigMediationCaseListItem::getPaymentMethod)
+                .comparator(Comparator.comparing(MuSigArbitrationCaseListItem::getPaymentMethod))
+                .valueSupplier(MuSigArbitrationCaseListItem::getPaymentMethod)
+                .tooltipSupplier(MuSigArbitrationCaseListItem::getPaymentMethod)
                 .build());
-        closeCaseDateColumn = new BisqTableColumn.Builder<MuSigMediationCaseListItem>()
+        closeCaseDateColumn = new BisqTableColumn.Builder<MuSigArbitrationCaseListItem>()
                 .title(Res.get("authorizedRole.disputeActor.table.header.closeCaseDate"))
                 .minWidth(130)
                 .right()
-                .comparator(Comparator.comparing(MuSigMediationCaseListItem::getCloseCaseDate))
+                .comparator(Comparator.comparing(MuSigArbitrationCaseListItem::getCloseCaseDate))
                 .sortType(TableColumn.SortType.DESCENDING)
                 .setCellFactory(getCloseDateCellFactory())
                 .valueSupplier(item -> item.getCloseCaseDateString() + " " + item.getCloseCaseTimeString())
@@ -339,8 +339,8 @@ class MuSigMediationTableView extends VBox {
         tableView.getColumns().add(closeCaseDateColumn);
     }
 
-    private Callback<TableColumn<MuSigMediationCaseListItem, MuSigMediationCaseListItem>,
-            TableCell<MuSigMediationCaseListItem, MuSigMediationCaseListItem>> getCloseDateCellFactory() {
+    private Callback<TableColumn<MuSigArbitrationCaseListItem, MuSigArbitrationCaseListItem>,
+            TableCell<MuSigArbitrationCaseListItem, MuSigArbitrationCaseListItem>> getCloseDateCellFactory() {
         return column -> new TableCell<>() {
             private final Label date = new Label();
             private final Label time = new Label();
@@ -354,7 +354,7 @@ class MuSigMediationTableView extends VBox {
             }
 
             @Override
-            protected void updateItem(MuSigMediationCaseListItem item, boolean empty) {
+            protected void updateItem(MuSigArbitrationCaseListItem item, boolean empty) {
                 super.updateItem(item, empty);
 
                 date.textProperty().unbind();
@@ -371,14 +371,14 @@ class MuSigMediationTableView extends VBox {
         };
     }
 
-    private Callback<TableColumn<MuSigMediationCaseListItem, MuSigMediationCaseListItem>,
-            TableCell<MuSigMediationCaseListItem, MuSigMediationCaseListItem>> getDirectionCellFactory() {
+    private Callback<TableColumn<MuSigArbitrationCaseListItem, MuSigArbitrationCaseListItem>,
+            TableCell<MuSigArbitrationCaseListItem, MuSigArbitrationCaseListItem>> getDirectionCellFactory() {
         return column -> new TableCell<>() {
 
             private final Label label = new Label();
 
             @Override
-            protected void updateItem(MuSigMediationCaseListItem item, boolean empty) {
+            protected void updateItem(MuSigArbitrationCaseListItem item, boolean empty) {
                 super.updateItem(item, empty);
 
                 if (item != null && !empty) {
@@ -392,14 +392,14 @@ class MuSigMediationTableView extends VBox {
         };
     }
 
-    private Callback<TableColumn<MuSigMediationCaseListItem, MuSigMediationCaseListItem>,
-            TableCell<MuSigMediationCaseListItem, MuSigMediationCaseListItem>> getMakerCellFactory() {
+    private Callback<TableColumn<MuSigArbitrationCaseListItem, MuSigArbitrationCaseListItem>,
+            TableCell<MuSigArbitrationCaseListItem, MuSigArbitrationCaseListItem>> getMakerCellFactory() {
         return column -> new TableCell<>() {
 
             private UserProfileDisplay userProfileDisplay;
 
             @Override
-            protected void updateItem(MuSigMediationCaseListItem item, boolean empty) {
+            protected void updateItem(MuSigArbitrationCaseListItem item, boolean empty) {
                 super.updateItem(item, empty);
 
                 if (item != null && !empty) {
@@ -415,14 +415,14 @@ class MuSigMediationTableView extends VBox {
         };
     }
 
-    private Callback<TableColumn<MuSigMediationCaseListItem, MuSigMediationCaseListItem>,
-            TableCell<MuSigMediationCaseListItem, MuSigMediationCaseListItem>> getTakerCellFactory() {
+    private Callback<TableColumn<MuSigArbitrationCaseListItem, MuSigArbitrationCaseListItem>,
+            TableCell<MuSigArbitrationCaseListItem, MuSigArbitrationCaseListItem>> getTakerCellFactory() {
         return column -> new TableCell<>() {
 
             private UserProfileDisplay userProfileDisplay;
 
             @Override
-            protected void updateItem(MuSigMediationCaseListItem item, boolean empty) {
+            protected void updateItem(MuSigArbitrationCaseListItem item, boolean empty) {
                 super.updateItem(item, empty);
 
                 if (item != null && !empty) {
@@ -438,16 +438,16 @@ class MuSigMediationTableView extends VBox {
         };
     }
 
-    private static UserProfileDisplay applyTraderToTableCell(TableCell<MuSigMediationCaseListItem, MuSigMediationCaseListItem> tableCell,
-                                                             MuSigMediationCaseListItem item,
+    private static UserProfileDisplay applyTraderToTableCell(TableCell<MuSigArbitrationCaseListItem, MuSigArbitrationCaseListItem> tableCell,
+                                                             MuSigArbitrationCaseListItem item,
                                                              boolean isRequester,
-                                                             MuSigMediationCaseListItem.Trader trader) {
+                                                             MuSigArbitrationCaseListItem.Trader trader) {
         UserProfileDisplay userProfileDisplay = new UserProfileDisplay(trader.getUserProfile(), false);
         userProfileDisplay.setReputationScore(trader.getReputationScore());
         if (isRequester) {
             userProfileDisplay.getStyleClass().add("mediator-table-requester");
         }
-        userProfileDisplay.getTooltip().setText(Res.get("authorizedRole.mediator.hasRequested",
+        userProfileDisplay.getTooltip().setText(Res.get("authorizedRole.arbitrator.hasRequested",
                 userProfileDisplay.getTooltipText(),
                 isRequester ? Res.get("confirmation.yes") : Res.get("confirmation.no")
         ));

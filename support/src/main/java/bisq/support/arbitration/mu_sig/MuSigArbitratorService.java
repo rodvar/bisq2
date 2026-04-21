@@ -25,6 +25,7 @@ import bisq.chat.mu_sig.open_trades.MuSigDisputeAgentType;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannel;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeChannelService;
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeMessage;
+import bisq.chat.priv.LeavePrivateChatManager;
 import bisq.common.application.Service;
 import bisq.common.observable.collection.ObservableSet;
 import bisq.common.util.StringUtils;
@@ -80,6 +81,7 @@ public class MuSigArbitratorService extends RateLimitedPersistenceClient<MuSigAr
     private final NetworkService networkService;
     private final UserIdentityService userIdentityService;
     private final MuSigOpenTradeChannelService muSigOpenTradeChannelService;
+    private final LeavePrivateChatManager leavePrivateChatManager;
     private final AuthorizedBondedRolesService authorizedBondedRolesService;
     private final BannedUserService bannedUserService;
     private final Object arbitrationCaseLock = new Object();
@@ -95,6 +97,7 @@ public class MuSigArbitratorService extends RateLimitedPersistenceClient<MuSigAr
         muSigOpenTradeChannelService = chatService.getMuSigOpenTradeChannelService();
         bannedUserService = userService.getBannedUserService();
         authorizedBondedRolesService = bondedRolesService.getAuthorizedBondedRolesService();
+        leavePrivateChatManager = chatService.getLeavePrivateChatManager();
     }
 
     /* --------------------------------------------------------------------- */
@@ -172,6 +175,25 @@ public class MuSigArbitratorService extends RateLimitedPersistenceClient<MuSigAr
                 sendArbitrationCaseStateChangeMessage(muSigArbitrationCase);
                 sendArbitrationCaseStateChangeTradeLogMessage(muSigArbitrationCase);
             }
+        }
+    }
+
+    public void removeArbitrationCase(MuSigArbitrationCase muSigArbitrationCase) {
+        synchronized (arbitrationCaseLock) {
+            leaveChannel(muSigArbitrationCase.getMuSigArbitrationRequest().getTradeId());
+            getArbitrationCases().remove(muSigArbitrationCase);
+            persist();
+        }
+    }
+
+    public void leaveChat(MuSigArbitrationCase muSigArbitrationCase) {
+        MuSigArbitrationRequest muSigArbitrationRequest = muSigArbitrationCase.getMuSigArbitrationRequest();
+        synchronized (arbitrationCaseLock) {
+            boolean changed = muSigArbitrationCase.setArbitratorHasLeftChat(true);
+            if (changed) {
+                persist();
+            }
+            leaveChannel(muSigArbitrationRequest.getTradeId());
         }
     }
 
@@ -474,5 +496,12 @@ public class MuSigArbitratorService extends RateLimitedPersistenceClient<MuSigAr
     private record PaymentDetailsVerification(boolean takerAccountPayloadMatches,
                                               boolean makerAccountPayloadMatches,
                                               List<MuSigArbitrationIssue> issues) {
+    }
+
+    private void leaveChannel(String tradeId) {
+        muSigOpenTradeChannelService.findChannelByTradeId(tradeId)
+                .ifPresentOrElse(leavePrivateChatManager::leaveChannel,
+                        () -> log.warn("Ignoring leaveChat for unknown channel on trade {}.",
+                                tradeId));
     }
 }
