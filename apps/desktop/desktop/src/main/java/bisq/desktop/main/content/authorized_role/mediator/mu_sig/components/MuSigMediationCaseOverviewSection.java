@@ -259,7 +259,7 @@ public class MuSigMediationCaseOverviewSection {
         }
 
         private String toIssueTooltip(List<MuSigMediationIssue> issues) {
-            String key = "authorizedRole.mediator.mediationCaseDetails.paymentAccountData.issue.accountPayloadHashMismatch";
+            String key = "authorizedRole.disputeActor.disputeCaseDetails.paymentAccountData.issue.accountPayloadHashMismatch";
             List<String> lines = new ArrayList<>();
             for (MuSigMediationIssue issue : issues) {
                 String causingRole = MuSigTradeFormatter.getMakerTakerRole(issue.getCausingRole() == Role.MAKER).toLowerCase();
@@ -332,13 +332,13 @@ public class MuSigMediationCaseOverviewSection {
             if (!model.isCompactView()) {
                 // UserNames
                 buyerUserNameLabel = getValueLabel();
-                buyerUserNameCopyButton = getCopyButton(Res.get("authorizedRole.mediator.mediationCaseDetails.buyerUserName.copy"));
-                HBox buyerUserNameBox = createAndGetDescriptionAndValueBox("authorizedRole.mediator.mediationCaseDetails.buyerUserName",
+                buyerUserNameCopyButton = getCopyButton(Res.get("authorizedRole.disputeActor.disputeCaseDetails.buyerUserName.copy"));
+                HBox buyerUserNameBox = createAndGetDescriptionAndValueBox("authorizedRole.disputeActor.disputeCaseDetails.buyerUserName",
                         buyerUserNameLabel, buyerUserNameCopyButton);
 
                 sellerUserNameLabel = getValueLabel();
-                sellerUserNameCopyButton = getCopyButton(Res.get("authorizedRole.mediator.mediationCaseDetails.sellerUserName.copy"));
-                HBox sellerUserNameBox = createAndGetDescriptionAndValueBox("authorizedRole.mediator.mediationCaseDetails.sellerUserName",
+                sellerUserNameCopyButton = getCopyButton(Res.get("authorizedRole.disputeActor.disputeCaseDetails.sellerUserName.copy"));
+                HBox sellerUserNameBox = createAndGetDescriptionAndValueBox("authorizedRole.disputeActor.disputeCaseDetails.sellerUserName",
                         sellerUserNameLabel, sellerUserNameCopyButton);
 
                 // Payment and settlement methods
@@ -358,25 +358,25 @@ public class MuSigMediationCaseOverviewSection {
                 paymentAccountDataWaitingLabel = getValueLabel();
                 takerPaymentAccountDataLabel = getValueLabel();
                 paymentAccountDataRefreshButton = new BisqMenuItem("try-again-grey", "try-again-white");
-                paymentAccountDataRefreshButton.setTooltip(Res.get("authorizedRole.mediator.mediationCaseDetails.paymentAccountData.fetch"));
+                paymentAccountDataRefreshButton.setTooltip(Res.get("authorizedRole.disputeActor.disputeCaseDetails.paymentAccountData.fetch"));
                 takerPaymentAccountIssueTooltip = new Tooltip();
                 makerPaymentAccountIssueTooltip = new Tooltip();
                 HBox paymentAccountDataDetailsBox = new HBox(8, paymentAccountDataRefreshButton, paymentAccountDataWaitingLabel);
                 paymentAccountDataDetailsBox.setAlignment(Pos.BASELINE_LEFT);
                 paymentAccountDataBox = createAndGetDescriptionAndValueBox(
-                        "authorizedRole.mediator.mediationCaseDetails.paymentAccountData",
+                        "authorizedRole.disputeActor.disputeCaseDetails.paymentAccountData",
                         paymentAccountDataDetailsBox
                 );
                 takerPaymentAccountDataBox = createAndGetDescriptionAndValueBox(
-                        "authorizedRole.mediator.mediationCaseDetails.paymentAccountData.taker",
+                        "authorizedRole.disputeActor.disputeCaseDetails.paymentAccountData.taker",
                         createPaymentAccountDataWithIssueBox(true)
                 );
                 makerPaymentAccountDataLabel = getValueLabel();
                 makerPaymentAccountDataBox = createAndGetDescriptionAndValueBox(
-                        "authorizedRole.mediator.mediationCaseDetails.paymentAccountData.maker",
+                        "authorizedRole.disputeActor.disputeCaseDetails.paymentAccountData.maker",
                         createPaymentAccountDataWithIssueBox(false)
                 );
-                paymentAccountDataWaitingLabel.setText(Res.get("authorizedRole.mediator.mediationCaseDetails.paymentAccountData.waitingForResponse"));
+                paymentAccountDataWaitingLabel.setText(Res.get("authorizedRole.disputeActor.disputeCaseDetails.paymentAccountData.waitingForResponse"));
                 paymentAccountDataWaitingLabel.getStyleClass().clear();
                 paymentAccountDataWaitingLabel.getStyleClass().addAll("text-fill-grey-dimmed", "normal-text");
                 takerPaymentAccountDataLabel.getStyleClass().clear();
@@ -408,14 +408,14 @@ public class MuSigMediationCaseOverviewSection {
                 buyerUserNameLabel.setText(String.format("%s (%d)", model.getBuyerUserName(), model.getBuyerCaseCountTotal()));
                 sellerUserNameLabel.setText(String.format("%s (%d)", model.getSellerUserName(), model.getSellerCaseCountTotal()));
                 buyerUserNameLabel.setTooltip(new Tooltip(Res.get(
-                        "authorizedRole.mediator.caseCounts.tooltip",
+                        "authorizedRole.disputeActor.caseCounts.tooltip",
                         model.getBuyerBotId(),
                         model.getBuyerUserId(),
                         model.getBuyerCaseCountOpen(),
                         model.getBuyerCaseCountClosed()
                 )));
                 sellerUserNameLabel.setTooltip(new Tooltip(Res.get(
-                        "authorizedRole.mediator.caseCounts.tooltip",
+                        "authorizedRole.disputeActor.caseCounts.tooltip",
                         model.getSellerBotId(),
                         model.getSellerUserId(),
                         model.getSellerCaseCountOpen(),

@@ -208,16 +208,17 @@ public class MuSigMediatorController implements Controller {
             model.getChatUnavailableDescription().set(null);
         } else if (item.getMuSigMediationCase().hasMediatorLeftChat()) {
             model.getChatAvailable().set(false);
-            model.getChatUnavailableTitle().set(get("muSig.mediator.chat.unavailable.left.title"));
-            model.getChatUnavailableDescription().set(get("muSig.mediator.chat.unavailable.left.description"));
+            model.getChatUnavailableTitle().set(get("authorizedRole.mediator.chat.unavailable.left.title"));
+            model.getChatUnavailableDescription().set(get("authorizedRole.mediator.chat.unavailable.left.description"));
         } else {
             model.getChatAvailable().set(false);
-            model.getChatUnavailableTitle().set(get("muSig.mediator.chat.unavailable.pending.title"));
-            model.getChatUnavailableDescription().set(get("muSig.mediator.chat.unavailable.pending.description"));
+            model.getChatUnavailableTitle().set(get("authorizedRole.mediator.chat.unavailable.pending.title"));
+            model.getChatUnavailableDescription().set(get("authorizedRole.mediator.chat.unavailable.pending.description"));
         }
     }
 
     private void applyShowClosedCasesChange() {
+        model.getSelectedItem().set(null);
         // Need a predicate change to trigger a list update
         applyFilteredListPredicate(!model.getShowClosedCases().get());
         applyFilteredListPredicate(model.getShowClosedCases().get());
@@ -244,9 +245,7 @@ public class MuSigMediatorController implements Controller {
         boolean isEmpty = sortedList.isEmpty();
         model.getNoOpenCases().set(isEmpty);
         if (isEmpty) {
-            clearSelectedItemChannelPin();
-            muSigMediationCaseHeader.setMediationCaseListItem(null);
-            selectionService.selectChannel(null);
+            model.getSelectedItem().set(null);
         }
     }
 

@@ -47,11 +47,11 @@ import org.fxmisc.easybind.Subscription;
 @Slf4j
 public class MuSigMediatorView extends View<ScrollPane, MuSigMediatorModel, MuSigMediatorController> {
     private final VBox centerVBox, chatVBox, chatMessagesComponent, chatUnavailablePlaceholder;
-    private final StackPane chatContentSlot;
     private final Button toggleChatWindowButton;
     private final MuSigMediationTableView muSigMediationTableView;
     private final Label chatUnavailableTitle, chatUnavailableDescription;
     private Subscription noOpenCasesPin, chatWindowPin, chatAvailablePin, chatUnavailableTitlePin, chatUnavailableDescriptionPin;
+    private Stage detachedChatWindow;
 
     public MuSigMediatorView(MuSigMediatorModel model,
                              MuSigMediatorController controller,
@@ -83,7 +83,7 @@ public class MuSigMediatorView extends View<ScrollPane, MuSigMediatorModel, MuSi
         chatUnavailablePlaceholder.getStyleClass().add("chat-container-placeholder-text");
         chatUnavailablePlaceholder.setStyle("-fx-padding: 0;");
 
-        chatContentSlot = new StackPane();
+        StackPane chatContentSlot = new StackPane();
         chatContentSlot.setAlignment(Pos.CENTER);
         chatContentSlot.setMinHeight(200);
         chatContentSlot.setMaxWidth(Double.MAX_VALUE);
@@ -143,6 +143,13 @@ public class MuSigMediatorView extends View<ScrollPane, MuSigMediatorModel, MuSi
     }
 
     private void chatWindowChanged(Stage chatWindow) {
+        if (detachedChatWindow != null) {
+            detachedChatWindow.titleProperty().unbind();
+            detachedChatWindow.setOnCloseRequest(null);
+            detachedChatWindow.setScene(null);
+            detachedChatWindow = null;
+        }
+
         if (chatWindow == null) {
             ImageView icon = ImageUtil.getImageViewById("detach");
             toggleChatWindowButton.setText(Res.get("bisqEasy.openTrades.chat.detach"));
@@ -152,6 +159,7 @@ public class MuSigMediatorView extends View<ScrollPane, MuSigMediatorModel, MuSi
                 centerVBox.getChildren().add(chatVBox);
             }
         } else {
+            detachedChatWindow = chatWindow;
             ImageView icon = ImageUtil.getImageViewById("attach");
             toggleChatWindowButton.setText(Res.get("bisqEasy.openTrades.chat.attach"));
             toggleChatWindowButton.setTooltip(new BisqTooltip(Res.get("bisqEasy.openTrades.chat.attach.tooltip")));
@@ -186,6 +194,10 @@ public class MuSigMediatorView extends View<ScrollPane, MuSigMediatorModel, MuSi
 
             centerVBox.getChildren().remove(chatVBox);
             UIThread.runOnNextRenderFrame(() -> {
+                if (detachedChatWindow != chatWindow || model.getChatWindow().get() != chatWindow) {
+                    return;
+                }
+
                 ScrollPane scrollPane = new ScrollPane(chatVBox);
                 scrollPane.setFitToHeight(true);
                 scrollPane.setFitToWidth(true);

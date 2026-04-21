@@ -214,6 +214,7 @@ message MuSigArbitrationCase {
   optional account.AccountPayload takerAccountPayload = 6;
   optional account.AccountPayload makerAccountPayload = 7;
   repeated MuSigArbitrationIssue issues = 8;
+  bool arbitratorHasLeftChat = 10;
 }
 
 message MuSigArbitratorStore {

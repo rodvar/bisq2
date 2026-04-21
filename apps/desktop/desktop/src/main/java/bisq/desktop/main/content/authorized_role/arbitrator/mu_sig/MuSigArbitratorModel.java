@@ -18,10 +18,48 @@
 package bisq.desktop.main.content.authorized_role.arbitrator.mu_sig;
 
 import bisq.desktop.common.view.Model;
+import bisq.desktop.components.table.TableList;
+import javafx.beans.property.BooleanProperty;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+import javafx.stage.Stage;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.function.Predicate;
 
 @Slf4j
 @Getter
 public class MuSigArbitratorModel implements Model {
+    private final BooleanProperty showClosedCases = new SimpleBooleanProperty();
+    private final BooleanProperty noOpenCases = new SimpleBooleanProperty();
+    private final BooleanProperty chatAvailable = new SimpleBooleanProperty();
+    private final StringProperty chatWindowTitle = new SimpleStringProperty();
+    private final StringProperty chatUnavailableTitle = new SimpleStringProperty();
+    private final StringProperty chatUnavailableDescription = new SimpleStringProperty();
+    private final TableList<MuSigArbitrationCaseListItem> listItems = new TableList<>();
+    private final ObjectProperty<MuSigArbitrationCaseListItem> selectedItem = new SimpleObjectProperty<>();
+    private final ObjectProperty<Stage> chatWindow = new SimpleObjectProperty<>();
+    private final ObjectProperty<Predicate<MuSigArbitrationCaseListItem>> searchPredicate = new SimpleObjectProperty<>(item -> true);
+    private final ObjectProperty<Predicate<MuSigArbitrationCaseListItem>> closedCasesPredicate = new SimpleObjectProperty<>(item -> true);
+
+    public MuSigArbitratorModel() {
+    }
+
+    public void reset() {
+        // We dont reset showClosedCases
+        noOpenCases.setValue(false);
+        chatAvailable.setValue(false);
+        chatWindowTitle.setValue(null);
+        chatUnavailableTitle.setValue(null);
+        chatUnavailableDescription.setValue(null);
+        listItems.clear();
+        selectedItem.set(null);
+        chatWindow.set(null);
+        searchPredicate.set(item -> true);
+        closedCasesPredicate.set(item -> true);
+    }
 }

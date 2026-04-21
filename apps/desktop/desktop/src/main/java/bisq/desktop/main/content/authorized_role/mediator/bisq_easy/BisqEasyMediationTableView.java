@@ -65,7 +65,7 @@ class BisqEasyMediationTableView extends VBox {
         Label headlineLabel = new Label(Res.get("authorizedRole.mediator.table.headline"));
         headlineLabel.getStyleClass().add("bisq-easy-container-headline");
 
-        showClosedCasesSwitch = new Switch(Res.get("authorizedRole.mediator.showClosedCases"));
+        showClosedCasesSwitch = new Switch(Res.get("authorizedRole.disputeActor.showClosedCases"));
 
         searchBox = new SearchBox();
         searchBox.setPrefWidth(90);
@@ -253,7 +253,7 @@ class BisqEasyMediationTableView extends VBox {
         tableView.getColumns().add(tableView.getSelectionMarkerColumn());
 
         tableView.getColumns().add(new BisqTableColumn.Builder<BisqEasyMediationCaseListItem>()
-                .title(Res.get("authorizedRole.mediator.table.maker"))
+                .title(Res.get("authorizedRole.disputeActor.table.maker"))
                 .minWidth(120)
                 .left()
                 .comparator(Comparator.comparing(item -> item.getMaker().getUserName()))
@@ -267,7 +267,7 @@ class BisqEasyMediationTableView extends VBox {
                 .includeForCsv(false)
                 .build());
         tableView.getColumns().add(new BisqTableColumn.Builder<BisqEasyMediationCaseListItem>()
-                .title(Res.get("authorizedRole.mediator.table.taker"))
+                .title(Res.get("authorizedRole.disputeActor.table.taker"))
                 .minWidth(120)
                 .left()
                 .comparator(Comparator.comparing(item -> item.getTaker().getUserName()))
@@ -311,7 +311,7 @@ class BisqEasyMediationTableView extends VBox {
                 .tooltipSupplier(BisqEasyMediationCaseListItem::getPaymentMethod)
                 .build());
         closeCaseDateColumn = new BisqTableColumn.Builder<BisqEasyMediationCaseListItem>()
-                .title(Res.get("authorizedRole.mediator.table.header.closeCaseDate"))
+                .title(Res.get("authorizedRole.disputeActor.table.header.closeCaseDate"))
                 .minWidth(130)
                 .right()
                 .comparator(Comparator.comparing(BisqEasyMediationCaseListItem::getCloseCaseDate))
