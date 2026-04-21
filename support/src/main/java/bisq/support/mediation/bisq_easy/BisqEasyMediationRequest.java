@@ -39,7 +39,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static bisq.network.p2p.services.data.storage.MetaData.*;
+import static bisq.network.p2p.services.data.storage.MetaData.HIGH_PRIORITY;
+import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
+import static bisq.support.dispute.ChatMessagePruning.MAX_SERIALIZED_SIZE;
+import static bisq.support.dispute.ChatMessagePruning.MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES;
+import static bisq.support.dispute.ChatMessagePruning.prune;
 import static com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
@@ -76,8 +80,8 @@ public final class BisqEasyMediationRequest implements MailboxMessage, ExternalN
         this.contract = contract;
         this.requester = requester;
         this.peer = peer;
-        this.chatMessages = maybePrune(chatMessages);
         this.mediatorNetworkId = mediatorNetworkId;
+        this.chatMessages = maybePrune(chatMessages);
 
         // We need to sort deterministically as the data is used in the proof of work check
         Collections.sort(this.chatMessages);
@@ -88,7 +92,8 @@ public final class BisqEasyMediationRequest implements MailboxMessage, ExternalN
     @Override
     public void verify() {
         NetworkDataValidation.validateTradeId(tradeId);
-        checkArgument(chatMessages.size() < 1000);
+        checkArgument(getValueBuilder(chatMessages, false).build().getSerializedSize() <= MAX_SERIALIZED_SIZE,
+                "Serialized mediation request size must not exceed " + MAX_SERIALIZED_SIZE + " bytes");
     }
 
     /**
@@ -97,6 +102,11 @@ public final class BisqEasyMediationRequest implements MailboxMessage, ExternalN
 
     @Override
     public bisq.support.protobuf.MediationRequest.Builder getValueBuilder(boolean serializeForHash) {
+        return getValueBuilder(chatMessages, serializeForHash);
+    }
+
+    private bisq.support.protobuf.MediationRequest.Builder getValueBuilder(List<BisqEasyOpenTradeMessage> chatMessages,
+                                                                           boolean serializeForHash) {
         bisq.support.protobuf.MediationRequest.Builder builder = bisq.support.protobuf.MediationRequest.newBuilder()
                 .setTradeId(tradeId)
                 .setContract(contract.toProto(serializeForHash))
@@ -170,19 +180,11 @@ public final class BisqEasyMediationRequest implements MailboxMessage, ExternalN
     }
 
     private List<BisqEasyOpenTradeMessage> maybePrune(List<BisqEasyOpenTradeMessage> chatMessages) {
-        StringBuilder sb = new StringBuilder();
-        List<BisqEasyOpenTradeMessage> result = chatMessages.stream()
-                .filter(message -> {
-                    sb.append(message.getTextOrNA());
-                    return sb.toString().length() < 10_000;
-                })
-                .collect(Collectors.toList());
-        if (result.size() != chatMessages.size()) {
-            log.warn("chatMessages pruned for trade {}: kept={}, dropped={}, maxTotalChars=10000",
-                    tradeId,
-                    result.size(),
-                    chatMessages.size() - result.size());
-        }
-        return result;
+        return prune(chatMessages,
+                MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES,
+                MAX_SERIALIZED_SIZE,
+                messages -> getValueBuilder(messages, false).build().getSerializedSize(),
+                log,
+                tradeId);
     }
 }
