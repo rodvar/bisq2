@@ -18,15 +18,16 @@
 package bisq.desktop.main.content.authorized_role.mediator.mu_sig.components;
 
 import bisq.common.monetary.Coin;
+import bisq.common.util.MathUtils;
 import bisq.contract.mu_sig.MuSigContract;
 import bisq.desktop.ServiceProvider;
 import bisq.desktop.common.converters.PercentageStringConverter;
 import bisq.desktop.components.controls.AutoCompleteComboBox;
 import bisq.desktop.components.controls.MaterialTextArea;
 import bisq.desktop.components.controls.MaterialTextField;
-import bisq.desktop.components.controls.validator.TextMaxLengthValidator;
 import bisq.desktop.components.controls.validator.NumberValidator;
 import bisq.desktop.components.controls.validator.PercentageValidator;
+import bisq.desktop.components.controls.validator.TextMaxLengthValidator;
 import bisq.desktop.main.content.authorized_role.mediator.mu_sig.MuSigMediationCaseListItem;
 import bisq.i18n.Res;
 import bisq.presentation.formatters.AmountFormatter;
@@ -157,7 +158,7 @@ public class MuSigMediationResultSection {
             model.getPayoutAdjustmentPercentage().set(
                     muSigMediationResult
                             .flatMap(MuSigMediationResult::getPayoutAdjustmentPercentage)
-                            .map(value -> PercentageFormatter.formatToPercent(value, 0))
+                            .map(value -> PercentageFormatter.formatToPercentWithSymbol(value, 0))
                             .orElse(""));
             MediationPayoutDistributionType payoutDistributionType = model.getSelectedPayoutDistributionType().get();
             boolean showPayoutAmounts = payoutDistributionType != null && shouldShowPayoutAmounts(payoutDistributionType);
@@ -297,7 +298,11 @@ public class MuSigMediationResultSection {
             }
             try {
                 double parsedValue = PercentageParser.parse(value);
-                return parsedValue < 0 || parsedValue > 1 ? Optional.empty() : Optional.of(parsedValue);
+                if (parsedValue < 0 || parsedValue > 1) {
+                    return Optional.empty();
+                }
+                // Percentages are stored normalized (1 = 100%), so 2 decimals here preserve whole-percent steps
+                return Optional.of(MathUtils.roundDouble(parsedValue, 2));
             } catch (Exception ignore) {
                 return Optional.empty();
             }
