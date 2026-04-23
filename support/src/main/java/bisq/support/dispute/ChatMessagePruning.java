@@ -18,15 +18,17 @@
 package bisq.support.dispute;
 
 import bisq.chat.ChatMessage;
-import org.slf4j.Logger;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.function.ToIntFunction;
+import java.util.function.Function;
 
+@Slf4j
 public final class ChatMessagePruning {
-    public static final int MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES = 18_000;
+    private static final int MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES = 18_000;
     // Leave headroom for AEAD authentication tag (16 bytes) added by the
     // confidential transport on top of the serialized payload, so that the
     // resulting ciphertext stays within the transport's 20_000-byte limit.
@@ -35,31 +37,50 @@ public final class ChatMessagePruning {
     private ChatMessagePruning() {
     }
 
-    public static <M extends ChatMessage> List<M> prune(List<M> chatMessages,
-                                                        int maxTotalTextBytes,
-                                                        int maxSerializedSize,
-                                                        ToIntFunction<List<M>> serializedSizeSupplier,
-                                                        Logger log,
-                                                        String tradeId) {
+    public static <M extends ChatMessage, R> R createWithMaybePrunedMessages(List<M> chatMessages,
+                                                                             String tradeId,
+                                                                             Function<List<M>, R> messageFactory) {
+        List<M> candidateMessages = pruneByTotalTextBytes(chatMessages);
+        while (true) {
+            try {
+                R message = messageFactory.apply(new ArrayList<>(candidateMessages));
+                logIfPruned(chatMessages.size(), candidateMessages.size(), tradeId);
+                return message;
+            } catch (SerializedSizeExceededException e) {
+                if (candidateMessages.isEmpty()) {
+                    throw e;
+                }
+                candidateMessages.remove(0);
+            }
+        }
+    }
+
+    private static <M extends ChatMessage> List<M> pruneByTotalTextBytes(List<M> chatMessages) {
         int totalTextBytes = 0;
         List<M> result = new ArrayList<>();
-        for (M message : chatMessages) {
-            totalTextBytes += message.getTextOrNA().getBytes(StandardCharsets.UTF_8).length;
-            if (totalTextBytes >= maxTotalTextBytes) {
+        for (int i = chatMessages.size() - 1; i >= 0; i--) {
+            M message = chatMessages.get(i);
+            int messageTextBytes = message.getTextOrNA().getBytes(StandardCharsets.UTF_8).length;
+            if (totalTextBytes + messageTextBytes >= MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES) {
                 break;
             }
+            totalTextBytes += messageTextBytes;
             result.add(message);
         }
-        while (!result.isEmpty() && serializedSizeSupplier.applyAsInt(result) > maxSerializedSize) {
-            result.removeLast();
-        }
-        if (result.size() != chatMessages.size()) {
-            log.warn("chatMessages pruned for trade {}: kept={}, dropped={}, maxTotalTextBytes={}",
-                    tradeId,
-                    result.size(),
-                    chatMessages.size() - result.size(),
-                    maxTotalTextBytes);
-        }
+        Collections.reverse(result);
         return result;
     }
+
+    private static void logIfPruned(int originalSize,
+                                    int resultSize,
+                                    String tradeId) {
+        if (resultSize != originalSize) {
+            log.warn("chatMessages pruned for trade {}: kept={}, dropped={}, maxTotalTextBytes={}",
+                    tradeId,
+                    resultSize,
+                    originalSize - resultSize,
+                    MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES);
+        }
+    }
+
 }

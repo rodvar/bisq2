@@ -32,6 +32,7 @@ import bisq.i18n.Res;
 import bisq.identity.Identity;
 import bisq.network.NetworkService;
 import bisq.network.identity.NetworkId;
+import bisq.support.dispute.ChatMessagePruning;
 import bisq.support.mediation.MuSigDisputeCaseDataMessage;
 import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsResponse;
 import bisq.support.mediation.mu_sig.MuSigMediationRequest;
@@ -107,12 +108,17 @@ public class MuSigTraderMediationService {
 
         NetworkId mediatorNetworkId = mediator.getNetworkId();
 
-        MuSigMediationRequest muSigMediationRequest = new MuSigMediationRequest(tradeId,
-                contract,
-                userProfileService.findUserProfile(myIdentity.getId()).orElseThrow(),
-                userProfileService.findUserProfile(peer.getNetworkId().getId()).orElseThrow(),
+        UserProfile requester = userProfileService.findUserProfile(myIdentity.getId()).orElseThrow();
+        UserProfile peerUserProfile = userProfileService.findUserProfile(peer.getNetworkId().getId()).orElseThrow();
+        MuSigMediationRequest muSigMediationRequest = ChatMessagePruning.createWithMaybePrunedMessages(
                 new ArrayList<>(channel.getChatMessages()),
-                mediatorNetworkId);
+                tradeId,
+                chatMessages -> new MuSigMediationRequest(tradeId,
+                        contract,
+                        requester,
+                        peerUserProfile,
+                        chatMessages,
+                        mediatorNetworkId));
         networkService.confidentialSend(muSigMediationRequest,
                 mediatorNetworkId,
                 myIdentity.getNetworkIdWithKeyPair());
@@ -141,14 +147,18 @@ public class MuSigTraderMediationService {
                                            Identity myIdentity,
                                            UserProfile mediator,
                                            MuSigContract contract) {
-        MuSigDisputeCaseDataMessage message = new MuSigDisputeCaseDataMessage(
-                tradeId,
-                userProfileService.findUserProfile(myIdentity.getId()).orElseThrow(),
-                ContractService.getContractHash(contract),
+        UserProfile senderUserProfile = userProfileService.findUserProfile(myIdentity.getId()).orElseThrow();
+        byte[] contractHash = ContractService.getContractHash(contract);
+        MuSigDisputeCaseDataMessage message = ChatMessagePruning.createWithMaybePrunedMessages(
                 muSigOpenTradeChannelService.findChannelByTradeId(tradeId)
                         .map(channel -> new ArrayList<>(channel.getChatMessages()))
-                        .orElseGet(ArrayList::new)
-        );
+                        .orElseGet(ArrayList::new),
+                tradeId,
+                chatMessages -> new MuSigDisputeCaseDataMessage(
+                        tradeId,
+                        senderUserProfile,
+                        contractHash,
+                        chatMessages));
         networkService.confidentialSend(message,
                 mediator.getNetworkId(),
                 myIdentity.getNetworkIdWithKeyPair());

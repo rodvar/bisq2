@@ -30,6 +30,7 @@ import bisq.i18n.Res;
 import bisq.identity.Identity;
 import bisq.network.NetworkService;
 import bisq.network.identity.NetworkId;
+import bisq.support.dispute.ChatMessagePruning;
 import bisq.support.arbitration.mu_sig.MuSigArbitrationRequest;
 import bisq.support.mediation.mu_sig.MuSigMediationResult;
 import bisq.trade.MuSigDisputeState;
@@ -104,16 +105,21 @@ public class MuSigTraderArbitrationService {
 
         NetworkId arbitratorNetworkId = arbitrator.getNetworkId();
 
-        MuSigArbitrationRequest muSigArbitrationRequest = new MuSigArbitrationRequest(tradeId,
-                contract,
-                mediationResult,
-                mediationResultSignature,
-                userProfileService.findUserProfile(myIdentity.getId()).orElseThrow(),
-                userProfileService
-                        .findUserProfile(peer.getNetworkId().getId())
-                        .orElseThrow(),
+        UserProfile requester = userProfileService.findUserProfile(myIdentity.getId()).orElseThrow();
+        UserProfile peerUserProfile = userProfileService
+                .findUserProfile(peer.getNetworkId().getId())
+                .orElseThrow();
+        MuSigArbitrationRequest muSigArbitrationRequest = ChatMessagePruning.createWithMaybePrunedMessages(
                 new ArrayList<>(channel.getChatMessages()),
-                arbitratorNetworkId);
+                tradeId,
+                chatMessages -> new MuSigArbitrationRequest(tradeId,
+                        contract,
+                        mediationResult,
+                        mediationResultSignature,
+                        requester,
+                        peerUserProfile,
+                        chatMessages,
+                        arbitratorNetworkId));
         networkService.confidentialSend(muSigArbitrationRequest,
                 arbitratorNetworkId,
                 myIdentity.getNetworkIdWithKeyPair());

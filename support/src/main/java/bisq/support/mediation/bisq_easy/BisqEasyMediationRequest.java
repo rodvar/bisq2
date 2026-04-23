@@ -27,6 +27,7 @@ import bisq.network.p2p.message.ExternalNetworkMessage;
 import bisq.network.p2p.services.confidential.ack.AckRequestingMessage;
 import bisq.network.p2p.services.data.storage.MetaData;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
+import bisq.support.dispute.SerializedSizeExceededException;
 import bisq.user.profile.UserProfile;
 import com.google.protobuf.InvalidProtocolBufferException;
 import lombok.EqualsAndHashCode;
@@ -34,6 +35,7 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -42,9 +44,6 @@ import java.util.stream.Collectors;
 import static bisq.network.p2p.services.data.storage.MetaData.HIGH_PRIORITY;
 import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 import static bisq.support.dispute.ChatMessagePruning.MAX_SERIALIZED_SIZE;
-import static bisq.support.dispute.ChatMessagePruning.MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES;
-import static bisq.support.dispute.ChatMessagePruning.prune;
-import static com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 @Getter
@@ -81,7 +80,7 @@ public final class BisqEasyMediationRequest implements MailboxMessage, ExternalN
         this.requester = requester;
         this.peer = peer;
         this.mediatorNetworkId = mediatorNetworkId;
-        this.chatMessages = maybePrune(chatMessages);
+        this.chatMessages = new ArrayList<>(chatMessages);
 
         // We need to sort deterministically as the data is used in the proof of work check
         Collections.sort(this.chatMessages);
@@ -92,8 +91,10 @@ public final class BisqEasyMediationRequest implements MailboxMessage, ExternalN
     @Override
     public void verify() {
         NetworkDataValidation.validateTradeId(tradeId);
-        checkArgument(getValueBuilder(chatMessages, false).build().getSerializedSize() <= MAX_SERIALIZED_SIZE,
-                "Serialized mediation request size must not exceed " + MAX_SERIALIZED_SIZE + " bytes");
+        if (getValueBuilder(false).build().getSerializedSize() > MAX_SERIALIZED_SIZE) {
+            throw new SerializedSizeExceededException(
+                    "Serialized mediation request size must not exceed " + MAX_SERIALIZED_SIZE + " bytes");
+        }
     }
 
     /**
@@ -102,11 +103,6 @@ public final class BisqEasyMediationRequest implements MailboxMessage, ExternalN
 
     @Override
     public bisq.support.protobuf.MediationRequest.Builder getValueBuilder(boolean serializeForHash) {
-        return getValueBuilder(chatMessages, serializeForHash);
-    }
-
-    private bisq.support.protobuf.MediationRequest.Builder getValueBuilder(List<BisqEasyOpenTradeMessage> chatMessages,
-                                                                           boolean serializeForHash) {
         bisq.support.protobuf.MediationRequest.Builder builder = bisq.support.protobuf.MediationRequest.newBuilder()
                 .setTradeId(tradeId)
                 .setContract(contract.toProto(serializeForHash))
@@ -179,12 +175,4 @@ public final class BisqEasyMediationRequest implements MailboxMessage, ExternalN
         return getCostFactor(0.25, 0.5);
     }
 
-    private List<BisqEasyOpenTradeMessage> maybePrune(List<BisqEasyOpenTradeMessage> chatMessages) {
-        return prune(chatMessages,
-                MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES,
-                MAX_SERIALIZED_SIZE,
-                messages -> getValueBuilder(messages, false).build().getSerializedSize(),
-                log,
-                tradeId);
-    }
 }
