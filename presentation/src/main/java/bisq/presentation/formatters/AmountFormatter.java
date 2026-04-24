@@ -21,7 +21,6 @@ import bisq.common.formatter.DecimalFormatter;
 import bisq.common.locale.LocaleRepository;
 import bisq.common.monetary.Fiat;
 import bisq.common.monetary.Monetary;
-import bisq.common.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Locale;
