@@ -38,8 +38,16 @@ public class AmountFormatter {
         return formatAmount(amount, LocaleRepository.getDefaultLocale(), useLowPrecision);
     }
 
+    public static String formatAmount(Monetary amount, int precision) {
+        return formatAmount(amount, LocaleRepository.getDefaultLocale(), precision);
+    }
+
     public static String formatAmount(Monetary amount, Locale locale, boolean useLowPrecision) {
         return getDecimalFormat(amount, locale, useLowPrecision).format(amount.asDouble());
+    }
+
+    public static String formatAmount(Monetary amount, Locale locale, int precision) {
+        return getDecimalFormat(locale, precision).format(amount.asDouble());
     }
 
     public static String formatAmountWithCode(Monetary amount, Locale locale, boolean useLowPrecision) {
@@ -92,24 +100,13 @@ public class AmountFormatter {
         return formatAmountWithCode(amount, LocaleRepository.getDefaultLocale(), amount instanceof Fiat);
     }
 
-    public static String formatWithDecimalGroups(Monetary amount, Locale locale, boolean useLowPrecision) {
-        String formatted = formatAmount(amount, locale, useLowPrecision);
-        char decimalSeparator = StringUtils.getDecimalSeparator(locale);
-        String regex = decimalSeparator == '.' ? "\\." : String.valueOf(decimalSeparator);
-        String[] parts = formatted.split(regex);
-        if (parts.length == 2 && parts[1].length() == 8) {
-            String part1 = parts[0];
-            String part2 = parts[1].substring(0, 4);
-            String part3 = parts[1].substring(4);
-            return part1 + decimalSeparator + part2 + " " + part3;
-        } else {
-            return formatted;
-        }
+    public static DecimalFormatter.Format getDecimalFormat(Monetary amount, Locale locale, boolean useLowPrecision) {
+        return useLowPrecision ?
+                getDecimalFormat(locale, amount.getLowPrecision()) :
+                getDecimalFormat(locale, amount.getPrecision());
     }
 
-    private static DecimalFormatter.Format getDecimalFormat(Monetary amount, Locale locale, boolean useLowPrecision) {
-        return useLowPrecision ?
-                DecimalFormatter.getDecimalFormat(locale, amount.getLowPrecision()) :
-                DecimalFormatter.getDecimalFormat(locale, amount.getPrecision());
+    public static DecimalFormatter.Format getDecimalFormat(Locale locale, int precision) {
+        return DecimalFormatter.getDecimalFormat(locale, precision);
     }
 }
