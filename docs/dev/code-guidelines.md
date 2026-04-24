@@ -1,74 +1,118 @@
-## General Code Guidelines
+# Code Guidelines
 
-- Use Lombok annotations for `Getter`/`Setter`/`ToString`/`EqualsAndHashCode`. Be cautious with using more advanced
-  Lombok features.
-- Use the most narrow visibility scope.
-- Use clear variable names, not one-letter variables (except in loops). Using the type as variable name is mostly a good
-  choice and helps with refactoring and search.
-- Set organize imports and reformat code at the commit screen in IDE. It helps to reduce formatting diffs.
-- The style convention is to follow the autoformatting rules provided by IntelliJ's IDEA by default. Hence, there is no
-  need to customize the IDEA's settings in any way, and you can simply use it as-is out of the box.
-- For curly brackets, adopt the "K&R style" for consistency and readability. This means placing the opening brace at the
-  end of the method signature line, not on a new line. Example:
-    ```
-    public ReadOnlyObjectProperty<Market> getMarket() {
-        return model.getSelectedMarket();
-    }
-    ```
-- Use curly brackets even in one-liners. It's a common source for bugs when later code gets added, and it improves
-  readability.
-- Don't use the final keyword in local scope or with arguments, only in class fields.
-- Try to use final class fields and avoid nullable values.
-- Use Optional if a nullable value is a valid case.
-- If nullable fields are used, use the `@Nullable` annotation (see discussion below).
-- Nullable values in non-UI code should be avoided as far as possible. In UI code it is unfortunately not that easy as
-  JavaFX framework classes often deal with nullable values.
-- If you need to write a lot of documentation, ask yourself if instead the method name or variable name could be
-  improved to make it more self-explanatory. If the method is too complex, break it up.
-- Don't use trivial and boilerplate Javadoc. Use Javadoc only in API level classes or if non-trival background or context is explained.
-- If parameters are getting too long, break it up as single param per line.
-- When using fluent interface break up in lines at each `.`
-- Use separator lines if classes are getting large to logically group methods.
-  Use 2 line breaks before the comment separator line.
-  Format for comment separators:
-    ```
-    /* --------------------------------------------------------------------- */
-    // Group Name
-    /* --------------------------------------------------------------------- */
-    ```
-- Use Java records only for simple value objects. Converting them later to normal classes is a bit cumbersome.
-- Always use `@Override` when overriding methods.
-- Ternary operators should be styled for clarity and conciseness. For short conditions that fit in one line, use:
-    ```
-    return map.containsKey(key) ? map.get(key) : defaultValue;
-    ```
-  For longer conditions, express them as follows to enhance readability:
-    ```
-    return priceSpec instanceof FloatPriceSpec
-            ? Optional.of((FloatPriceSpec) priceSpec)
-            : Optional.empty();
-    ```
-  Avoid nested ternary operators to maintain code readability.
-- In UI classes list fields with the same type in one line to reduce number of lines.
+## Purpose
 
+This document defines coding conventions used across Bisq modules.
+It complements:
 
-### Modeling Absence with Optional Instead of Null
+- [Architecture](architecture.md)
+- [MVC Pattern](mvc-pattern.md)
+- [Observable Framework](observable-framework.md)
+- [Testing](testing.md)
+- [Nullability and Optional](nullability-and-optional.md)
 
-The official Java recommendation is to use `Optional` primarily for return types, not for parameters or class fields. The rationale is that `Optional` makes the caller–callee contract explicit: a potentially absent return value must be handled consciously by the caller.
+## General Principles
 
-However, this argument is limited to return values and does not address the broader issue that nullable values are a primary source of runtime exceptions. Making optionality explicit in the type system helps prevent `NullPointerException`s and improves overall code readability. Using `Optional` consistently for absence achieves this more effectively than relying on implicit nullability.
+- Follow existing architecture and patterns. Do not introduce new paradigms without strong reason.
+- Prefer immutability in domain models.
+- Use Lombok annotations for `@Getter`, `@Setter`, `@ToString`, and `@EqualsAndHashCode` where appropriate.
+- Use the narrowest visibility scope possible.
+- Prefer project utilities from `bisq.common.util` when appropriate, especially `StringUtils` and `ByteArrayUtils`.
+- Prefer descriptive names. Avoid one-letter variables except simple loop indices.
+- Organize imports and run formatter before committing to reduce diff noise.
+- Follow default IntelliJ IDEA formatting settings.
 
-Relying on nullable values typically leads to excessive boilerplate (defensive null checks) or the use of annotations such as `@Nullable` or `@NonNull`. While useful, these annotations are not enforced by the compiler and therefore provide weaker guarantees than a type-based approach. They also tend to increase noise without fundamentally improving safety.
+## Code Style
 
-Our approach is to enforce a project-wide convention:
+### Braces and Control Flow
 
-* All values are non-null by default.
-* If absence is a valid state, it must be expressed explicitly using `Optional`.
+- Use K&R brace style.
+- Always use braces, including single-line branches.
+- Do not use `final` for local variables or method parameters; use it for class fields.
+- Prefer `final` fields and avoid nullable values where possible.
 
-This eliminates the need for pervasive null checks and makes optionality explicit at the type level. As a result, method contracts become clearer, and both callers and callees can rely on non-null invariants. It also aligns well with the explicit presence semantics used in Protocol Buffers.
+### Ternary Operators
 
-We recognize that this approach still relies on discipline: Java does not prevent assigning `null` to an `Optional` or wrapping a `null` value. To mitigate this, additional tooling (e.g., static analysis) and code reviews are required.
+- Keep short ternaries on one line.
+- Use multi-line formatting for long expressions.
+- Avoid nested ternaries.
 
-Conceptually, this model aligns with languages that provide null-safety at the type level, such as Kotlin, where types are non-null by default and nullable types must be declared explicitly (e.g., using `?`).
+## Nullability
 
-In UI code, where frameworks such as JavaFX expose nullable APIs, this rule is applied more flexibly. In such cases, `@Nullable` annotations should be used where appropriate to maintain clarity, and the general non-null-by-default principle should be followed as far as practical.
+- Values are non-null by default.
+- If absence is valid, model it explicitly.
+- Use `@Nullable` only where nullable APIs are unavoidable (common in JavaFX integration).
+
+See [Nullability and Optional](nullability-and-optional.md) for the detailed rationale and conventions.
+
+## Readability and Maintainability
+
+- Prefer self-explanatory naming over extensive documentation.
+- Split complex methods into smaller focused methods.
+- Avoid boilerplate Javadoc; use it when API context is non-trivial.
+- Put each parameter on its own line when parameter lists are long.
+- Break fluent chains per `.` for readability, except very short chains.
+
+## Class and Data Structure
+
+- Declare static fields first, then instance fields.
+- Within each group, place `final` fields before non-final fields.
+- Place inner classes, records, and enums near the top (after fields) or at file end.
+- Avoid inner classes that are used outside the enclosing class; extract top-level classes instead.
+- Always use `@Override` for overriding methods.
+- Use records for simple value objects only.
+- Use `@ToString` and `@EqualsAndHashCode` for value objects, and `callSuper = true` when needed.
+- In large classes, group methods with separator blocks and keep two blank lines before each separator.
+
+Format:
+
+```java
+/* --------------------------------------------------------------------- */
+// Group Name
+/* --------------------------------------------------------------------- */
+```
+
+## JavaFX and UI
+
+- In UI classes, group fields of the same type on a single line to reduce vertical noise.
+- Follow the [MVC Pattern](mvc-pattern.md).
+- Use `bind()` for simple bindings.
+- Use `EasyBind.subscribe()` for logic-heavy reactive handling.
+- Prefer `EasyBind.subscribe()` over raw JavaFX listeners.
+
+### Subscription and Observer Lifecycle
+
+If an MVC controller has multiple subscriptions or pins, use this pattern:
+
+```java
+private final Set<Subscription> subscriptions = new HashSet<>();
+private final Set<Pin> pins = new HashSet<>();
+
+@Override
+public void onDeactivate() {
+    subscriptions.forEach(Subscription::unsubscribe);
+    subscriptions.clear();
+    pins.forEach(Pin::unbind);
+    pins.clear();
+}
+```
+
+If an MVC view has multiple subscriptions, use this pattern:
+
+```java
+private final Set<Subscription> subscriptions = new HashSet<>();
+
+@Override
+public void onViewDetached() {
+    subscriptions.forEach(Subscription::unsubscribe);
+    subscriptions.clear();
+}
+```
+
+## Visibility and Test Hooks
+
+- Keep classes and methods as non-public as possible.
+- `@VisibleForTesting` is only justified when:
+  - the member would otherwise be `private`, and
+  - it is directly required by tests.
+- If a member is used in normal production flow, do not annotate it with `@VisibleForTesting`.
