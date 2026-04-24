@@ -61,7 +61,37 @@ When uncertain: **do nothing and ask**.
 - Follow `docs/dev/code-guidelines.md`
   - Lombok for getters/setters/toString/equals/hashCode
   - K&R brace style, always use braces
+  - Use comment separators for logical grouping in larger classes, with 2 line breaks following them:
+    ```
+    /* --------------------------------------------------------------------- */
+    // Group Name
+    /* --------------------------------------------------------------------- */
+    ```
   - Avoid nullable values; use `Optional` and `@Nullable` where needed
+  - Use the most narrow visibility scope
+  - Do not use `final` in local scope or with arguments, only in class fields
+  - Use Java records only for simple value objects
+  - Always use `@Override` when overriding methods
+  - Ternary operator style: single line for short conditions, multi-line for longer ones with '?' and ':' in next line
+  - For UI classes, list fields of the same type in one line to reduce vertical noise
+- Prefer existing utilities from `bisq.common.util` when appropriate, especially `StringUtils` and `ByteArrayUtils`
+- When exposing observables for read-only usage, use `ReadOnly*` types from `bisq.common.observable` and its subpackages (for example `ReadOnlyObservable` and `ReadOnlyObservableMap`, and collection variants)
+- In Bisq MVC controllers, if there are multiple subscriptions or pins, use:
+  - `private final Set<Subscription> subscriptions = new HashSet<>();`
+  - `private final Set<Pin> pins = new HashSet<>();`
+  - and in `onDeactivate()` unsubscribe/unbind and clear both sets:
+    - `subscriptions.forEach(Subscription::unsubscribe);`
+    - `subscriptions.clear();`
+    - `pins.forEach(Pin::unbind);`
+    - `pins.clear();`
+- In Bisq MVC views, if there are multiple subscriptions, use:
+  - `private final Set<Subscription> subscriptions = new HashSet<>();`
+  - and in `onDeactivate()` unsubscribe/unbind subscriptions:
+    - `subscriptions.forEach(Subscription::unsubscribe);`
+    - `subscriptions.clear();`
+- `@VisibleForTesting` usage rule:
+  - Only annotate constructors and methods that are actually called by tests and would otherwise be `private`
+  - Do not use `@VisibleForTesting` on constructors or methods if called from other non-test classes.
 - See `docs/dev/contributing.md` for PR workflow and commit style
 - For i18n strings, only update the base file in `i18n/src/main/resources/<name>.properties` and do not edit `..._<lang>.properties` files directly.
 
