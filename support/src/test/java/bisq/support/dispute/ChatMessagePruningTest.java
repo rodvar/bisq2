@@ -24,93 +24,64 @@ import bisq.chat.reactions.ChatMessageReaction;
 import bisq.common.observable.collection.ObservableSet;
 import bisq.network.p2p.services.data.storage.MetaData;
 import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ChatMessagePruningTest {
     @Test
-    void prune_keepsAllMessages_whenUnderBothLimits() {
-        TestChatMessage first = new TestChatMessage("1", "hello", 10);
-        TestChatMessage second = new TestChatMessage("2", "world", 20);
+    void createWithMaybePrunedMessages_keepsNewestMessages_whenTextBytesExceedLimit() {
+        TestChatMessage first = new TestChatMessage("1", "x".repeat(17_999), 10);
+        TestChatMessage second = new TestChatMessage("2", "middle", 20);
+        TestChatMessage third = new TestChatMessage("3", "new", 30);
 
-        List<TestChatMessage> result = ChatMessagePruning.prune(
-                List.of(first, second),
-                100,
-                100,
-                messages -> messages.size() * 10,
-                LoggerFactory.getLogger(ChatMessagePruningTest.class),
-                "trade-1");
+        List<TestChatMessage> result = ChatMessagePruning.createWithMaybePrunedMessages(
+                List.of(first, second, third),
+                "trade-text-prune",
+                ArrayList::new);
 
-        assertThat(result).containsExactly(first, second);
+        assertThat(result).containsExactly(second, third);
     }
 
     @Test
-    void prune_usesUtf8ByteLengthForTheHeuristic() {
-        TestChatMessage first = new TestChatMessage("1", "🙂", 10);
-        TestChatMessage second = new TestChatMessage("2", "ok", 20);
-
-        List<TestChatMessage> result = ChatMessagePruning.prune(
-                List.of(first, second),
-                5,
-                100,
-                messages -> 0,
-                LoggerFactory.getLogger(ChatMessagePruningTest.class),
-                "trade-2");
-
-        assertThat(result).containsExactly(first);
-    }
-
-    @Test
-    void prune_dropsMessage_whenUtf8ByteLengthHitsTheLimitExactly() {
-        TestChatMessage first = new TestChatMessage("1", "🙂", 10);
-        TestChatMessage second = new TestChatMessage("2", "ok", 20);
-
-        List<TestChatMessage> result = ChatMessagePruning.prune(
-                List.of(first, second),
-                4,
-                100,
-                messages -> 0,
-                LoggerFactory.getLogger(ChatMessagePruningTest.class),
-                "trade-equal-boundary");
-
-        assertThat(result).isEmpty();
-    }
-
-    @Test
-    void prune_trimsFromTheEnd_whenSerializedSizeStillExceedsLimit() {
+    void createWithMaybePrunedMessages_removesOldestMessage_whenSerializedSizeStillExceedsLimit() {
         TestChatMessage first = new TestChatMessage("1", "aa", 10);
         TestChatMessage second = new TestChatMessage("2", "bb", 20);
         TestChatMessage third = new TestChatMessage("3", "cc", 30);
+        AtomicInteger attempts = new AtomicInteger();
 
-        List<TestChatMessage> result = ChatMessagePruning.prune(
+        List<TestChatMessage> result = ChatMessagePruning.createWithMaybePrunedMessages(
                 List.of(first, second, third),
-                100,
-                25,
-                messages -> messages.size() * 10,
-                LoggerFactory.getLogger(ChatMessagePruningTest.class),
-                "trade-3");
+                "trade-size-prune",
+                messages -> {
+                    attempts.incrementAndGet();
+                    if (messages.size() > 2) {
+                        throw new SerializedSizeExceededException("too large");
+                    }
+                    return new ArrayList<>(messages);
+                });
 
-        assertThat(result).containsExactly(first, second);
+        assertThat(result).containsExactly(second, third);
+        assertThat(attempts).hasValue(2);
     }
 
     @Test
-    void prune_returnsEmpty_whenFirstMessageAlreadyReachesTextLimit() {
-        TestChatMessage first = new TestChatMessage("1", "🙂🙂🙂", 10);
-        TestChatMessage second = new TestChatMessage("2", "ok", 20);
+    void createWithMaybePrunedMessages_rethrows_whenRequestWithNoMessagesIsStillTooLarge() {
+        TestChatMessage message = new TestChatMessage("1", "aa", 10);
 
-        List<TestChatMessage> result = ChatMessagePruning.prune(
-                List.of(first, second),
-                4,
-                100,
-                messages -> 0,
-                LoggerFactory.getLogger(ChatMessagePruningTest.class),
-                "trade-4");
-
-        assertThat(result).isEmpty();
+        assertThatThrownBy(() -> ChatMessagePruning.createWithMaybePrunedMessages(
+                List.of(message),
+                "trade-too-large",
+                messages -> {
+                    throw new SerializedSizeExceededException("too large");
+                }))
+                .isInstanceOf(SerializedSizeExceededException.class)
+                .hasMessage("too large");
     }
 
     private static final class TestChatMessage extends ChatMessage {

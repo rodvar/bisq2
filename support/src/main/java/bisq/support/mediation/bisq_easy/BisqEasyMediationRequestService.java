@@ -34,6 +34,7 @@ import bisq.network.NetworkService;
 import bisq.network.identity.NetworkId;
 import bisq.network.p2p.message.EnvelopePayloadMessage;
 import bisq.network.p2p.services.confidential.ConfidentialMessageService;
+import bisq.support.dispute.ChatMessagePruning;
 import bisq.user.UserService;
 import bisq.user.banned.BannedUserService;
 import bisq.user.identity.UserIdentity;
@@ -132,12 +133,15 @@ public class BisqEasyMediationRequestService implements Service, ConfidentialMes
         UserProfile peer = channel.getPeer();
         UserProfile mediator = channel.getMediator().orElseThrow();
         NetworkId mediatorNetworkId = mediator.getNetworkId();
-        BisqEasyMediationRequest bisqEasyMediationRequest = new BisqEasyMediationRequest(channel.getTradeId(),
-                contract,
-                myUserIdentity.getUserProfile(),
-                peer,
+        BisqEasyMediationRequest bisqEasyMediationRequest = ChatMessagePruning.createWithMaybePrunedMessages(
                 new ArrayList<>(channel.getChatMessages()),
-                Optional.of(mediatorNetworkId));
+                channel.getTradeId(),
+                chatMessages -> new BisqEasyMediationRequest(channel.getTradeId(),
+                        contract,
+                        myUserIdentity.getUserProfile(),
+                        peer,
+                        chatMessages,
+                        Optional.of(mediatorNetworkId)));
         networkService.confidentialSend(bisqEasyMediationRequest,
                 mediatorNetworkId,
                 myUserIdentity.getNetworkIdWithKeyPair());

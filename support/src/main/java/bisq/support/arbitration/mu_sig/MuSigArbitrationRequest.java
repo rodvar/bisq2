@@ -28,6 +28,7 @@ import bisq.network.p2p.message.SenderPublicKeyProvidingPayload;
 import bisq.network.p2p.services.confidential.ack.AckRequestingMessage;
 import bisq.network.p2p.services.data.storage.MetaData;
 import bisq.network.p2p.services.data.storage.mailbox.MailboxMessage;
+import bisq.support.dispute.SerializedSizeExceededException;
 import bisq.support.mediation.mu_sig.MuSigMediationResult;
 import bisq.user.profile.UserProfile;
 import com.google.protobuf.ByteString;
@@ -38,6 +39,7 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 import java.security.PublicKey;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -45,9 +47,6 @@ import java.util.stream.Collectors;
 import static bisq.network.p2p.services.data.storage.MetaData.HIGH_PRIORITY;
 import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 import static bisq.support.dispute.ChatMessagePruning.MAX_SERIALIZED_SIZE;
-import static bisq.support.dispute.ChatMessagePruning.MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES;
-import static bisq.support.dispute.ChatMessagePruning.prune;
-import static com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 @Getter
@@ -87,7 +86,7 @@ public final class MuSigArbitrationRequest implements
         this.mediationResultSignature = mediationResultSignature.clone();
         this.requester = requester;
         this.peer = peer;
-        this.chatMessages = maybePrune(chatMessages);
+        this.chatMessages = new ArrayList<>(chatMessages);
         this.arbitratorNetworkId = arbitratorNetworkId;
 
         Collections.sort(this.chatMessages);
@@ -98,17 +97,14 @@ public final class MuSigArbitrationRequest implements
     public void verify() {
         NetworkDataValidation.validateTradeId(tradeId);
         NetworkDataValidation.validateECSignature(mediationResultSignature);
-        checkArgument(getValueBuilder(chatMessages, false).build().getSerializedSize() <= MAX_SERIALIZED_SIZE,
-                "Serialized arbitration request size must not exceed " + MAX_SERIALIZED_SIZE + " bytes");
+        if (getValueBuilder(false).build().getSerializedSize() > MAX_SERIALIZED_SIZE) {
+            throw new SerializedSizeExceededException(
+                    "Serialized arbitration request size must not exceed " + MAX_SERIALIZED_SIZE + " bytes");
+        }
     }
 
     @Override
     public bisq.support.protobuf.MuSigArbitrationRequest.Builder getValueBuilder(boolean serializeForHash) {
-        return getValueBuilder(chatMessages, serializeForHash);
-    }
-
-    private bisq.support.protobuf.MuSigArbitrationRequest.Builder getValueBuilder(List<MuSigOpenTradeMessage> chatMessages,
-                                                                                  boolean serializeForHash) {
         return bisq.support.protobuf.MuSigArbitrationRequest.newBuilder()
                 .setTradeId(tradeId)
                 .setContract(contract.toProto(serializeForHash))
@@ -180,12 +176,4 @@ public final class MuSigArbitrationRequest implements
         return requester.getPublicKey();
     }
 
-    private List<MuSigOpenTradeMessage> maybePrune(List<MuSigOpenTradeMessage> chatMessages) {
-        return prune(chatMessages,
-                MAX_TOTAL_CHAT_MESSAGES_TEXT_BYTES,
-                MAX_SERIALIZED_SIZE,
-                messages -> getValueBuilder(messages, false).build().getSerializedSize(),
-                log,
-                tradeId);
-    }
 }
