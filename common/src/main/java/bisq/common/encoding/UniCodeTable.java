@@ -15,16 +15,8 @@
  * along with Bisq. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package bisq.common.monetary;
+package bisq.common.encoding;
 
-import bisq.common.data.Range;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
-@EqualsAndHashCode(callSuper = true)
-@ToString(callSuper = true)
-public class MonetaryRange extends Range<Monetary> {
-    public MonetaryRange(Monetary min, Monetary max) {
-        super(min, max);
-    }
+public class UniCodeTable {
+    public static final String EN_DASH_SYMBOL = "\u2013"; // Unicode for "–"
 }
