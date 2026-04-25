@@ -40,6 +40,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -160,6 +161,11 @@ public class MarketPriceService extends RateLimitedPersistenceClient<MarketPrice
 
     public Optional<PriceQuote> findMarketPriceQuote(Market market) {
         return findMarketPrice(market).stream().map(MarketPrice::getPriceQuote).findAny();
+    }
+
+    public PriceQuote getMarketPriceQuoteOrThrow(Market market) {
+        return findMarketPriceQuote(market)
+                .orElseThrow(() -> new NoSuchElementException("No market price found for market: " + market));
     }
 
     public ReadOnlyObservableMap<Market, MarketPrice> getMarketPriceByCurrencyMap() {
