@@ -17,6 +17,7 @@
 
 package bisq.desktop.main.content.wallet.dashboard;
 
+import bisq.bonded_roles.market_price.MarketPriceService;
 import bisq.common.market.MarketRepository;
 import bisq.common.util.StringUtils;
 import bisq.desktop.main.content.wallet.WalletTxListItem;
@@ -31,7 +32,6 @@ import bisq.i18n.Res;
 import bisq.settings.SettingsService;
 import bisq.wallet.WalletService;
 import bisq.wallet.vo.Transaction;
-import bisq.bonded_roles.market_price.MarketPriceService;
 import bisq.common.market.Market;
 import bisq.common.monetary.Coin;
 import lombok.Getter;
