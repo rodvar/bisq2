@@ -164,7 +164,7 @@ public class DefaultMarketPriceService extends RateLimitedPersistenceClient<Mark
 
     @Override
     public Optional<PriceQuote> findMarketPriceQuote(Market market) {
-        return findMarketPrice(market).stream().map(MarketPrice::getPriceQuote).findAny();
+        return findMarketPrice(market).map(MarketPrice::getPriceQuote);
     }
 
     @Override
