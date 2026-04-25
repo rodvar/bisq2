@@ -51,7 +51,7 @@ public class MarketPriceWebSocketService extends SimpleObservableWebSocketServic
 
     @Override
     protected HashMap<String, PriceQuoteDto> toPayload(ReadOnlyObservableMap<Market, MarketPrice> observable) {
-        return getObservable()
+        return observable
                 .entrySet().stream()
                 .filter(MarketPriceWebSocketService::isBaseCurrencyBtc)
                 .collect(Collectors.toMap(
