@@ -27,9 +27,9 @@ import bisq.common.encoding.Hex;
 import bisq.common.market.Market;
 import bisq.common.market.MarketRepository;
 import bisq.common.monetary.PriceQuote;
-import bisq.common.observable.Observable;
 import bisq.common.observable.Pin;
-import bisq.common.observable.map.ObservableHashMap;
+import bisq.common.observable.ReadOnlyObservable;
+import bisq.common.observable.map.ReadOnlyObservableMap;
 import bisq.network.NetworkService;
 import bisq.network.p2p.services.data.storage.auth.authorized.AuthorizedData;
 import bisq.persistence.DbSubDirectory;
@@ -145,9 +145,13 @@ public class MarketPriceService extends RateLimitedPersistenceClient<MarketPrice
     /* --------------------------------------------------------------------- */
 
     public void setSelectedMarket(Market market) {
-        if (getSelectedMarket().set(market)) {
+        if (persistableStore.getSelectedMarket().set(market)) {
             persist();
         }
+    }
+
+    public ReadOnlyObservable<Market> getSelectedMarket() {
+        return persistableStore.getSelectedMarket();
     }
 
     public Optional<MarketPrice> findMarketPrice(Market market) {
@@ -158,12 +162,8 @@ public class MarketPriceService extends RateLimitedPersistenceClient<MarketPrice
         return findMarketPrice(market).stream().map(MarketPrice::getPriceQuote).findAny();
     }
 
-    public ObservableHashMap<Market, MarketPrice> getMarketPriceByCurrencyMap() {
+    public ReadOnlyObservableMap<Market, MarketPrice> getMarketPriceByCurrencyMap() {
         return persistableStore.getMarketPriceByCurrencyMap();
-    }
-
-    public Observable<Market> getSelectedMarket() {
-        return persistableStore.getSelectedMarket();
     }
 
     public boolean hasMarketPrice(Market market) {
