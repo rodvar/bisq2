@@ -20,9 +20,12 @@ package bisq.desktop.main.content.authorized_role.arbitrator.mu_sig;
 import bisq.common.data.Triple;
 import bisq.common.observable.Pin;
 import bisq.desktop.ServiceProvider;
+import bisq.desktop.common.view.Navigation;
 import bisq.desktop.components.containers.Spacer;
 import bisq.desktop.components.overlay.Popup;
+import bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.details.MuSigArbitrationCaseDetailsController;
 import bisq.desktop.main.content.components.UserProfileDisplay;
+import bisq.desktop.navigation.NavigationTarget;
 import bisq.i18n.Res;
 import bisq.settings.DontShowAgainService;
 import bisq.support.arbitration.ArbitrationCaseState;
@@ -178,7 +181,7 @@ public class MuSigArbitrationCaseHeader {
 
         void onShowDetails() {
             MuSigArbitrationCaseListItem item = model.getArbitrationCaseListItem().get();
-//            Navigation.navigateTo(NavigationTarget.MU_SIG_ARBITRATION_CASE_DETAILS, new MuSigArbitrationCaseDetailsController.InitData(item));
+            Navigation.navigateTo(NavigationTarget.MU_SIG_ARBITRATION_CASE_DETAILS, new MuSigArbitrationCaseDetailsController.InitData(item));
         }
 
         private void doRemoveCase() {
