@@ -23,6 +23,7 @@ import bisq.desktop.ServiceProvider;
 import bisq.desktop.common.view.Navigation;
 import bisq.desktop.components.containers.Spacer;
 import bisq.desktop.components.overlay.Popup;
+import bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.close.MuSigArbitrationCaseCloseController;
 import bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.details.MuSigArbitrationCaseDetailsController;
 import bisq.desktop.main.content.components.UserProfileDisplay;
 import bisq.desktop.navigation.NavigationTarget;
@@ -136,10 +137,7 @@ public class MuSigArbitrationCaseHeader {
         }
 
         void onCloseCase() {
-            MuSigArbitrationCaseListItem listItem = model.getArbitrationCaseListItem().get();
-            if (listItem != null) {
-//                Navigation.navigateTo(NavigationTarget.MU_SIG_ARBITRATION_CASE_CLOSE, new MuSigArbitrationCaseCloseController.InitData(listItem, onCloseHandler));
-            }
+            doClose();
             // TODO: move this eventually to Close Controller
             //                if (dontShowAgainService.showAgain(ARBITRATOR_CLOSE_WARNING)) {
             //                    new Popup().warning(Res.get("authorizedRole.disputeActor.close.warning"))
@@ -181,7 +179,8 @@ public class MuSigArbitrationCaseHeader {
 
         void onShowDetails() {
             MuSigArbitrationCaseListItem item = model.getArbitrationCaseListItem().get();
-            Navigation.navigateTo(NavigationTarget.MU_SIG_ARBITRATION_CASE_DETAILS, new MuSigArbitrationCaseDetailsController.InitData(item));
+            Navigation.navigateTo(NavigationTarget.MU_SIG_ARBITRATION_CASE_DETAILS,
+                    new MuSigArbitrationCaseDetailsController.InitData(item));
         }
 
         private void doRemoveCase() {
@@ -198,6 +197,14 @@ public class MuSigArbitrationCaseHeader {
             MuSigArbitrationCaseListItem listItem = model.getArbitrationCaseListItem().get();
             if (listItem != null) {
                 muSigArbitratorService.leaveChat(listItem.getMuSigArbitrationCase());
+            }
+        }
+
+        private void doClose() {
+            MuSigArbitrationCaseListItem listItem = model.getArbitrationCaseListItem().get();
+            if (listItem != null) {
+                Navigation.navigateTo(NavigationTarget.MU_SIG_ARBITRATION_CASE_CLOSE,
+                        new MuSigArbitrationCaseCloseController.InitData(listItem, onCloseHandler));
             }
         }
     }

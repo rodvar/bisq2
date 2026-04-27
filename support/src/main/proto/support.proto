@@ -157,10 +157,24 @@ enum ArbitrationCaseState {
   ARBITRATIONCASESTATE_CLOSED = 2;
 }
 
+enum ArbitrationResultReason {
+  ARBITRATIONRESULTREASON_UNSPECIFIED = 0;
+  ARBITRATIONRESULTREASON_OTHER = 1;
+  ARBITRATIONRESULTREASON_BUG = 2;
+  ARBITRATIONRESULTREASON_USABILITY = 3;
+  ARBITRATIONRESULTREASON_BANK = 4;
+  ARBITRATIONRESULTREASON_OPTION_TRADE = 5;
+  ARBITRATIONRESULTREASON_TRADER_NOT_RESPONDING = 6;
+  ARBITRATIONRESULTREASON_WRONG_SENDER_ACCOUNT = 7;
+  ARBITRATIONRESULTREASON_TRADE_ALREADY_SETTLED = 8;
+  ARBITRATIONRESULTREASON_PEER_WAS_LATE = 9;
+}
+
 enum ArbitrationPayoutDistributionType {
   ARBITRATIONPAYOUTDISTRIBUTIONTYPE_UNSPECIFIED = 0;
-  ARBITRATIONPAYOUTDISTRIBUTIONTYPE_BUYER_GETS_TRADE_AMOUNT = 1;
-  ARBITRATIONPAYOUTDISTRIBUTIONTYPE_SELLER_GETS_TRADE_AMOUNT = 2;
+  ARBITRATIONPAYOUTDISTRIBUTIONTYPE_CUSTOM_PAYOUT = 1;
+  ARBITRATIONPAYOUTDISTRIBUTIONTYPE_BUYER_GETS_TRADE_AMOUNT = 2;
+  ARBITRATIONPAYOUTDISTRIBUTIONTYPE_SELLER_GETS_TRADE_AMOUNT = 3;
 }
 
 message MuSigArbitrationRequest {
@@ -177,10 +191,11 @@ message MuSigArbitrationRequest {
 message MuSigArbitrationResult {
   uint64 date = 1;
   bytes contractHash = 2;
-  ArbitrationPayoutDistributionType arbitrationPayoutDistributionType = 3;
-  sint64 buyerPayoutAmount = 4;
-  sint64 sellerPayoutAmount = 5;
-  optional string summaryNotes = 6;
+  ArbitrationResultReason arbitrationResultReason = 3;
+  ArbitrationPayoutDistributionType arbitrationPayoutDistributionType = 4;
+  sint64 buyerPayoutAmount = 5;
+  sint64 sellerPayoutAmount = 6;
+  optional string summaryNotes = 7;
 }
 
 message MuSigArbitrationStateChangeMessage {

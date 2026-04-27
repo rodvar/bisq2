@@ -41,13 +41,13 @@ import static bisq.desktop.components.helpers.LabeledValueRowFactory.createSepar
 public class MuSigArbitrationCaseDetailsView extends
         NavigationView<VBox, MuSigArbitrationCaseDetailsModel, MuSigArbitrationCaseDetailsController> {
     private final Button closeButton;
-    private final VBox arbitrationResultContainer;
+    private final VBox arbitrationResultContainer, mediationResultSection;
 
     public MuSigArbitrationCaseDetailsView(MuSigArbitrationCaseDetailsModel model,
                                            MuSigArbitrationCaseDetailsController controller,
                                            VBox arbitrationCaseOverviewComponent,
                                            VBox arbitrationCaseDetailComponent,
-                                           VBox arbitrationCaseMediationResultContainer) {
+                                           VBox arbitrationCaseMediationResultComponent) {
         super(new VBox(10), model, controller);
 
         root.setPrefWidth(OverlayModel.WIDTH);
@@ -70,9 +70,9 @@ public class MuSigArbitrationCaseDetailsView extends
         VBox detailsSection = createSection(Res.get("bisqEasy.openTrades.tradeDetails.details"),
                 15,
                 arbitrationCaseDetailComponent);
-        VBox mediationResultSection = createSection(Res.get("authorizedRole.mediator.mediationCaseDetails.mediationResult"),
+        mediationResultSection = createSection(Res.get("authorizedRole.mediator.mediationCaseDetails.mediationResult"),
                 15,
-                arbitrationCaseMediationResultContainer);
+                arbitrationCaseMediationResultComponent);
 
         arbitrationResultContainer = new VBox();
         VBox arbitrationResultSection = createSection(Res.get("authorizedRole.arbitrator.arbitrationCaseDetails.arbitrationResult"),
@@ -107,6 +107,8 @@ public class MuSigArbitrationCaseDetailsView extends
         Region arbitrationResultSection = (Region) arbitrationResultContainer.getParent();
         arbitrationResultSection.setManaged(hasArbitrationResultComponent);
         arbitrationResultSection.setVisible(hasArbitrationResultComponent);
+        mediationResultSection.setManaged(!hasArbitrationResultComponent);
+        mediationResultSection.setVisible(!hasArbitrationResultComponent);
     }
 
     private static VBox createSection(String sectionLabelText, double sectionLabelTopMargin, VBox sectionContent) {

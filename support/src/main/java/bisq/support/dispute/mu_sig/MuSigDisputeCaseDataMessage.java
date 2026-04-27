@@ -15,7 +15,7 @@
  * along with Bisq. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package bisq.support.mediation;
+package bisq.support.dispute.mu_sig;
 
 import bisq.chat.mu_sig.open_trades.MuSigOpenTradeMessage;
 import bisq.common.proto.ProtoResolver;

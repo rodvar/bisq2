@@ -15,7 +15,7 @@
  * along with Bisq. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.details;
+package bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.close;
 
 import bisq.desktop.ServiceProvider;
 import bisq.desktop.common.view.Controller;
@@ -23,12 +23,10 @@ import bisq.desktop.common.view.InitWithDataController;
 import bisq.desktop.common.view.NavigationController;
 import bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.MuSigArbitrationCaseListItem;
 import bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.components.MuSigArbitrationCaseDetailSection;
-import bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.components.MuSigArbitrationCaseMediationResultSection;
 import bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.components.MuSigArbitrationCaseOverviewSection;
 import bisq.desktop.main.content.authorized_role.arbitrator.mu_sig.components.MuSigArbitrationResultSection;
 import bisq.desktop.navigation.NavigationTarget;
 import bisq.desktop.overlay.OverlayController;
-import bisq.support.arbitration.ArbitrationCaseState;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -37,76 +35,64 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Optional;
 
 @Slf4j
-public class MuSigArbitrationCaseDetailsController
-        extends NavigationController
-        implements InitWithDataController<MuSigArbitrationCaseDetailsController.InitData> {
+public class MuSigArbitrationCaseCloseController extends NavigationController implements InitWithDataController<MuSigArbitrationCaseCloseController.InitData> {
     @Getter
     @EqualsAndHashCode
     @ToString
     public static class InitData {
         private final MuSigArbitrationCaseListItem muSigArbitrationCaseListItem;
+        private final Runnable onCloseHandler;
 
-        public InitData(MuSigArbitrationCaseListItem muSigArbitrationCaseListItem) {
+        public InitData(MuSigArbitrationCaseListItem muSigArbitrationCaseListItem, Runnable onCloseHandler) {
             this.muSigArbitrationCaseListItem = muSigArbitrationCaseListItem;
+            this.onCloseHandler = onCloseHandler;
         }
     }
 
-    @Getter
-    private final MuSigArbitrationCaseDetailsModel model;
-    @Getter
-    private final MuSigArbitrationCaseDetailsView view;
+    private Runnable onCloseHandler;
 
-    private final ServiceProvider serviceProvider;
+    @Getter
+    private final MuSigArbitrationCaseCloseModel model;
+    @Getter
+    private final MuSigArbitrationCaseCloseView view;
+
     private final MuSigArbitrationCaseOverviewSection muSigArbitrationCaseOverviewSection;
     private final MuSigArbitrationCaseDetailSection muSigArbitrationCaseDetailSection;
-    private final MuSigArbitrationCaseMediationResultSection muSigArbitrationCaseMediationResultSection;
+    private final MuSigArbitrationResultSection muSigArbitrationResultSection;
 
-    public MuSigArbitrationCaseDetailsController(ServiceProvider serviceProvider) {
-        super(NavigationTarget.MU_SIG_ARBITRATION_CASE_DETAILS);
-        this.serviceProvider = serviceProvider;
+    public MuSigArbitrationCaseCloseController(ServiceProvider serviceProvider) {
+        super(NavigationTarget.MU_SIG_ARBITRATION_CASE_CLOSE);
 
-        muSigArbitrationCaseOverviewSection = new MuSigArbitrationCaseOverviewSection(serviceProvider, false);
-        muSigArbitrationCaseDetailSection = new MuSigArbitrationCaseDetailSection(false);
-        muSigArbitrationCaseMediationResultSection = new MuSigArbitrationCaseMediationResultSection();
+        muSigArbitrationCaseOverviewSection = new MuSigArbitrationCaseOverviewSection(serviceProvider, true);
+        muSigArbitrationCaseDetailSection = new MuSigArbitrationCaseDetailSection(true);
+        muSigArbitrationResultSection = new MuSigArbitrationResultSection(serviceProvider);
 
-        model = new MuSigArbitrationCaseDetailsModel();
-        view = new MuSigArbitrationCaseDetailsView(
+        model = new MuSigArbitrationCaseCloseModel();
+        view = new MuSigArbitrationCaseCloseView(
                 model,
                 this,
                 muSigArbitrationCaseOverviewSection.getRoot(),
                 muSigArbitrationCaseDetailSection.getRoot(),
-                muSigArbitrationCaseMediationResultSection.getRoot());
+                muSigArbitrationResultSection.getRoot());
     }
 
     @Override
     public void initWithData(InitData initData) {
         model.setMuSigArbitrationCaseListItem(initData.muSigArbitrationCaseListItem);
+        onCloseHandler = initData.onCloseHandler;
         muSigArbitrationCaseOverviewSection.setArbitrationCaseListItem(initData.muSigArbitrationCaseListItem);
         muSigArbitrationCaseDetailSection.setArbitrationCaseListItem(initData.muSigArbitrationCaseListItem);
-        muSigArbitrationCaseMediationResultSection.setMediationResult(initData.muSigArbitrationCaseListItem
-                .getMuSigArbitrationCase().getMuSigArbitrationRequest().getMuSigMediationResult());
-        muSigArbitrationCaseMediationResultSection.setMediator(initData.muSigArbitrationCaseListItem
-                .getMuSigArbitrationCase().getMuSigArbitrationRequest().getContract().getMediator().orElseThrow());
-
-        boolean isClosed = initData.muSigArbitrationCaseListItem
-                .getMuSigArbitrationCase()
-                .arbitrationCaseStateObservable()
-                .get() == ArbitrationCaseState.CLOSED;
-        if (isClosed) {
-            MuSigArbitrationResultSection arbitrationResultSection = new MuSigArbitrationResultSection(serviceProvider);
-            arbitrationResultSection.setArbitrationCaseListItem(initData.muSigArbitrationCaseListItem);
-            view.setArbitrationResultComponent(Optional.of(arbitrationResultSection.getRoot()));
-        } else {
-            view.setArbitrationResultComponent(Optional.empty());
-        }
+        muSigArbitrationResultSection.setArbitrationCaseListItem(initData.muSigArbitrationCaseListItem);
     }
 
     @Override
     public void onActivate() {
+        model.getCloseCaseButtonDisabled().bind(muSigArbitrationResultSection.hasRequiredSelectionsProperty().not());
     }
 
     @Override
     public void onDeactivate() {
+        model.getCloseCaseButtonDisabled().unbind();
     }
 
     @Override
@@ -114,7 +100,19 @@ public class MuSigArbitrationCaseDetailsController
         return Optional.empty();
     }
 
+    void onCloseCase() {
+        doClose();
+    }
+
     void onClose() {
+        OverlayController.hide();
+    }
+
+    private void doClose() {
+        muSigArbitrationResultSection.closeCase();
+        if (onCloseHandler != null) {
+            onCloseHandler.run();
+        }
         OverlayController.hide();
     }
 }

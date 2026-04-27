@@ -20,17 +20,23 @@ package bisq.support.arbitration;
 import bisq.common.proto.ProtoEnum;
 import bisq.common.proto.ProtobufUtils;
 
-public enum ArbitrationPayoutDistributionType implements ProtoEnum {
-    CUSTOM_PAYOUT,
-    BUYER_GETS_TRADE_AMOUNT,
-    SELLER_GETS_TRADE_AMOUNT;
+public enum ArbitrationResultReason implements ProtoEnum {
+    OTHER,
+    BUG,
+    USABILITY,
+    BANK,
+    OPTION_TRADE,
+    TRADER_NOT_RESPONDING,
+    WRONG_SENDER_ACCOUNT,
+    TRADE_ALREADY_SETTLED,
+    PEER_WAS_LATE;
 
     @Override
-    public bisq.support.protobuf.ArbitrationPayoutDistributionType toProtoEnum() {
-        return bisq.support.protobuf.ArbitrationPayoutDistributionType.valueOf(getProtobufEnumPrefix() + name());
+    public bisq.support.protobuf.ArbitrationResultReason toProtoEnum() {
+        return bisq.support.protobuf.ArbitrationResultReason.valueOf(getProtobufEnumPrefix() + name());
     }
 
-    public static ArbitrationPayoutDistributionType fromProto(bisq.support.protobuf.ArbitrationPayoutDistributionType proto) {
-        return ProtobufUtils.enumFromProto(ArbitrationPayoutDistributionType.class, proto.name(), CUSTOM_PAYOUT);
+    public static ArbitrationResultReason fromProto(bisq.support.protobuf.ArbitrationResultReason proto) {
+        return ProtobufUtils.enumFromProto(ArbitrationResultReason.class, proto.name(), OTHER);
     }
 }

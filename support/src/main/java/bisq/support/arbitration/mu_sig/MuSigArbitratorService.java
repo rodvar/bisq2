@@ -43,10 +43,11 @@ import bisq.persistence.PersistenceService;
 import bisq.persistence.RateLimitedPersistenceClient;
 import bisq.support.arbitration.ArbitrationCaseState;
 import bisq.support.arbitration.ArbitrationPayoutDistributionType;
+import bisq.support.arbitration.ArbitrationResultReason;
 import bisq.support.dispute.mu_sig.MuSigDisputePaymentDetailsVerifier;
 import bisq.support.dispute.mu_sig.MuSigDisputeRoleIdentityResolver;
-import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
-import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsResponse;
+import bisq.support.dispute.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
+import bisq.support.dispute.mu_sig.MuSigDisputeCasePaymentDetailsResponse;
 import bisq.support.mediation.mu_sig.MuSigMediationResult;
 import bisq.support.mediation.mu_sig.MuSigMediationResultService;
 import bisq.user.UserService;
@@ -143,11 +144,13 @@ public class MuSigArbitratorService extends RateLimitedPersistenceClient<MuSigAr
     /* --------------------------------------------------------------------- */
 
     public static MuSigArbitrationResult createMuSigArbitrationResult(MuSigContract contract,
+                                                                      ArbitrationResultReason arbitrationResultReason,
                                                                       ArbitrationPayoutDistributionType arbitrationPayoutDistributionType,
                                                                       long buyerPayoutAmount,
                                                                       long sellerPayoutAmount,
                                                                       Optional<String> summaryNotes) {
         return new MuSigArbitrationResult(ContractService.getContractHash(contract),
+                arbitrationResultReason,
                 arbitrationPayoutDistributionType,
                 buyerPayoutAmount,
                 sellerPayoutAmount,

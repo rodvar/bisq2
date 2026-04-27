@@ -204,11 +204,11 @@ public class MuSigArbitratorController implements Controller {
             model.getChatUnavailableDescription().set(null);
         } else if (item.getMuSigArbitrationCase().hasArbitratorLeftChat()) {
             model.getChatAvailable().set(false);
-            model.getChatUnavailableTitle().set(get("authorizedRole.arbitrator.chat.unavailable.left.title"));
+            model.getChatUnavailableTitle().set(get("authorizedRole.disputeActor.chat.unavailable.left.title"));
             model.getChatUnavailableDescription().set(get("authorizedRole.arbitrator.chat.unavailable.left.description"));
         } else {
             model.getChatAvailable().set(false);
-            model.getChatUnavailableTitle().set(get("authorizedRole.arbitrator.chat.unavailable.pending.title"));
+            model.getChatUnavailableTitle().set(get("authorizedRole.disputeActor.chat.unavailable.pending.title"));
             model.getChatUnavailableDescription().set(get("authorizedRole.arbitrator.chat.unavailable.pending.description"));
         }
     }
