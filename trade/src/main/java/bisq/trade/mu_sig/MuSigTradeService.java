@@ -56,7 +56,7 @@ import bisq.persistence.Persistence;
 import bisq.persistence.RateLimitedPersistenceClient;
 import bisq.settings.SettingsService;
 import bisq.support.arbitration.mu_sig.MuSigArbitrationStateChangeMessage;
-import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
+import bisq.support.dispute.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
 import bisq.support.mediation.mu_sig.MuSigMediationResultAcceptanceMessage;
 import bisq.support.mediation.mu_sig.MuSigMediationStateChangeMessage;
 import bisq.trade.ServiceProvider;

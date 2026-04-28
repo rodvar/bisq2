@@ -396,7 +396,8 @@ public class MuSigMediationResultSection {
 
             long buyerPayoutAmount = optionalBuyerPayoutAmount.get();
             long sellerPayoutAmount = optionalSellerPayoutAmount.get();
-            if (buyerPayoutAmount < 0 || sellerPayoutAmount < 0 || buyerPayoutAmount + sellerPayoutAmount <= 0) {
+            if (buyerPayoutAmount < 0 || sellerPayoutAmount < 0 ||
+                    (buyerPayoutAmount == 0 && sellerPayoutAmount == 0)) {
                 return false;
             }
 
@@ -529,7 +530,7 @@ public class MuSigMediationResultSection {
 
             // payout types
 
-            payoutDistributionTypeSelection = new AutoCompleteComboBox<>(model.getPayoutDistributionTypes(), Res.get("authorizedRole.mediator.mediationResult.selectPayoutDistributionType"));
+            payoutDistributionTypeSelection = new AutoCompleteComboBox<>(model.getPayoutDistributionTypes(), Res.get("authorizedRole.disputeActor.disputeResult.selectPayoutDistributionType"));
             payoutDistributionTypeSelection.setPrefWidth(364);
             payoutDistributionTypeSelection.setConverter(new StringConverter<>() {
                 @Override
@@ -542,19 +543,19 @@ public class MuSigMediationResultSection {
                     return null;
                 }
             });
-            payoutDistributionTypeDisplay = new MaterialTextField(Res.get("authorizedRole.mediator.mediationResult.selectPayoutDistributionType"));
+            payoutDistributionTypeDisplay = new MaterialTextField(Res.get("authorizedRole.disputeActor.disputeResult.selectPayoutDistributionType"));
             payoutDistributionTypeDisplay.setEditable(false);
             payoutDistributionTypeDisplay.setPrefWidth(364);
             payoutDistributionTypeDisplay.setMaxWidth(Double.MAX_VALUE);
 
             // reason
 
-            reasonSelection = new AutoCompleteComboBox<>(model.getReasons(), Res.get("authorizedRole.mediator.mediationResult.selectReason"));
+            reasonSelection = new AutoCompleteComboBox<>(model.getReasons(), Res.get("authorizedRole.disputeActor.disputeResult.selectReason"));
             reasonSelection.setPrefWidth(364);
             reasonSelection.setConverter(new StringConverter<>() {
                 @Override
                 public String toString(MediationResultReason reason) {
-                    return reason != null ? Res.get("authorizedRole.mediator.mediationResult.reason." + reason.name()) : "";
+                    return reason != null ? Res.get("authorizedRole.disputeActor.disputeResult.reason." + reason.name()) : "";
                 }
 
                 @Override
@@ -562,15 +563,15 @@ public class MuSigMediationResultSection {
                     return null;
                 }
             });
-            reasonDisplay = new MaterialTextField(Res.get("authorizedRole.mediator.mediationResult.selectReason"));
+            reasonDisplay = new MaterialTextField(Res.get("authorizedRole.disputeActor.disputeResult.selectReason"));
             reasonDisplay.setEditable(false);
             reasonDisplay.setPrefWidth(364);
             reasonDisplay.setMaxWidth(Double.MAX_VALUE);
 
             // payout details
 
-            buyerPayoutAmount = new MaterialTextField(Res.get("authorizedRole.mediator.mediationResult.buyerPayoutAmount"));
-            sellerPayoutAmount = new MaterialTextField(Res.get("authorizedRole.mediator.mediationResult.sellerPayoutAmount"));
+            buyerPayoutAmount = new MaterialTextField(Res.get("authorizedRole.disputeActor.disputeResult.buyerPayoutAmount"));
+            sellerPayoutAmount = new MaterialTextField(Res.get("authorizedRole.disputeActor.disputeResult.sellerPayoutAmount"));
             payoutAdjustmentPercentage = new MaterialTextField(Res.get("authorizedRole.mediator.mediationResult.compensationPercentage"));
             buyerPayoutAmount.setValidators(new NumberValidator(Res.get("validation.invalidNumber"), true));
             sellerPayoutAmount.setValidators(new NumberValidator(Res.get("validation.invalidNumber"), true));
@@ -595,7 +596,7 @@ public class MuSigMediationResultSection {
 
             // summary notes
 
-            summaryNotes = new MaterialTextArea(Res.get("authorizedRole.mediator.mediationResult.summaryNotes"));
+            summaryNotes = new MaterialTextArea(Res.get("authorizedRole.disputeActor.disputeResult.summaryNotes"));
             summaryNotes.setValidator(model.getSummaryNotesMaxLengthValidator());
             summaryNotes.setFixedHeight(70);
 
@@ -745,7 +746,7 @@ public class MuSigMediationResultSection {
         private void updateReasonDisplay(MediationResultReason reason) {
             reasonDisplay.setText(reason == null
                     ? ""
-                    : Res.get("authorizedRole.mediator.mediationResult.reason." + reason.name()));
+                    : Res.get("authorizedRole.disputeActor.disputeResult.reason." + reason.name()));
         }
     }
 }

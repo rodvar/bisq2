@@ -208,11 +208,11 @@ public class MuSigMediatorController implements Controller {
             model.getChatUnavailableDescription().set(null);
         } else if (item.getMuSigMediationCase().hasMediatorLeftChat()) {
             model.getChatAvailable().set(false);
-            model.getChatUnavailableTitle().set(get("authorizedRole.mediator.chat.unavailable.left.title"));
+            model.getChatUnavailableTitle().set(get("authorizedRole.disputeActor.chat.unavailable.left.title"));
             model.getChatUnavailableDescription().set(get("authorizedRole.mediator.chat.unavailable.left.description"));
         } else {
             model.getChatAvailable().set(false);
-            model.getChatUnavailableTitle().set(get("authorizedRole.mediator.chat.unavailable.pending.title"));
+            model.getChatUnavailableTitle().set(get("authorizedRole.disputeActor.chat.unavailable.pending.title"));
             model.getChatUnavailableDescription().set(get("authorizedRole.mediator.chat.unavailable.pending.description"));
         }
     }

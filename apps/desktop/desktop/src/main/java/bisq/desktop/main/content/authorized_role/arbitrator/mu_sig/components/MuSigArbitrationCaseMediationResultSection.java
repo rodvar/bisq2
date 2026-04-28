@@ -142,25 +142,25 @@ public class MuSigArbitrationCaseMediationResultSection {
 
             payoutDistributionTypeLabel = getValueLabel();
             HBox payoutDistributionTypeBox = createAndGetDescriptionAndValueBox(
-                    getDescriptionLabel(Res.get("authorizedRole.mediator.mediationResult.selectPayoutDistributionType")),
+                    getDescriptionLabel(Res.get("authorizedRole.disputeActor.disputeResult.selectPayoutDistributionType")),
                     payoutDistributionTypeLabel,
                     Optional.empty());
 
             reasonLabel = getValueLabel();
             HBox reasonBox = createAndGetDescriptionAndValueBox(
-                    getDescriptionLabel(Res.get("authorizedRole.mediator.mediationResult.selectReason")),
+                    getDescriptionLabel(Res.get("authorizedRole.disputeActor.disputeResult.selectReason")),
                     reasonLabel,
                     Optional.empty());
 
             buyerPayoutAmountLabel = getValueLabel();
             buyerPayoutAmountBox = createAndGetDescriptionAndValueBox(
-                    getDescriptionLabel(Res.get("authorizedRole.mediator.mediationResult.buyerPayoutAmount")),
+                    getDescriptionLabel(Res.get("authorizedRole.disputeActor.disputeResult.buyerPayoutAmount")),
                     buyerPayoutAmountLabel,
                     Optional.empty());
 
             sellerPayoutAmountLabel = getValueLabel();
             sellerPayoutAmountBox = createAndGetDescriptionAndValueBox(
-                    getDescriptionLabel(Res.get("authorizedRole.mediator.mediationResult.sellerPayoutAmount")),
+                    getDescriptionLabel(Res.get("authorizedRole.disputeActor.disputeResult.sellerPayoutAmount")),
                     sellerPayoutAmountLabel,
                     Optional.empty());
 
@@ -175,7 +175,7 @@ public class MuSigArbitrationCaseMediationResultSection {
             summaryNotesLabel.setWrapText(true);
             summaryNotesLabel.setMaxWidth(Double.MAX_VALUE);
             summaryNotesBox = createAndGetDescriptionAndValueBox(
-                    getDescriptionLabel(Res.get("authorizedRole.mediator.mediationResult.summaryNotes")),
+                    getDescriptionLabel(Res.get("authorizedRole.disputeActor.disputeResult.summaryNotes")),
                     summaryNotesLabel,
                     Optional.empty());
 
@@ -197,7 +197,7 @@ public class MuSigArbitrationCaseMediationResultSection {
             mediatorUserNameLabel.setText(model.getMediatorUserName());
             payoutDistributionTypeLabel.setText(Res.get("authorizedRole.mediator.mediationResult.payoutDistributionType." +
                     model.getPayoutDistributionType().name()));
-            reasonLabel.setText(Res.get("authorizedRole.mediator.mediationResult.reason." + model.getReason().name()));
+            reasonLabel.setText(Res.get("authorizedRole.disputeActor.disputeResult.reason." + model.getReason().name()));
             updatePayoutAdjustmentPercentageDescription(model.getPayoutDistributionType());
 
             applyOptionalRow(buyerPayoutAmountBox, buyerPayoutAmountLabel, model.getBuyerPayoutAmount());

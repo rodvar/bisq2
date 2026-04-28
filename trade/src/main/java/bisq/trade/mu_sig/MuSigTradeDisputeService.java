@@ -26,7 +26,7 @@ import bisq.support.arbitration.mu_sig.MuSigArbitrationResult;
 import bisq.support.arbitration.mu_sig.MuSigArbitrationResultService;
 import bisq.support.arbitration.mu_sig.MuSigArbitrationStateChangeMessage;
 import bisq.support.mediation.MediationCaseState;
-import bisq.support.mediation.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
+import bisq.support.dispute.mu_sig.MuSigDisputeCasePaymentDetailsRequest;
 import bisq.support.mediation.mu_sig.MuSigMediationResult;
 import bisq.support.mediation.mu_sig.MuSigMediationResultAcceptanceMessage;
 import bisq.support.mediation.mu_sig.MuSigMediationResultService;

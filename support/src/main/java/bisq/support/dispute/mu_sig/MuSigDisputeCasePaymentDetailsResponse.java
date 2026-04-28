@@ -15,8 +15,9 @@
  * along with Bisq. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package bisq.support.mediation.mu_sig;
+package bisq.support.dispute.mu_sig;
 
+import bisq.account.accounts.AccountPayload;
 import bisq.common.proto.ProtoResolver;
 import bisq.common.proto.UnresolvableProtobufMessageException;
 import bisq.common.validation.NetworkDataValidation;
@@ -40,14 +41,21 @@ import static bisq.network.p2p.services.data.storage.MetaData.TTL_10_DAYS;
 @Getter
 @ToString
 @EqualsAndHashCode
-public final class MuSigDisputeCasePaymentDetailsRequest implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
+public final class MuSigDisputeCasePaymentDetailsResponse implements MailboxMessage, ExternalNetworkMessage, SenderPublicKeyProvidingPayload {
     private transient final MetaData metaData = new MetaData(TTL_10_DAYS, HIGH_PRIORITY, getClass().getSimpleName());
     private final String tradeId;
     private final UserProfile senderUserProfile;
+    private final AccountPayload<?> takerAccountPayload;
+    private final AccountPayload<?> makerAccountPayload;
 
-    public MuSigDisputeCasePaymentDetailsRequest(String tradeId, UserProfile senderUserProfile) {
+    public MuSigDisputeCasePaymentDetailsResponse(String tradeId,
+                                                  UserProfile senderUserProfile,
+                                                  AccountPayload<?> takerAccountPayload,
+                                                  AccountPayload<?> makerAccountPayload) {
         this.tradeId = tradeId;
         this.senderUserProfile = senderUserProfile;
+        this.takerAccountPayload = takerAccountPayload;
+        this.makerAccountPayload = makerAccountPayload;
 
         verify();
     }
@@ -58,24 +66,28 @@ public final class MuSigDisputeCasePaymentDetailsRequest implements MailboxMessa
     }
 
     @Override
-    public bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest.Builder getValueBuilder(boolean serializeForHash) {
-        return bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest.newBuilder()
+    public bisq.support.protobuf.MuSigDisputeCasePaymentDetailsResponse.Builder getValueBuilder(boolean serializeForHash) {
+        return bisq.support.protobuf.MuSigDisputeCasePaymentDetailsResponse.newBuilder()
                 .setTradeId(tradeId)
-                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash));
+                .setSenderUserProfile(senderUserProfile.toProto(serializeForHash))
+                .setTakerAccountPayload(takerAccountPayload.toProto(serializeForHash))
+                .setMakerAccountPayload(makerAccountPayload.toProto(serializeForHash));
     }
 
-    public static MuSigDisputeCasePaymentDetailsRequest fromProto(bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest proto) {
-        return new MuSigDisputeCasePaymentDetailsRequest(
+    public static MuSigDisputeCasePaymentDetailsResponse fromProto(bisq.support.protobuf.MuSigDisputeCasePaymentDetailsResponse proto) {
+        return new MuSigDisputeCasePaymentDetailsResponse(
                 proto.getTradeId(),
-                UserProfile.fromProto(proto.getSenderUserProfile())
+                UserProfile.fromProto(proto.getSenderUserProfile()),
+                AccountPayload.fromProto(proto.getTakerAccountPayload()),
+                AccountPayload.fromProto(proto.getMakerAccountPayload())
         );
     }
 
     public static ProtoResolver<ExternalNetworkMessage> getNetworkMessageResolver() {
         return any -> {
             try {
-                bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest proto = any.unpack(bisq.support.protobuf.MuSigDisputeCasePaymentDetailsRequest.class);
-                return MuSigDisputeCasePaymentDetailsRequest.fromProto(proto);
+                bisq.support.protobuf.MuSigDisputeCasePaymentDetailsResponse proto = any.unpack(bisq.support.protobuf.MuSigDisputeCasePaymentDetailsResponse.class);
+                return MuSigDisputeCasePaymentDetailsResponse.fromProto(proto);
             } catch (InvalidProtocolBufferException e) {
                 throw new UnresolvableProtobufMessageException(e);
             }
@@ -84,7 +96,7 @@ public final class MuSigDisputeCasePaymentDetailsRequest implements MailboxMessa
 
     @Override
     public double getCostFactor() {
-        return getCostFactor(0.1, 0.3);
+        return getCostFactor(0.1, 0.4);
     }
 
     @Override

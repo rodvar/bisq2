@@ -186,7 +186,8 @@ public class MuSigMediationCaseHeader {
 
         void onShowDetails() {
             MuSigMediationCaseListItem item = model.getMediationCaseListItem().get();
-            Navigation.navigateTo(NavigationTarget.MU_SIG_MEDIATION_CASE_DETAILS, new MuSigMediationCaseDetailsController.InitData(item));
+            Navigation.navigateTo(NavigationTarget.MU_SIG_MEDIATION_CASE_DETAILS,
+                    new MuSigMediationCaseDetailsController.InitData(item));
         }
 
         private void doRemoveCase() {
@@ -209,7 +210,8 @@ public class MuSigMediationCaseHeader {
         private void doClose() {
             MuSigMediationCaseListItem listItem = model.getMediationCaseListItem().get();
             if (listItem != null) {
-                Navigation.navigateTo(NavigationTarget.MU_SIG_MEDIATION_CASE_CLOSE, new MuSigMediationCaseCloseController.InitData(listItem, onCloseHandler));
+                Navigation.navigateTo(NavigationTarget.MU_SIG_MEDIATION_CASE_CLOSE,
+                        new MuSigMediationCaseCloseController.InitData(listItem, onCloseHandler));
             }
         }
 
