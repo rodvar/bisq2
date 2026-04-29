@@ -18,6 +18,11 @@
 package bisq.api.dto.account.fiat;
 
 public record UserDefinedFiatAccountPayloadDto(
+        FiatPaymentMethodChargebackRiskDto chargebackRisk,
+        String currency,
+        String paymentMethodName,
+        String country,
         String accountData
-) implements FiatAccountPayloadDto { }
+) implements FiatPaymentAccountPayloadDto {
+}
 
